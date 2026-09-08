@@ -1,7 +1,19 @@
 @startuml Campus IT Help Desk ER
-!define table(x) entity x << (T,#FFAAAA) >>
 hide circle
-skinparam linetype ortho
+skinparam nodesep 90
+skinparam ranksep 110
+skinparam padding 6
+skinparam roundCorner 8
+skinparam shadowing false
+skinparam ArrowColor #555555
+skinparam ArrowFontColor #555555
+skinparam class {
+  BackgroundColor #FAFAFA
+  BorderColor #444444
+  HeaderBackgroundColor #DDE7F0
+}
+
+' ── People & groups ─────────────────────────────
 
 entity "USER" as user {
   * id : int <<PK>>
@@ -15,14 +27,6 @@ entity "USER" as user {
   * created_at : datetime
 }
 
-entity "TEAM" as team {
-  * id : int <<PK>>
-  --
-  * name : varchar <<UK>>
-  description : text
-  * created_at : datetime
-}
-
 entity "TEAM_MEMBER" as tm {
   * user_id : int <<PK,FK>>
   * team_id : int <<PK,FK>>
@@ -30,16 +34,28 @@ entity "TEAM_MEMBER" as tm {
   * joined_at : datetime
 }
 
+entity "TEAM" as team {
+  * id : int <<PK>>
+  --
+  * name : varchar <<UK>>
+    description : text
+  * created_at : datetime
+}
+
+' ── What we support ─────────────────────────────
+
 entity "SERVICE" as service {
   * id : int <<PK>>
   --
   * name : varchar
-  description : text
+    description : text
   * owning_team_id : int <<FK>>
   * criticality : varchar
   * is_active : bool
   * created_at : datetime
 }
+
+' ── Tickets ─────────────────────────────────────
 
 entity "INCIDENT" as incident {
   * id : int <<PK>>
@@ -48,14 +64,14 @@ entity "INCIDENT" as incident {
   * description : text
   * service_id : int <<FK>>
   * reported_by_id : int <<FK>>
-  assigned_to_id : int <<FK>>
-  assigned_team_id : int <<FK>>
+    assigned_to_id : int <<FK>>
+    assigned_team_id : int <<FK>>
   * status : varchar = 'open'
   * priority : varchar
   * escalation_level : int = 0
-  escalated_at : datetime
-  sla_due_at : datetime
-  resolved_at : datetime
+    escalated_at : datetime
+    sla_due_at : datetime
+    resolved_at : datetime
   * created_at : datetime
   * updated_at : datetime
 }
@@ -70,14 +86,24 @@ entity "INCIDENT_UPDATE" as upd {
   * created_at : datetime
 }
 
-user    ||--o{ tm       : belongs to
-team    ||--o{ tm       : has
-team    ||--o{ service  : owns
-service ||--o{ incident : has
-user    ||--o{ incident : reports
-user    |o--o{ incident : assigned to
-team    |o--o{ incident : assigned team
-incident ||--o{ upd     : has
-user    ||--o{ upd      : writes
+' ── Layout: users/teams on top, tickets below ───
+
+user     -[hidden]right-  tm
+tm       -[hidden]right-  team
+team     -[hidden]down-   service
+service  -[hidden]down-   incident
+incident -[hidden]down-   upd
+
+' ── Relationships ───────────────────────────────
+
+user     ||--o{ tm       : belongs to
+team     ||--o{ tm       : has
+team     ||--o{ service  : owns
+service  ||--o{ incident : has
+user     ||--o{ incident : reports
+user     |o--o{ incident : assigned to
+team     |o--o{ incident : assigned team
+incident ||--o{ upd      : has
+user     ||--o{ upd      : writes
 
 @enduml
