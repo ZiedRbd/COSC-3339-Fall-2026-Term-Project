@@ -11,6 +11,7 @@ COSC-3339-Fall-2026-Term-Project/
 ├── ops/                    Application logic
 │   ├── models.py           Database tables
 │   ├── views.py            Request handlers
+│   ├── forms.py            Form definitions and validation
 │   ├── urls.py             App URL routing
 │   └── migrations/         Auto-generated schema changes
 ├── templates/              HTML templates
@@ -43,24 +44,40 @@ Full ER diagram: [`docs/ER-DIAGRAM.md`](docs/ER-DIAGRAM.md)
 
 ## Branching Strategy
 
+The diagram below is an illustrative example of the workflow. Actual branch names and commit order will vary as the project progresses.
+
 ```mermaid
+%%{init: {'gitGraph': {'mainBranchName': 'main'}}}%%
 gitGraph
-    commit id: "initial"
+    commit id: "Initial commit"
     branch dev
-    commit id: "skeleton"
+    commit id: "Project setup"
+
     branch feat/models
-    commit id: "models"
-    commit id: "migrations"
+    commit id: "Database models"
+    commit id: "Migrations"
+
+    checkout dev
+    branch feat/ui
+    commit id: "Base template"
+    commit id: "Home and services pages"
+
     checkout dev
     branch feat/auth
-    commit id: "login"
-    commit id: "register"
+    commit id: "Registration"
+    commit id: "Login"
+
     checkout dev
-    merge feat/models
-    merge feat/auth
+    merge feat/models id: "Merge models"
+    merge feat/ui id: "Merge UI"
+    merge feat/auth id: "Merge auth"
+    commit id: "Integration testing"
+
     checkout main
-    merge dev id: "release"
+    merge dev id: "Sprint 1 release"
 ```
+
+**Reading the diagram:** `main` is at the top and only moves when `dev` is merged into it. `dev` is one level down and collects every finished feature. Each `feat/*` branch starts from `dev`, gets its own commits, and comes back into `dev` through a pull request.
 
 | Branch | Purpose | Receives merges from |
 |---|---|---|
