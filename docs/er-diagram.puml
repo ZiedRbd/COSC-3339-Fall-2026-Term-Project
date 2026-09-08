@@ -1,0 +1,83 @@
+@startuml Campus IT Help Desk ER
+!define table(x) entity x << (T,#FFAAAA) >>
+hide circle
+skinparam linetype ortho
+
+entity "USER" as user {
+  * id : int <<PK>>
+  --
+  * email : varchar <<UK>>
+  * password_hash : varchar
+  * first_name : varchar
+  * last_name : varchar
+  * role : varchar = 'user'
+  * is_active : bool
+  * created_at : datetime
+}
+
+entity "TEAM" as team {
+  * id : int <<PK>>
+  --
+  * name : varchar <<UK>>
+  description : text
+  * created_at : datetime
+}
+
+entity "TEAM_MEMBER" as tm {
+  * user_id : int <<PK,FK>>
+  * team_id : int <<PK,FK>>
+  --
+  * joined_at : datetime
+}
+
+entity "SERVICE" as service {
+  * id : int <<PK>>
+  --
+  * name : varchar
+  description : text
+  * owning_team_id : int <<FK>>
+  * criticality : varchar
+  * is_active : bool
+  * created_at : datetime
+}
+
+entity "INCIDENT" as incident {
+  * id : int <<PK>>
+  --
+  * title : varchar
+  * description : text
+  * service_id : int <<FK>>
+  * reported_by_id : int <<FK>>
+  assigned_to_id : int <<FK>>
+  assigned_team_id : int <<FK>>
+  * status : varchar = 'open'
+  * priority : varchar
+  * escalation_level : int = 0
+  escalated_at : datetime
+  sla_due_at : datetime
+  resolved_at : datetime
+  * created_at : datetime
+  * updated_at : datetime
+}
+
+entity "INCIDENT_UPDATE" as upd {
+  * id : int <<PK>>
+  --
+  * incident_id : int <<FK>>
+  * author_id : int <<FK>>
+  * update_type : varchar
+  * body : text
+  * created_at : datetime
+}
+
+user    ||--o{ tm       : belongs to
+team    ||--o{ tm       : has
+team    ||--o{ service  : owns
+service ||--o{ incident : has
+user    ||--o{ incident : reports
+user    |o--o{ incident : assigned to
+team    |o--o{ incident : assigned team
+incident ||--o{ upd     : has
+user    ||--o{ upd      : writes
+
+@enduml
