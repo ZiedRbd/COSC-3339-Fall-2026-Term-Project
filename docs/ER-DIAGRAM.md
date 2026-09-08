@@ -86,12 +86,3 @@ erDiagram
 | Team → Incident (assigned team) | one-to-many, optional | `INCIDENT.assigned_team_id` |
 | Incident → Incident Update | one-to-many | `INCIDENT_UPDATE.incident_id` |
 | User → Incident Update (author) | one-to-many | `INCIDENT_UPDATE.author_id` |
-
-## Sprint 1 vs later
-
-Used in Sprint 1: `USER`, `TEAM`, `TEAM_MEMBER`, `SERVICE`, `INCIDENT` (create/edit/delete).
-
-Reserved for later sprints (columns exist, stay empty for now):
-`assigned_to_id`, `assigned_team_id`, `escalation_level`, `escalated_at`, `sla_due_at`, `resolved_at`, `role`, and the whole `INCIDENT_UPDATE` table (mandatory reports).
-
-PlantUML source: [`er-diagram.puml`](er-diagram.puml)
