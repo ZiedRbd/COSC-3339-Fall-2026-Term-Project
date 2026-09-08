@@ -44,34 +44,34 @@ Full ER diagram: [`docs/ER-DIAGRAM.md`](docs/ER-DIAGRAM.md)
 ## Branching Strategy
 
 ```mermaid
-%%{init: {'gitGraph': {'mainBranchName': 'main', 'showCommitLabel': false}}}%%
+%%{init: {'gitGraph': {'mainBranchName': 'main'}}}%%
 gitGraph
-    commit
+    commit id: "Initial commit"
     branch dev
-    commit
+    commit id: "Project setup"
 
     branch feat/models
-    commit
-    commit
+    commit id: "Database models"
+    commit id: "Migrations"
 
     checkout dev
     branch feat/ui
-    commit
-    commit
+    commit id: "Base template"
+    commit id: "Home and services pages"
 
     checkout dev
     branch feat/auth
-    commit
-    commit
+    commit id: "Registration"
+    commit id: "Login"
 
     checkout dev
-    merge feat/models
-    merge feat/ui
-    merge feat/auth
-    commit
+    merge feat/models id: "Merge models"
+    merge feat/ui id: "Merge UI"
+    merge feat/auth id: "Merge auth"
+    commit id: "Integration testing"
 
     checkout main
-    merge dev
+    merge dev id: "Sprint 1 release"
 ```
 
 **Reading the diagram:** `main` is at the top and only moves when `dev` is merged into it. `dev` is one level down and collects every finished feature. Each `feat/*` branch starts from `dev`, gets its own commits, and comes back into `dev` through a pull request.
