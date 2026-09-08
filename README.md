@@ -40,3 +40,43 @@ COSC-3339-Fall-2026-Term-Project/
 A user may belong to one or more teams. Each service is owned by exactly one team. Each incident is filed against exactly one service by exactly one reporting user, and may optionally be assigned to a handling user and team. Each incident may accumulate any number of updates, each written by one user.
 
 Full ER diagram: [`docs/ER-DIAGRAM.md`](docs/ER-DIAGRAM.md)
+
+## Branching Strategy
+
+```mermaid
+gitGraph
+    commit id: "initial"
+    branch dev
+    commit id: "skeleton"
+    branch feat/models
+    commit id: "models"
+    commit id: "migrations"
+    checkout dev
+    branch feat/auth
+    commit id: "login"
+    commit id: "register"
+    checkout dev
+    merge feat/models
+    merge feat/auth
+    checkout main
+    merge dev id: "release"
+```
+
+| Branch | Purpose | Receives merges from |
+|---|---|---|
+| `main` | Stable, deployable code. What runs on the server. | `dev` only |
+| `dev` | Integration branch. All features are combined and tested here. | `feat/*` branches via pull request |
+| `feat/*` | One branch per feature (e.g. `feat/models`, `feat/auth`, `feat/ui`). | — |
+
+**Workflow**
+
+1. Branch off `dev`: `git checkout dev && git pull && git checkout -b feat/your-feature`
+2. Commit to the feature branch as work progresses.
+3. When the feature works, open a pull request from `feat/your-feature` into `dev`.
+4. Once `dev` is stable, open a pull request from `dev` into `main`.
+
+**Rules**
+
+- No direct commits to `main`. Documentation-only changes (`docs/`, `README.md`) are the one exception.
+- Commit frequently with descriptive messages.
+- Pull `dev` before starting a new feature branch.
