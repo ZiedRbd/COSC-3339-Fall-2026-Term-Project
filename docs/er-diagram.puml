@@ -72,6 +72,7 @@ entity "INCIDENT" as incident {
     escalated_at : datetime
     sla_due_at : datetime
     resolved_at : datetime
+  * is_deleted : bool = false
   * created_at : datetime
   * updated_at : datetime
 }

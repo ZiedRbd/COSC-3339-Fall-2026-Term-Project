@@ -60,6 +60,7 @@ erDiagram
         datetime escalated_at "nullable"
         datetime sla_due_at "nullable"
         datetime resolved_at "nullable"
+        bool is_deleted
         datetime created_at
         datetime updated_at
     }
