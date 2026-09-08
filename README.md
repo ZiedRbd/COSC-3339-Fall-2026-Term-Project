@@ -43,6 +43,8 @@ Full ER diagram: [`docs/ER-DIAGRAM.md`](docs/ER-DIAGRAM.md)
 
 ## Branching Strategy
 
+The diagram below is an illustrative example of the workflow. Actual branch names and commit order will vary as the project progresses.
+
 ```mermaid
 %%{init: {'gitGraph': {'mainBranchName': 'main'}}}%%
 gitGraph
