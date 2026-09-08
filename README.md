@@ -21,7 +21,10 @@ COSC-3339-Fall-2026-Term-Project/
 │   ├── login.html
 │   ├── register.html
 │   └── incidents/
-├── static/css/             Stylesheets
+│       ├── list.html
+│       └── form.html
+├── static/css/
+│   └── style.css           Stylesheet
 └── docs/                   ER diagram and documentation
 ```
 
