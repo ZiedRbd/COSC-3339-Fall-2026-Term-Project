@@ -11,6 +11,7 @@ COSC-3339-Fall-2026-Term-Project/
 ├── ops/                    Application logic
 │   ├── models.py           Database tables
 │   ├── views.py            Request handlers
+│   ├── forms.py            Form definitions and validation
 │   ├── urls.py             App URL routing
 │   └── migrations/         Auto-generated schema changes
 ├── templates/              HTML templates
