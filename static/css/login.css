@@ -1,0 +1,14 @@
+body{
+    font-size: 24px;
+}
+
+input,button{
+    font-size: 24px; margin: 6px 0; padding: 8px;
+
+}
+
+.error{
+color: red;
+font-weight: bold;  
+
+}
