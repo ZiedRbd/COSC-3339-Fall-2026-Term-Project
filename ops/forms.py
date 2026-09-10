@@ -1,5 +1,5 @@
 from django import forms 
-
+from .models import User
 
 # What a new user must fill in to register
 class RegisterForm(forms.Form):
@@ -21,3 +21,17 @@ class RegisterForm(forms.Form):
             raise forms.ValidationError("Password needs a symbol")
         return pw
 
+
+    # Runs after all fields pass. Checks the two passwords match.
+    def clean(self):
+        data = super().clean()
+        if data.get("password") != data.get("password2"):
+            self.add_error("password2", "Passwords do not match")
+        return data
+    
+    # Rejects an email that is already registered
+    def clean_email(self):
+        email = self.cleaned_data["email"]
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError("This email is already registered")
+        return email
