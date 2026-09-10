@@ -25,7 +25,8 @@ class RegisterForm(forms.Form):
     # Runs after all fields pass. Checks the two passwords match.
     def clean(self):
         data = super().clean()
-        if data.get("password") != data.get("password2"):
+        pw, pw2 = data.get("password"), data.get("password2")
+        if pw and pw2 and pw != pw2:
             self.add_error("password2", "Passwords do not match")
         return data
     
