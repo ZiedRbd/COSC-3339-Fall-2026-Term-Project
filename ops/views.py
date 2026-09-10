@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from .forms import RegisterForm
 from .models import User
+from django.contrib.auth import authenticate, login
 
 
 # Each function shows one page
@@ -9,12 +10,29 @@ def home(request):
     return render(request, "home.html")
 
 
+def login_page(request):
+    """
+    GET  - show the empty login form.
+    POST - look up the user by email and password. If found log them
+           in and send them to the incident list. If not show the page
+           again with an error.
+    """
+    error = None
+    if request.method == "POST":
+        user = authenticate(
+            request,
+            username=request.POST["email"],
+            password=request.POST["password"],
+        )
+        if user is not None:
+            login(request, user)
+            return redirect("incidents")
+        error = "Invalid email or password"
+    return render(request, "login.html", {"error": error})
+
+
 def services(request):
     return render(request, "services.html")
-
-
-def login_page(request):
-    return render(request, "login.html")
 
 
 def register(request):
