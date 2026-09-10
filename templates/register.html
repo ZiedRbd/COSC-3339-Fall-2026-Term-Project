@@ -1,0 +1,25 @@
+<style>
+  body { font-size: 24px; }
+  input, button { font-size: 24px; margin: 6px 0; padding: 8px; }
+  .error { color: red; font-weight: bold; }
+</style>
+
+<h1>Register</h1>
+
+{% for field in form %}
+  {% for msg in field.errors %}
+    <p class="error">{{ field.label }}: {{ msg }}</p>
+  {% endfor %}
+{% endfor %}
+
+<form method="post">
+  {% csrf_token %}
+  <input name="first_name" required placeholder="First name" value="{{ form.first_name.value|default:'' }}"><br>
+  <input name="last_name" required placeholder="Last name" value="{{ form.last_name.value|default:'' }}"><br>
+  <input name="email" required placeholder="Email" value="{{ form.email.value|default:'' }}"><br>
+  <input name="password" type="password" required placeholder="Password"><br>
+  <input name="password2" type="password" required placeholder="Confirm password"><br>
+  <button>Register</button>
+</form>
+
+<a href="{% url 'login' %}">Already have an account? Log in</a>
