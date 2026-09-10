@@ -7,7 +7,7 @@ class RegisterForm(forms.Form):
     last_name = forms.CharField(max_length=50)
     email = forms.EmailField()
     password = forms.CharField(min_length=8)
-    password2 = forms.CharField(min_length=8)
+    password2 = forms.CharField(min_length=8, label="Confirm password")
     
     def clean_password(self):
         pw = self.cleaned_data["password"]
