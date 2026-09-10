@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Your Account</title>
+    <link rel="stylesheet" href="registration_page.css">
+
+</head>
+<body>
+    <div class="card">
+
+    <form id="FULLNAME" novalidate>
+        <div class="field" id = "fullNameField">
+            <label for="fullName">Full Name:</label>
+            <input type="text" id="fullName" name="fullName" required>
+            <span class="error-message" id="fullNameError"></span>
+        </div>
+    
+  
+        <div class="field" id = "usernameField">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+            <span class="error-message" id="usernameError"></span>
+        </div>
+
+    
+        <div class="field" id ="emailField">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+            <span class="error-message" id="emailError"></span>
+        </div>
+    
+        <div class="field" id ="passwordField">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+            <span class="error-message" id="passwordError"></span>
+        </div>
+
+        <button type="submit" class = "submit">Create Account</button>
+    
+    </form>
+    </div>
+    <script src="script.js"></script>
+
+        
+    
+
+
+</body>
+</html>
+
+
+
+
+
+

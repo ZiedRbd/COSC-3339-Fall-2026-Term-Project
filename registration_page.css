@@ -1,0 +1,23 @@
+:root{--white:#fff;
+    --silver: #CBD0D6;
+    --silver-bg:#F2F3F5;
+    --navy: #1B2A4A;
+  --navy-deep: #14213A;
+  --gold: #C6A15B;
+  --error: #B3261E;
+}
+
+*{box-sizing: border-box;}
+
+body{
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--silver-bg);
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    color:var(--navy);
+    padding:24px;
+
+}
