@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from .forms import RegisterForm
 from .models import User
 from django.contrib.auth import authenticate, login
+from django.contrib import messages
 
 
 # Each function shows one page
@@ -27,8 +28,10 @@ def login_page(request):
         if user is not None:
             login(request, user)
             return redirect("incidents")
-        error = "Invalid email or password"
-    return render(request, "login.html", {"error": error})
+        messages.error(request, "Invalid email or password")
+        return redirect("login")
+    return render(request, "login.html")
+
 
 
 def services(request):

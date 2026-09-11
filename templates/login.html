@@ -1,8 +1,10 @@
-<link rel = "stylesheet" href="login.css">
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/login.css' %}">
 
 <h1>Log in</h1>
 
-{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% for msg in messages %}<p class="error">{{ msg }}</p>{% endfor %}
+
 
 <form method="post">
   {% csrf_token %}
