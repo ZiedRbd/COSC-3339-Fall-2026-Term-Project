@@ -1,8 +1,9 @@
 from django.shortcuts import render, redirect
 from .forms import RegisterForm
-from .models import User
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from .models import User, Incident
 
 
 # Each function shows one page
@@ -63,5 +64,12 @@ def register(request):
     return render(request, "register.html", {"form": form})
 
 
+
+@login_required
 def incident_list(request):
-    return render(request, "incidents/list.html")
+    """
+    Show every incident that has not been soft deleted.
+    Redirects to the login page if the user is not signed in.
+    """
+    incidents = Incident.objects.filter(is_deleted=False)
+    return render(request, "incidents/list.html", {"incidents": incidents})

@@ -42,6 +42,9 @@ INSTALLED_APPS = [
 
 AUTH_USER_MODEL = "ops.User"
 
+# Where @login_required sends users who are not signed in
+LOGIN_URL = "login"
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
