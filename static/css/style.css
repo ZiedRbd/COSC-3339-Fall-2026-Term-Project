@@ -1,6 +1,13 @@
 
 body{ 
     font-size: 24px; 
+    background-color: var(--navy);
+
+}
+h1{
+    color: var(--gold);
+    font-family: cursive;
+    
 }
 
 input,button{
