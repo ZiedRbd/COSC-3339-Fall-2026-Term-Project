@@ -1,6 +1,9 @@
 {% load static %}
 <link rel="stylesheet" href="{% static 'css/style.css' %}">
-
+<div class = "corner-nav top-right">
+  <a href="{% url 'home' %}" class="nav-btn">Home</a>
+  <a href="{% url 'register' %}" class="nav-btn">Register</a>
+</div>
 <h1>Log in</h1>
 
 {% for msg in messages %}<p class="error">{{ msg }}</p>{% endfor %}
