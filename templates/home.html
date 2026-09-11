@@ -1,18 +1,20 @@
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Topper Help Desk Services</title>
+    <title>Home</title>
+    <link rel="stylesheet" href="home.css">
 </head>
-<body>
+<body class="home-body>"
+    <div class = "corner-nav top-right">
+    <a href = "{% url 'login' %}" class="nav-btn">Login in</a>
+    <a href = "{% url 'register' %}" class="nav-btn">Register</a>
+    </div>
 
-
+    <div class = "home-msg">
+    <h1>Welcome to the Topper Help Desk</h1>
+    </div>
 </body>
-
-<a href ="{% url 'login %'}">Login</a>
-<a href = "{% url 'register% %'}">Register</a>
-
 </html>
