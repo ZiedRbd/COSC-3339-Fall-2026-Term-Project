@@ -67,3 +67,15 @@ input,button{
     padding: 8px 16px;
     cursor: pointer;
 }
+
+btn-link{
+    display:inline block;
+    margin-top: 6px;
+    padding: 6px;
+    font-size: 24px;
+    text-align: center;
+    text-decoration: none;
+    border:1px solid #333;
+    border-radius: 4px;
+    color: inherit;
+}
