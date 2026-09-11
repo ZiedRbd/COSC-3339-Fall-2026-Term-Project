@@ -1,5 +1,9 @@
 {% load static %}
 <link rel="stylesheet" href="{% static 'css/register.css' %}">
+<div>
+  <a href="{% url 'home' %}" class="nav-btn">Home</a>
+  <a href="{% url 'login' %}" class="nav-btn">Log in</a>
+</div>
 <h1>Register</h1>
 
 {% for field in form %}
