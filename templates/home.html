@@ -1,20 +1,11 @@
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home</title>
-    <link rel="stylesheet" href="home.css">
-</head>
-<body class="home-body>"
-    <div class = "corner-nav top-right">
-    <a href = "{% url 'login' %}" class="nav-btn">Login in</a>
-    <a href = "{% url 'register' %}" class="nav-btn">Register</a>
-    </div>
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
 
-    <div class = "home-msg">
-    <h1>Welcome to the Topper Help Desk</h1>
-    </div>
-</body>
-</html>
+<div class="home-body">
+  <div class="corner-nav top-right">
+    <a href="{% url 'login' %}" class="nav-btn">Log in</a>
+    <a href="{% url 'register' %}" class="nav-btn">Register</a>
+  </div>
+  <h1>Welcome</h1>
+</div>
