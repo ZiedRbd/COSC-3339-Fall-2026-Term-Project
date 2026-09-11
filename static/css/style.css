@@ -68,14 +68,16 @@ input,button{
     cursor: pointer;
 }
 
-btn-link{
-    display:inline block;
-    margin-top: 6px;
-    padding: 6px;
+.btn-link {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 10px 20px;
     font-size: 24px;
     text-align: center;
     text-decoration: none;
-    border:1px solid #333;
-    border-radius: 4px;
-    color: inherit;
+    color: #fff;
+    background: #333;
+    border: 2px solid #333;
+    border-radius: 6px;
 }
+.btn-link:hover { background: #555; }
