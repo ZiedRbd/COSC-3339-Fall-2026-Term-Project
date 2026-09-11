@@ -14,7 +14,7 @@ input,button{
 }
 
 :root {
-    --navy: #0a1f44;
+    --navy: #07388e;
     --gold: #d4af37;
 }
 
@@ -27,6 +27,11 @@ input,button{
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.home-body h1{ 
+     color:var(--gold);
+     font-family: cursive;
 }
 
 .corner-nav {
