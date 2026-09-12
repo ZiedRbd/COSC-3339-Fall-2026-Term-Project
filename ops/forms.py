@@ -1,5 +1,5 @@
 from django import forms 
-from .models import User
+from .models import User, Service
 
 # What a new user must fill in to register
 class RegisterForm(forms.Form):
@@ -39,4 +39,19 @@ class RegisterForm(forms.Form):
 
 #ian
 class IncidentForm(forms.Form):
-    incident_title = forms.CharField(max_length=50)
+    title = forms.CharField(
+        max_length=200, # Matched to Incident model's max_length=200
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Brief title'})
+    )
+    description = forms.CharField(
+        widget=forms.Textarea(attrs={'rows': 4}) # Renders a text box instead of a single-line input
+    )
+
+    service = forms.ModelChoiceField(
+        queryset=Service.objects.all(),
+        empty_label="Select a service"
+    )
+
+
+
+

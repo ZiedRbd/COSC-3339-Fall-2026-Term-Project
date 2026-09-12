@@ -1,9 +1,10 @@
 from django.shortcuts import render, redirect
-from .forms import RegisterForm
+from .forms import RegisterForm, IncidentForm
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .models import User, Incident
+
 
 
 # Each function shows one page
@@ -78,5 +79,20 @@ def incident_list(request):
 #ian
 @login_required
 def incident_form(request):
-    
-    return render(request, "incidents/form.html")
+    if request.method == "POST":
+        form = IncidentForm(request.POST)
+        if form.is_valid():
+            Incident.objects.create(
+                title=form.cleaned_data['title'],
+                description=form.cleaned_data['description'],
+                service=form.cleaned_data['service'],
+                reported_by=request.user,  # Injects the logged-in user
+                priority=form.cleaned_data.get('priority', 'medium'),
+                assigned_to=form.cleaned_data.get('assigned_to'),
+                assigned_team=form.cleaned_data.get('assigned_team'),
+            )
+            return redirect('home')
+    else:
+        form = IncidentForm()
+                
+    return render(request, "incidents/form.html", {"form": form})
