@@ -81,3 +81,8 @@ input,button{
     border-radius: 6px;
 }
 .btn-link:hover { background: #555; }
+
+.form {
+    color: gold;
+    font-size: 20px;
+}

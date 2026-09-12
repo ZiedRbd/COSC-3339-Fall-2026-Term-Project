@@ -1,0 +1,20 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+<div>
+    <h1>Ticket Request Form</h1>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  <input name="first_name" required placeholder="First name" value="{{ form.first_name.value|default:'' }}"><br>
+  <input name="last_name" required placeholder="Last name" value="{{ form.last_name.value|default:'' }}"><br>
+  <label for="services" class="form">Pick service needed</label>
+  <select id="services" name="services">
+    <option value="placeholder1">Placeholder1</option>
+    <option value="placeholder2">Placeholder2</option>
+    <option value="placeholder3">placeholder3</option>
+  </select>
+  
+  <button>Send ticket</button>
+</form>
