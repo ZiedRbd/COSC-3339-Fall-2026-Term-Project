@@ -21,7 +21,6 @@ class RegisterForm(forms.Form):
             raise forms.ValidationError("Password needs a symbol")
         return pw
 
-
     # Runs after all fields pass. Checks the two passwords match.
     def clean(self):
         data = super().clean()
@@ -29,10 +28,15 @@ class RegisterForm(forms.Form):
         if pw and pw2 and pw != pw2:
             self.add_error("password2", "Passwords do not match")
         return data
-    
+
     # Rejects an email that is already registered
     def clean_email(self):
         email = self.cleaned_data["email"]
         if User.objects.filter(email=email).exists():
             raise forms.ValidationError("This email is already registered")
         return email
+
+
+#ian
+class IncidentForm(forms.Form):
+    incident_title = forms.CharField(max_length=50)

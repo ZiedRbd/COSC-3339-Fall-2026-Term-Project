@@ -14,7 +14,7 @@ input,button{
     font-size: 24px; margin: 6px 0; padding: 8px;
 
 }
-.error-message{
+.error{
     color: red;
     font-weight: bold;
     font-size: 18px;
