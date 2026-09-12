@@ -1,0 +1,21 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}CampusDesk{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <nav>
+        <a href="{% url 'home' %}">Home</a>
+        <a href="{% url 'services' %}">Services</a>
+        <a href="{% url 'incidents' %}">Incidents</a>
+        <a href="{% url 'login' %}">Log in</a>
+    </nav>
+
+    {% block content %}{% endblock %}
+</body>
+</html>
+
+
