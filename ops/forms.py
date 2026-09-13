@@ -3,11 +3,17 @@ from .models import User, Service
 
 # What a new user must fill in to register
 class RegisterForm(forms.Form):
-    first_name = forms.CharField(max_length=50)
-    last_name = forms.CharField(max_length=50)
-    email = forms.EmailField()
-    password = forms.CharField(min_length=8)
-    password2 = forms.CharField(min_length=8, label="Confirm password")
+    first_name = forms.CharField(max_length=50,
+                                 widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'First name'})
+                                 )
+    last_name = forms.CharField(max_length=50,
+                                 widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Last name'})
+                                 )
+    email = forms.EmailField(widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Email'}))
+    password = forms.CharField(min_length=8,
+                               widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Password'}))
+    password2 = forms.CharField(min_length=8,
+                                widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Confirm Password'}))
     
     def clean_password(self):
         pw = self.cleaned_data["password"]
@@ -41,10 +47,10 @@ class RegisterForm(forms.Form):
 class IncidentForm(forms.Form):
     title = forms.CharField(
         max_length=200, # Matched to Incident model's max_length=200
-        widget=forms.TextInput(attrs={'class': 'form_input', 'placeholder': 'Brief title'})
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Brief title'})
     )
     description = forms.CharField(
-        widget=forms.Textarea(attrs={'class': 'form_input text_field', 'rows': 4}) # Renders a text box instead of a single-line input
+        widget=forms.Textarea(attrs={'class': 'form-input text-field', 'rows': 4}) # Renders a text box instead of a single-line input
     )
 
     # Pulls all services available in database for selection
