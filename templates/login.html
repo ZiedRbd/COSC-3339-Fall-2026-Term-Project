@@ -1,19 +1,19 @@
+{%extends "base.html"%}
 {% load static %}
 <link rel="stylesheet" href="{% static 'css/style.css' %}">
-<div class = "corner-nav top-right">
-  <a href="{% url 'home' %}" class="nav-btn">Home</a>
-  <a href="{% url 'register' %}" class="nav-btn">Register</a>
-</div>
-<h1>Log in</h1>
 
+{%block content%}
 {% for msg in messages %}<p class="error">{{ msg }}</p>{% endfor %}
+<div class="login-field">
+  <div class="stacked">
+    <form method="post">
+      {% csrf_token %}
+      <input name="email" required placeholder="Email"><br>
+      <input name="password" type="password" required placeholder="Password"><br>
+      <button>Log in</button>
+    </form>
 
-
-<form method="post">
-  {% csrf_token %}
-  <input name="email" required placeholder="Email"><br>
-  <input name="password" type="password" required placeholder="Password"><br>
-  <button>Log in</button>
-</form>
-
-<a href="{% url 'register' %}" class="btn-link">Need an account? Register</a>
+    <a href="{% url 'register' %}" class="btn-link">Need an account? Register</a>
+  </div>
+</div>
+{%endblock%}

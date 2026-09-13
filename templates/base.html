@@ -12,7 +12,7 @@
             <a href="{% url 'home' %}" class="nav-btn">Home</a>
             <a href="{% url 'services' %}" class="nav-btn">Services</a>
             <a href="{% url 'incidents' %}" class="nav-btn">Incidents</a>
-            {% if not user.is_authenticated %}
+            {% if not user.is_authenticated and request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'register' %}
                 <a href="{% url 'login' %}" class="nav-btn">Log in</a>
                 <a href="{% url 'register' %}" class="nav-btn">Register</a>
             {% endif %}

@@ -112,32 +112,39 @@ input,button{
 }
 /* Login stuff */
 
+.login-field{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;   
+    align-items: center;       
+    min-height: 100vh;         
+}
 /* Form stuff */
 .form-layout {
     display: flex;
     flex-direction: column;
-    justify-content: center;   /* Centers horizontally */
-    align-items: center;       /* Centers vertically */
-    min-height: 100vh;         /* Full screen height */
+    justify-content: center;   
+    align-items: center;       
+    min-height: 100vh;         
 }
 .form-item {
     color: black;
     font-size: 20px;
     display: flex;
-    flex-direction: column; /* Stacks label above input */
-    align-items: flex-start; /* Forces left justification */
-    margin-bottom: 15px; /* Adds space between fields */
+    flex-direction: column; 
+    align-items: flex-start; 
+    margin-bottom: 15px; 
 }
 .form-label{
-    margin-bottom: 5px; /* Adds space between label and its input */
+    margin-bottom: 5px; 
     font-weight: bold;
 }
 
 .form-input{
-  width: 100%;               /* Fills the 400px form width */
+  width: 100%;               
   padding: 8px;
   box-sizing: border-box;
-  resize: vertical;    /* Prevents padding from breaking width */
+  resize: vertical;    
 }
 .text-field{
     font-size: 16px;
@@ -145,11 +152,11 @@ input,button{
 }
 .stacked{
   display: flex;
-  flex-direction: column;    /* Stacks elements vertically */
-  align-items: flex-start;   /* Left-justifies all child elements */
-  gap: 12px;                 /* Spacing between inputs and labels */
+  flex-direction: column;    
+  align-items: flex-start;   
+  gap: 12px;                 
   
-  /* Layout constraints so the form doesn't stretch infinitely */
+
   width: 100%;
   max-width: 400px;          
   padding: 20px;
