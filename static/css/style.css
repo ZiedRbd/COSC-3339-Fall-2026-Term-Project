@@ -26,7 +26,7 @@ input,button{
     --gold: #d4af37;
 }
 
-.home-body {
+.base-body {
     margin: 0;
     min-height: 100vh;
     background-color: var(--navy);
@@ -42,16 +42,38 @@ input,button{
      font-family: cursive;
 }
 
-.corner-nav {
-    position: absolute;
-    top: 24px;
-    display: flex;
-    gap: 16px;
-    align-items: center;
+.navbar {
+  display: flex;
+  align-items: center;
+  height: 60px;
+  padding: 0 20px;
+  
+  position: fixed;
+  top: 0;
+  width: 100%;
+  box-sizing: border-box;
+  
 }
 
-.corner-nav.top-right {
-    right: 24px;
+
+.nav-links {
+  display: flex;
+  gap: 15px;
+}
+
+
+.nav-user-section {
+  margin-left: auto; 
+  
+  display: flex;
+  align-items: center;
+  gap: 15px; 
+}
+
+
+.logout-form {
+  display: inline-block;
+  margin: 0;
 }
 
 .nav-btn {
@@ -66,7 +88,9 @@ input,button{
     padding: 8px 16px;
     cursor: pointer;
 }
-
+.nav-btn:active{
+    color: white;
+}
 .btn-link {
     display: inline-block;
     margin-top: 12px;
@@ -80,48 +104,59 @@ input,button{
     border-radius: 6px;
 }
 .btn-link:hover { background: #555; }
+
+
 /* Base stuff */
 .info{
     color: gold;
 }
+/* Login stuff */
 
-/* Incident form stuff */
-.incident_form {
+.login-field{
     display: flex;
     flex-direction: column;
-    justify-content: center;   /* Centers horizontally */
-    align-items: center;       /* Centers vertically */
-    min-height: 100vh;         /* Full screen height */
+    justify-content: center;   
+    align-items: center;       
+    min-height: 100vh;         
 }
-.incident_form_item {
+/* Form stuff */
+.form-layout {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;   
+    align-items: center;       
+    min-height: 100vh;         
+}
+.form-item {
     color: black;
     font-size: 20px;
     display: flex;
-    flex-direction: column; /* Stacks label above input */
-    align-items: flex-start; /* Forces left justification */
-    margin-bottom: 15px; /* Adds space between fields */
+    flex-direction: column; 
+    align-items: flex-start; 
+    margin-bottom: 15px; 
 }
-.form_label{
-    margin-bottom: 5px; /* Adds space between label and its input */
+.form-label{
+    margin-bottom: 5px; 
     font-weight: bold;
 }
 
-.form_input{
-  width: 100%;               /* Fills the 400px form width */
+.form-input{
+  width: 100%;               
   padding: 8px;
   box-sizing: border-box;
-  resize: none;    /* Prevents padding from breaking width */
+  resize: vertical;    
 }
-.text_field{
-    font-size: 16px;   
+.text-field{
+    font-size: 16px;
+
 }
 .stacked{
   display: flex;
-  flex-direction: column;    /* Stacks elements vertically */
-  align-items: flex-start;   /* Left-justifies all child elements */
-  gap: 12px;                 /* Spacing between inputs and labels */
+  flex-direction: column;    
+  align-items: flex-start;   
+  gap: 12px;                 
   
-  /* Layout constraints so the form doesn't stretch infinitely */
+
   width: 100%;
   max-width: 400px;          
   padding: 20px;

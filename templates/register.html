@@ -1,25 +1,45 @@
+{% extends "base.html"%}
 {% load static %}
+{%block title%}Registration form{%endblock%}
 <link rel="stylesheet" href="{% static 'css/style.css' %}">
-<div class="corner-nav top-right">
-  <a href="{% url 'home' %}" class="nav-btn">Home</a>
-  <a href="{% url 'login' %}" class="nav-btn">Login</a>
-</div>
-<h1>Register</h1>
+{%block content%}
+<div>
 
-{% for field in form %}
-  {% for msg in field.errors %}
-    <p class="error">{{ field.label }}: {{ msg }}</p>
-  {% endfor %}
-{% endfor %}
+  <div class="form-layout">
 
-<form method="post">
-  {% csrf_token %}
-  <input name="first_name" required placeholder="First name" value="{{ form.first_name.value|default:'' }}"><br>
-  <input name="last_name" required placeholder="Last name" value="{{ form.last_name.value|default:'' }}"><br>
-  <input name="email" required placeholder="Email" value="{{ form.email.value|default:'' }}"><br>
-  <input name="password" type="password" required placeholder="Password"><br>
-  <input name="password2" type="password" required placeholder="Confirm password"><br>
-  <button>Register</button>
-</form>
+    <h1 class="form-header">Registration</h1>
 
-<a href="{% url 'login' %}" class = "btn-link">Already have an account? Log in</a>
+    <form method="POST" class="stacked">
+      {% csrf_token %}
+      <div class="form-item">
+        <label for="{{ form.first_name.id_for_label}}" class="form-label"></label>
+        {{ form.first_name }}
+        {% if form.name.errors %}<div class="error">{{ form.name.errors}}</div>{% endif %}
+      </div>
+      <div class="form-item">
+        <label for="{{ form.last_name.id_for_label}}" class="form-label"></label>
+        {{ form.last_name}}
+        {% if form.last_name.errors %}<div class="error">{{ form.last_name.errors}}</div>{% endif %}
+      </div>
+      <div class="form-item">
+        <label for="{{ form.email.id_for_label}}" class="form-label"></label>
+        {{ form.email}}
+        {% if form.email.errors %}<div class="error">{{ form.email.errors}}</div>{% endif %}
+      </div>
+      <div class="form-item">
+        <label for="{{ form.password.id_for_label}}" class="form-label"></label>
+        {{ form.password }}
+        {% if form.password.errors %}<div class="error">{{ form.password.errors}}</div>{% endif %}
+      </div>
+      <div class="form-item">
+        <label for="{{ form.password2.id_for_label}}" class="form-label"></label>
+        {{ form.password2}}
+        {% if form.password2.errors %}<div class="error">{{ form.password2.errors}}</div>{% endif %}
+      </div>
+      <button>Register</button>
+    </form>
+
+
+  <a href="{% url 'login' %}" class = "btn-link">Already have an account? Log in</a>
+
+{%endblock%}

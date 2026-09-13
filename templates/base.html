@@ -6,24 +6,29 @@
     <title>{% block title %}CampusDesk{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
-<body class="home-body">
-    <nav class="corner-nav">
-        <a href="{% url 'home' %}" class="nav-btn">Home</a>
-        <a href="{% url 'services' %}" class="nav-btn">Services</a>
-        <a href="{% url 'incidents' %}" class="nav-btn">Incidents</a>
-        {% if not user.is_authenticated %}
-            <a href="{% url 'login' %}" class="nav-btn">Log in</a>
-        {% endif %}
-    </nav>
-    {% if user.is_authenticated %}
-        <div class="corner-nav top-right">
+<body class="base-body">
+    <nav class="navbar">
+        <div class="nav-links">
+            <a href="{% url 'home' %}" class="nav-btn">Home</a>
+            <a href="{% url 'services' %}" class="nav-btn">Services</a>
+            <a href="{% url 'landing' %}" class="nav-btn">Incidents</a>
+            {% if not user.is_authenticated and request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'register' %}
+                <a href="{% url 'login' %}" class="nav-btn">Log in</a>
+                <a href="{% url 'register' %}" class="nav-btn">Register</a>
+            {%else%}
+            {% endif %}
+        </div>
+        {% if user.is_authenticated %}
+        <div class="nav-user-section">
             <span class="info">Logged in as: <strong>{{ user.username }}</strong></span>
-            <form action="{% url 'logout' %}" method="POST">
+            <form action="{% url 'logout' %}" method="POST" class="logout-form">
                 {% csrf_token %}
                 <button type="submit" class="nav-btn logout-btn">Log out</button>
             </form>
         </div>
     {%endif%}
+    </nav>
+    
     {% block content %}{% endblock %}
 </body>
 </html>
