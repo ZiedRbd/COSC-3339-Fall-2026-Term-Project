@@ -2,9 +2,13 @@ from django.test import TestCase
 from .models import User
 
 
+# Run with: python manage.py test ops
+# Each test gets a fresh empty database. self.client acts as a browser.
 class EmailCaseTests(TestCase):
     """Emails must work the same no matter how they are capitalized."""
 
+    # Helper that submits the registration form with a given email
+    # so each test does not repeat the same five fields
     def register(self, email):
         return self.client.post("/register/", {
             "first_name": "Test",
