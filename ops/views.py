@@ -1,8 +1,9 @@
 from django.shortcuts import render, redirect
-from .forms import RegisterForm, IncidentForm
+from .forms import RegisterForm, IncidentForm, LoginForm
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
 from .models import User, Incident
 
 
@@ -16,6 +17,7 @@ def logout_view(request):
     logout(request)
     return redirect("home")
 
+@never_cache
 def login_page(request):
     """
     GET  - show the empty login form.
@@ -25,24 +27,30 @@ def login_page(request):
     """
     error = None
     if request.method == "POST":
-        user = authenticate(
-            request,
-            username=request.POST["email"],
-            password=request.POST["password"],
-        )
-        if user is not None:
-            login(request, user)
-            return redirect("landing")
-        messages.error(request, "Invalid email or password")
-        return redirect("login")
-    return render(request, "login.html")
+        form =LoginForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data.get("email")
+            password = form.cleaned_data.get("password")
+            user = authenticate(
+                request,
+                username=email,
+                password=password
+            )
+            if user is not None:
+                login(request, user)
+                return redirect("landing")
+            form.add_error(request, "Invalid email or password")
+            return redirect("login")
+    else:
+        form = LoginForm()
+    return render(request, "login.html", {"form": form})
 
 
 
 def services(request):
     return render(request, "services.html")
 
-
+@never_cache
 def register(request):
     """
     Two situations land here.

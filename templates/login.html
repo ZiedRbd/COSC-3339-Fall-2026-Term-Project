@@ -3,13 +3,15 @@
 <link rel="stylesheet" href="{% static 'css/style.css' %}">
 
 {%block content%}
-{% for msg in messages %}<p class="error">{{ msg }}</p>{% endfor %}
 <div class="login-field">
   <div class="stacked">
+    {% if form.email.errors or form.password.errors %}<div class="error"><p>Email or Password is incorrect</p></div>{% endif %}
     <form method="post">
       {% csrf_token %}
-      <input name="email" required placeholder="Email"><br>
-      <input name="password" type="password" required placeholder="Password"><br>
+      {{ form.email }}
+
+      {{ form.password }}
+
       <button>Log in</button>
     </form>
 

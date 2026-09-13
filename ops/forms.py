@@ -11,9 +11,9 @@ class RegisterForm(forms.Form):
                                  )
     email = forms.EmailField(widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Email'}))
     password = forms.CharField(min_length=8,
-                               widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Password'}))
+                               widget=forms.PasswordInput(attrs={'class': 'form-input', 'placeholder': 'Password'}))
     password2 = forms.CharField(min_length=8,
-                                widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Confirm Password'}))
+                                widget=forms.PasswordInput(attrs={'class': 'form-input', 'placeholder': 'Confirm Password'}))
     
     def clean_password(self):
         pw = self.cleaned_data["password"]
@@ -42,12 +42,18 @@ class RegisterForm(forms.Form):
             raise forms.ValidationError("This email is already registered")
         return email
 
+class LoginForm(forms.Form):
+    email = forms.EmailField(widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Email'}))
 
+    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-input', 'placeholder': 'Password'}))
+    
+    
+    
 #ian
 class IncidentForm(forms.Form):
     title = forms.CharField(
         max_length=200, # Matched to Incident model's max_length=200
-        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Brief title'})
+        widget=forms.TextInput(attrs={'class': 'form-input', ' placeholder': 'Brief title'})
     )
     description = forms.CharField(
         widget=forms.Textarea(attrs={'class': 'form-input text-field', 'rows': 4}) # Renders a text box instead of a single-line input
