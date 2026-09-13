@@ -32,7 +32,7 @@ def login_page(request):
         )
         if user is not None:
             login(request, user)
-            return redirect("incidents")
+            return redirect("landing")
         messages.error(request, "Invalid email or password")
         return redirect("login")
     return render(request, "login.html")
@@ -68,6 +68,12 @@ def register(request):
     return render(request, "register.html", {"form": form})
 
 
+@login_required
+def landing(request):
+    """
+    Landing page after successful sign in
+    """
+    return render(request, "incidents/landing.html")
 
 @login_required
 def incident_list(request):

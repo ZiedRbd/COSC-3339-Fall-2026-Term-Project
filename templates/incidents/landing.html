@@ -5,6 +5,6 @@
 <link rel="stylesheet" href="{% static 'css/style.css' %}">
 {%block content%}
 <div>
-  <h1>Welcome to the Topper Help Desk</h1>
+  <h1>Welcome {{ user.first_name }}</h1>
 </div>
 {%endblock%}
