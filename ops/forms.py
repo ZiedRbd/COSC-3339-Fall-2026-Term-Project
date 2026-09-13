@@ -41,10 +41,10 @@ class RegisterForm(forms.Form):
 class IncidentForm(forms.Form):
     title = forms.CharField(
         max_length=200, # Matched to Incident model's max_length=200
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Brief title'})
+        widget=forms.TextInput(attrs={'class': 'form_input', 'placeholder': 'Brief title'})
     )
     description = forms.CharField(
-        widget=forms.Textarea(attrs={'rows': 4}) # Renders a text box instead of a single-line input
+        widget=forms.Textarea(attrs={'class': 'form_input text_field', 'rows': 4}) # Renders a text box instead of a single-line input
     )
 
     service = forms.ModelChoiceField(
