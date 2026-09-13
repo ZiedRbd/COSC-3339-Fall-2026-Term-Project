@@ -1,6 +1,11 @@
 {%extends "base.html"%}
+{%block title%}Login{%endblock%}
 {% load static %}
-<link rel="stylesheet" href="{% static 'css/style.css' %}">
+{% block extra_js %}
+  <script src="{% static 'js/password.js' %}" defer></script>
+{% endblock %}
+
+
 
 {%block content%}
 <div class="login-field">
@@ -9,10 +14,11 @@
     <form method="post">
       {% csrf_token %}
       {{ form.email }}
-
-      {{ form.password }}
-
-      <button>Log in</button>
+      <div>
+        {{ form.password }}
+        <button type="button" id="togglePasswordBtn" onclick="togglePasswordVisibility()" class="password">Show</button>
+      </div>
+      <button type="submit">Log in</button>
     </form>
 
     <a href="{% url 'register' %}" class="btn-link">Need an account? Register</a>

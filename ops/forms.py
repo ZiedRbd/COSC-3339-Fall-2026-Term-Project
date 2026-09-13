@@ -11,9 +11,9 @@ class RegisterForm(forms.Form):
                                  )
     email = forms.EmailField(widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Email'}))
     password = forms.CharField(min_length=8,
-                               widget=forms.PasswordInput(attrs={'class': 'form-input', 'placeholder': 'Password'}))
+                               widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password1', 'placeholder': 'Password'}))
     password2 = forms.CharField(min_length=8,
-                                widget=forms.PasswordInput(attrs={'class': 'form-input', 'placeholder': 'Confirm Password'}))
+                                widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password2', 'placeholder': 'Confirm Password'}))
     
     def clean_password(self):
         pw = self.cleaned_data["password"]
@@ -45,7 +45,7 @@ class RegisterForm(forms.Form):
 class LoginForm(forms.Form):
     email = forms.EmailField(widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Email'}))
 
-    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-input', 'placeholder': 'Password'}))
+    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password', 'placeholder': 'Password'}))
     
     
     
