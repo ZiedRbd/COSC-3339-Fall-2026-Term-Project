@@ -47,6 +47,7 @@ class IncidentForm(forms.Form):
         widget=forms.Textarea(attrs={'class': 'form_input text_field', 'rows': 4}) # Renders a text box instead of a single-line input
     )
 
+    # Pulls all services available in database for selection
     service = forms.ModelChoiceField(
         queryset=Service.objects.all(),
         empty_label="Select a service"

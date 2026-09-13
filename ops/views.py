@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect
 from .forms import RegisterForm, IncidentForm
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .models import User, Incident
@@ -12,6 +12,9 @@ from .models import User, Incident
 def home(request):
     return render(request, "home.html")
 
+def logout_view(request):
+    logout(request)
+    return redirect("home")
 
 def login_page(request):
     """
@@ -96,3 +99,7 @@ def incident_form(request):
         form = IncidentForm()
                 
     return render(request, "incidents/form.html", {"form": form})
+
+@login_required
+def user_page(request):
+    return render(request, "home.html")

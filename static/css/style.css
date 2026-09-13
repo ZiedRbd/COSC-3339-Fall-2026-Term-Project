@@ -7,7 +7,6 @@ body{
 h1{
     color: #d4af37 ;
     font-family: cursive;
-
 }
 
 input,button{
@@ -82,13 +81,22 @@ input,button{
 }
 .btn-link:hover { background: #555; }
 /* Base stuff */
-
+.info{
+    color: gold;
+}
 /* Incident form stuff */
-.form_page_header{
-    position: relative;
+.form_body{
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
+    justify-content: flex-start; /* Centers side-to-side */
+    align-items: center;     /* Centers up-and-down */
+
+    min-height: 100vh;           /* Full screen height */
+    padding-top: 40px;
+}
+
+.form_header{
+
 }
 .incident_form {
     display: flex;
