@@ -37,7 +37,7 @@ class RegisterForm(forms.Form):
 
     # Rejects an email that is already registered
     def clean_email(self):
-        email = self.cleaned_data["email"]
+        email = self.cleaned_data["email"].lower()
         if User.objects.filter(email=email).exists():
             raise forms.ValidationError("This email is already registered")
         return email
