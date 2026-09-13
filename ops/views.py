@@ -29,7 +29,7 @@ def login_page(request):
     if request.method == "POST":
         form =LoginForm(request.POST)
         if form.is_valid():
-            email = form.cleaned_data.get("email")
+            email = form.cleaned_data.get("email").lower()
             password = form.cleaned_data.get("password")
             user = authenticate(
                 request,
