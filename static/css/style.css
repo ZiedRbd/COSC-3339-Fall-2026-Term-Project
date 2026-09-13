@@ -55,22 +55,22 @@ input,button{
   
 }
 
-/* Keeps your left-side links close together */
+
 .nav-links {
   display: flex;
-  gap: 15px; /* Adjust this to make left links tighter or wider */
+  gap: 15px;
 }
 
-/* THE FIX: Pushes this entire container to the far right side */
+
 .nav-user-section {
   margin-left: auto; 
   
   display: flex;
   align-items: center;
-  gap: 15px; /* Spaces out the "Logged in as" text and the button */
+  gap: 15px; 
 }
 
-/* Keeps the logout form inline so it doesn't break to a new line */
+
 .logout-form {
   display: inline-block;
   margin: 0;
