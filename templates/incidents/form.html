@@ -3,33 +3,33 @@
 {% block title %}Incident form{% endblock %}
 <link rel="stylesheet" href="{% static 'css/style.css' %}">
 {% block content %}
-<div>
-    <h1 class="form_page_header">Ticket Request Form</h1>
-</div>
+<div class="form_body">
 
-<div class="incident_form">
-  <form method="POST" class="stacked">
-    {% csrf_token %}
+  <div class="incident_form">
+    <h1 class="form_header">Ticket Request Form</h1>
+    <form method="POST" class="stacked">
+      {% csrf_token %}
 
-    <div class="incident_form_item">
-      <label for="{{ form.title.id_for_label }}" class="form_label">Title</label>
-      {{ form.title }}
-      {% if form.title.errors %}<div class="error">{{ form.title.errors }}</div>{% endif %}
-    </div>
+      <div class="incident_form_item">
+        <label for="{{ form.title.id_for_label }}" class="form_label">Title</label>
+        {{ form.title }}
+        {% if form.title.errors %}<div class="error">{{ form.title.errors }}</div>{% endif %}
+      </div>
 
-    <div class="incident_form_item">
-      <label for="{{ form.description.id_for_label }}" class="form_label">Description</label>
-      {{ form.description }}
-      {% if form.description.errors %}<div class="error">{{ form.description.errors }}</div>{% endif %}
-    </div>
+      <div class="incident_form_item">
+        <label for="{{ form.description.id_for_label }}" class="form_label">Description</label>
+        {{ form.description }}
+        {% if form.description.errors %}<div class="error">{{ form.description.errors }}</div>{% endif %}
+      </div>
 
-    <div class="incident_form_item">
-      <label for="{{ form.service.id_for_label }}" class="form_label">Service</label>
-      {{ form.service }}
-      {% if form.service.errors %}<div class="error">{{ form.service.errors }}</div>{% endif %}
-    </div>
-    
-    <button type="submit">Submit Incident</button>
-  </form>
+      <div class="incident_form_item">
+        <label for="{{ form.service.id_for_label }}" class="form_label">Service</label>
+        {{ form.service }}
+        {% if form.service.errors %}<div class="error">{{ form.service.errors }}</div>{% endif %}
+      </div>
+      
+      <button type="submit">Submit Incident</button>
+    </form>
+  </div>
 </div>
 {% endblock %}

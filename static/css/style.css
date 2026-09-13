@@ -84,22 +84,11 @@ input,button{
 .info{
     color: gold;
 }
+
 /* Incident form stuff */
-.form_body{
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start; /* Centers side-to-side */
-    align-items: center;     /* Centers up-and-down */
-
-    min-height: 100vh;           /* Full screen height */
-    padding-top: 40px;
-}
-
-.form_header{
-
-}
 .incident_form {
     display: flex;
+    flex-direction: column;
     justify-content: center;   /* Centers horizontally */
     align-items: center;       /* Centers vertically */
     min-height: 100vh;         /* Full screen height */
