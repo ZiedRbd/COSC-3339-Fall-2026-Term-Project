@@ -14,6 +14,7 @@
             <a href="{% url 'incidents' %}" class="nav-btn">Incidents</a>
             {% if not user.is_authenticated %}
                 <a href="{% url 'login' %}" class="nav-btn">Log in</a>
+                <a href="{% url 'register' %}" class="nav-btn">Register</a>
             {% endif %}
         </div>
         {% if user.is_authenticated %}
