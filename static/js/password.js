@@ -2,7 +2,6 @@ function togglePasswordVisibility() {
     const pass1 = document.getElementById("id_password1") || document.getElementById("id_password");
     const pass2 = document.getElementById("id_password2");
     const toggleBtn = document.getElementById("togglePasswordBtn");
-    const isPassType = pass1.type === "password"
 
     const isPassword = pass1.type === "password";
     const newType = isPassword ? "text" : "password";
