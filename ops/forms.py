@@ -9,7 +9,7 @@ class RegisterForm(forms.Form):
     last_name = forms.CharField(max_length=50,
                                  widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Last name'})
                                  )
-    email = forms.EmailField(widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Email'}))
+    email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-input', 'placeholder': 'Email'}))
     password = forms.CharField(min_length=8,
                                widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password1', 'placeholder': 'Password'}))
     password2 = forms.CharField(min_length=8,
