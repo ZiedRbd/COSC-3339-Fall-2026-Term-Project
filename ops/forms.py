@@ -43,9 +43,27 @@ class RegisterForm(forms.Form):
         return email
 
 class LoginForm(forms.Form):
-    email = forms.EmailField(widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Email'}))
+    email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-input', 'placeholder': 'Email'}))
 
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password', 'placeholder': 'Password'}))
+    def clean_email(self):
+            email = self.cleaned_data["email"].lower()
+            if not User.objects.filter(email=email).exists():
+                raise forms.ValidationError("Incorrect email or password")
+            return email
+    def clean_password(self):
+        password = self.cleaned_data["password"]
+        if not User.objects.filter(password=password).exists():
+            raise forms.ValidationError("Incorrect email or password")
+    def clean(self):
+        data =super().clean()
+        email = data.get("email")
+        password = data.get("password")
+        if not User.objects.filter(email=email, password=password).exists():
+            raise forms.ValidationError("Incorrect email or password")
+        return data
+
+
     
     
     

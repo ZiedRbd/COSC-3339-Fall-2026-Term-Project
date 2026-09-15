@@ -39,7 +39,6 @@ def login_page(request):
             if user is not None:
                 login(request, user)
                 return redirect("landing")
-            form.add_error(request, "Invalid email or password")
             return redirect("login")
     else:
         form = LoginForm()
