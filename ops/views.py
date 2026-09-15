@@ -108,7 +108,8 @@ def incident_form(request):
                 assigned_to=form.cleaned_data.get('assigned_to'),
                 assigned_team=form.cleaned_data.get('assigned_team'),
             )
-            return redirect('home')
+            #changed home to incidents winson
+            return redirect('incidents')
     else:
         form = IncidentForm()
                 
@@ -117,3 +118,4 @@ def incident_form(request):
 @login_required
 def user_page(request):
     return render(request, "home.html")
+
