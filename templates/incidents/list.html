@@ -1,10 +1,11 @@
 {% extends "base.html"%}
 {%block title%}Incident list{%endblock%}
 {% load static %}
+
 //Pop up message for when form is created
 {% if messages %}
   {% for message in messages %}
-    <script>alert("{{ A new ticket has been created! }}");</script>
+    <script>alert(" A new ticket has been created! ");</script>
   {% endfor %}
 {% endif %}
 
