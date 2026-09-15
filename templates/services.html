@@ -3,7 +3,31 @@
 {% load static %}
 
 {%block content%}
-<div>
-  <h1>Welcome to the Topper Help Desk</h1>
+<div class="services-container">
+  <h1 class="services-header">Our Services</h1>
+
+  {% for team in teams %}
+    <!-- Only render team section if they have active services -->
+    {% if team.active_services %}
+      <section class="team-section">
+        <h2 class="team-title">{{ team.name }}</h2>
+        
+        <div class="services-grid">
+          {% for service in team.active_services %}
+            <div class="service-wrapper">
+              <p class="service-item service-title">{{ service.name }}</p>
+              <p class="service-item">{{ service.description }}</p>
+              <span class="criticality-badge {{ service.criticality }}">
+                {{ service.criticality|title }}
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+  {% empty %}
+    <p class="no-services">No services available at this time.</p>
+  {% endfor %}
 </div>
+
 {%endblock%}
