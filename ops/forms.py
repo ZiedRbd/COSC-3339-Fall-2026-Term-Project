@@ -16,15 +16,21 @@ class RegisterForm(forms.Form):
                                 widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password2', 'placeholder': 'Confirm Password'}))
     
     def clean_password(self):
-        pw = self.cleaned_data["password"]
+        pw_errors = []
+        pw = self.cleaned_data.get("password", "")
+
         if not any(c.isupper() for c in pw):
-            raise forms.ValidationError("Password needs an uppercase letter")
+            pw_errors.append(forms.ValidationError("Password needs an uppercase letter"))
         if not any(c.islower() for c in pw):
-            raise forms.ValidationError("Password needs a lowercase letter")
+            pw_errors.append(forms.ValidationError("Password needs a lowercase letter"))
         if not any(c.isdigit() for c in pw):
-            raise forms.ValidationError("Password needs a number")
+            pw_errors.append(forms.ValidationError("Password needs a number"))
         if not any(not c.isalnum() for c in pw):
-            raise forms.ValidationError("Password needs a symbol")
+            pw_errors.append(forms.ValidationError("Password needs a symbol"))
+
+        if pw_errors:
+            raise forms.ValidationError(pw_errors)
+
         return pw
 
     # Runs after all fields pass. Checks the two passwords match.
