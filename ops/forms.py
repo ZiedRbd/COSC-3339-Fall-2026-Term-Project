@@ -46,11 +46,6 @@ class LoginForm(forms.Form):
     email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-input', 'placeholder': 'Email'}))
 
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password', 'placeholder': 'Password'}))
-    def clean_email(self):
-            email = self.cleaned_data["email"].lower()
-            if not User.objects.filter(email=email).exists():
-                raise forms.ValidationError("Incorrect email or password")
-            return email
 
 
     

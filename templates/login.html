@@ -8,10 +8,18 @@
 
 
 {%block content%}
+
+
 <div class="login-field">
-    <h1 class="form-header">Login</h1>
+  <h1 class="form-header">Login</h1>
   <div class="stacked">
-    {% if form.email.errors or form.password.errors %}<div class="error"><p>Email or Password is incorrect</p></div>{% endif %}
+    {% if messages %}
+        <div class="error-popup">
+            {% for message in messages %}
+                <p class="error">{{ message }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
     <form method="post">
       {% csrf_token %}
       {{ form.email }}

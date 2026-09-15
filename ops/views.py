@@ -39,7 +39,9 @@ def login_page(request):
             if user is not None:
                 login(request, user)
                 return redirect("landing")
-            return redirect("login")
+
+        messages.error(request, "Invalid email or password")
+        return redirect("login")
     else:
         form = LoginForm()
     return render(request, "login.html", {"form": form})
