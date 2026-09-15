@@ -4,7 +4,8 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
-from .models import User, Incident
+from django.db.models import Prefetch
+from .models import User, Incident, Service, Team
 
 
 
@@ -49,7 +50,21 @@ def login_page(request):
 
 
 def services(request):
-    return render(request, "services.html")
+    """
+    Services page prefetches active services and
+    links them to their owning team so that they can
+    be rendered in the frontend
+    """
+
+    services_prefetch = Prefetch(
+        'service_set',
+        queryset=Service.objects.filter(is_active=True),
+        to_attr='active_services'
+    )
+
+    teams = Team.objects.prefetch_related(services_prefetch).all()
+    
+    return render(request, "services.html", {"teams": teams})
 
 @never_cache
 def register(request):
