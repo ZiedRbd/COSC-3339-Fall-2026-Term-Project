@@ -118,6 +118,8 @@ def incident_form(request):
             Incident.objects.create(
                 title=form.cleaned_data['title'],
                 description=form.cleaned_data['description'],
+                building=form.cleaned_data['building'],
+                room=form.cleaned_data['room'],
                 service=form.cleaned_data['service'],
                 reported_by=request.user,  # Injects the logged-in user
                 priority=form.cleaned_data.get('priority', 'medium'),
@@ -143,7 +145,10 @@ def incident_edit(request, pk):
         if form.is_valid():
             incident.title = form.cleaned_data["title"]
             incident.description = form.cleaned_data["description"]
+            incident.building = form.cleaned_data["building"]
+            incident.room = form.cleaned_data["room"]
             incident.service = form.cleaned_data["service"]
+            incident.priority = form.cleaned_data["priority"]
             incident.save()
             messages.success(request, "Ticket updated")
             return redirect("incidents")
@@ -151,7 +156,10 @@ def incident_edit(request, pk):
         form = IncidentForm(initial={
             "title": incident.title,
             "description": incident.description,
+            "building": incident.building,
+            "room": incident.room,
             "service": incident.service,
+            "priority": incident.priority,
         })
     return render(request, "incidents/form.html", {"form": form, "incident": incident})
 

@@ -67,10 +67,33 @@ class IncidentForm(forms.Form):
         widget=forms.Textarea(attrs={'class': 'form-input text-field', 'rows': 4}) # Renders a text box instead of a single-line input
     )
 
+    # Optional location details
+    building = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Building (optional)'})
+    )
+    room = forms.CharField(
+        max_length=50,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Room (optional)'})
+    )
+
     # Pulls all services available in database for selection
     service = forms.ModelChoiceField(
         queryset=Service.objects.all(),
         empty_label="Select a service"
+    )
+
+    # How urgent the reporter thinks it is
+    priority = forms.ChoiceField(
+        choices=[
+            ("low", "Low"),
+            ("medium", "Medium"),
+            ("high", "High"),
+            ("critical", "Critical"),
+        ],
+        initial="medium",
     )
 
 

@@ -62,6 +62,8 @@ entity "INCIDENT" as incident {
   --
   * title : varchar
   * description : text
+    building : varchar
+    room : varchar
   * service_id : int <<FK>>
   * reported_by_id : int <<FK>>
     assigned_to_id : int <<FK>>
