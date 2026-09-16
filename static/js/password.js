@@ -20,12 +20,13 @@ function togglePasswordVisibility() {
 
 
 // Live password checklist on the registration page.
-// Same five rules as clean_password in forms.py. Server still validates.
-// This file is loaded with defer so the DOM is ready when it runs.
+// Same five rules as clean_password in forms.py plus a match check.
+// Watches both password boxes. Server still validates on submit.
 (function () {
-    const input = document.getElementById("id_password1") || document.getElementById("id_password");
+    const pw1 = document.getElementById("id_password1") || document.getElementById("id_password");
+    const pw2 = document.getElementById("id_password2");
     const list = document.querySelector(".pw-rules");
-    if (!input || !list) return;
+    if (!pw1 || !list) return;
 
     const rules = {
         length: pw => pw.length >= 8,
@@ -33,17 +34,22 @@ function togglePasswordVisibility() {
         lower:  pw => /[a-z]/.test(pw),
         digit:  pw => /[0-9]/.test(pw),
         symbol: pw => /[^A-Za-z0-9]/.test(pw),
+        match:  pw => pw.length > 0 && pw2 && pw === pw2.value,
     };
 
     function update() {
-        const pw = input.value;
-        list.querySelectorAll("li").forEach(li => {
-            const ok = rules[li.dataset.rule](pw);
+        const pw = pw1.value;
+        list.querySelectorAll("li[data-rule]").forEach(li => {
+            const check = rules[li.dataset.rule];
+            if (!check) return;
+            const ok = !!check(pw);
             li.classList.toggle("ok", ok);
-            li.querySelector(".mark").textContent = ok ? "✓" : "✗";
+            const mark = li.querySelector(".mark");
+            if (mark) mark.textContent = ok ? "✓" : "✗";
         });
     }
 
-    input.addEventListener("input", update);
+    pw1.addEventListener("input", update);
+    if (pw2) pw2.addEventListener("input", update);
     update();
 })();

@@ -2,7 +2,7 @@
 {% load static %}
 {%block title%}Registration form{%endblock%}
 {% block extra_js %}
-  <script src="{% static 'js/password.js' %}?v=2" defer></script>
+  <script src="{% static 'js/password.js' %}?v=3" defer></script>
 {% endblock %}
 {%block content%}
 <div>
@@ -44,6 +44,7 @@
           <li data-rule="lower"><span class="mark">✗</span>A lowercase letter</li>
           <li data-rule="digit"><span class="mark">✗</span>A number</li>
           <li data-rule="symbol"><span class="mark">✗</span>A symbol</li>
+          <li data-rule="match"><span class="mark">✗</span>Passwords match</li>
         </ul>
       </div>
       <button type="submit">Register</button>

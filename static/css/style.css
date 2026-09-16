@@ -475,8 +475,14 @@ input:focus, textarea:focus, select:focus {
 .pw-rules .mark {
     display: inline-block;
     width: 16px;
+    font-weight: 700;
+    color: var(--red);
 }
 
 .pw-rules li.ok {
+    color: var(--green);
+}
+
+.pw-rules li.ok .mark {
     color: var(--green);
 }
