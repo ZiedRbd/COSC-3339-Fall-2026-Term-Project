@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from .forms import RegisterForm, IncidentForm, LoginForm
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
@@ -124,12 +124,52 @@ def incident_form(request):
                 assigned_to=form.cleaned_data.get('assigned_to'),
                 assigned_team=form.cleaned_data.get('assigned_team'),
             )
-            #changed home to incidents winson
+            messages.success(request, "Ticket created")
             return redirect('incidents')
     else:
         form = IncidentForm()
                 
     return render(request, "incidents/form.html", {"form": form})
+
+@login_required
+def incident_edit(request, pk):
+    """
+    Load one incident by its id. GET shows the form filled with the
+    current values. POST saves the changes and returns to the list.
+    """
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if request.method == "POST":
+        form = IncidentForm(request.POST)
+        if form.is_valid():
+            incident.title = form.cleaned_data["title"]
+            incident.description = form.cleaned_data["description"]
+            incident.service = form.cleaned_data["service"]
+            incident.save()
+            messages.success(request, "Ticket updated")
+            return redirect("incidents")
+    else:
+        form = IncidentForm(initial={
+            "title": incident.title,
+            "description": incident.description,
+            "service": incident.service,
+        })
+    return render(request, "incidents/form.html", {"form": form, "incident": incident})
+
+
+@login_required
+def incident_delete(request, pk):
+    """
+    Soft delete. The row stays in the database with is_deleted set
+    so it disappears from the list but nothing is lost.
+    Only runs on POST so a plain link cannot delete anything.
+    """
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if request.method == "POST":
+        incident.is_deleted = True
+        incident.save()
+        messages.success(request, "Ticket deleted")
+    return redirect("incidents")
+
 
 @login_required
 def user_page(request):
