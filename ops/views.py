@@ -105,7 +105,7 @@ def incident_list(request):
     Show every incident that has not been soft deleted.
     Redirects to the login page if the user is not signed in.
     """
-    incidents = Incident.objects.filter(is_deleted=False).only("title")
+    incidents = Incident.objects.filter(is_deleted=False).select_related("service", "reported_by")
     return render(request, "incidents/list.html", {"incidents": incidents})
 
 

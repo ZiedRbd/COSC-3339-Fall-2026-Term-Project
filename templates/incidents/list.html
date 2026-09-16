@@ -1,15 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Incidents{% endblock %}
 
-{% extends "base.html"%}
-{%block title%}Incident list{%endblock%}
-{% load static %}
+{% block content %}
+<div class="card wide">
+  <h1 class="form-header">Active Incidents</h1>
 
-//Pop up message for when form is created
-{% if messages %}
-  {% for message in messages %}
-    <script>alert(" A new ticket has been created! ");</script>
-  {% endfor %}
-{% endif %}
+  {% if messages %}
+    {% for message in messages %}
+      <p class="notice">{{ message }}</p>
+    {% endfor %}
+  {% endif %}
 
-{%block content%}
+  <a href="{% url 'form' %}" class="btn-gold">New ticket</a>
 
-{%endblock%}
+  {% if incidents %}
+    <table class="incident-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Service</th>
+          <th>Priority</th>
+          <th>Status</th>
+          <th>Reported by</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for incident in incidents %}
+          <tr>
+            <td>{{ incident.title }}</td>
+            <td>{{ incident.service.name }}</td>
+            <td><span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></td>
+            <td><span class="badge {{ incident.status }}">{{ incident.status|title }}</span></td>
+            <td>{{ incident.reported_by.first_name }} {{ incident.reported_by.last_name }}</td>
+            <td>{{ incident.created_at|date:"M j, Y" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">No active incidents.</p>
+  {% endif %}
+</div>
+{% endblock %}
