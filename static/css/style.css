@@ -11,6 +11,7 @@
     --red: #c62828;
     --green: #2e7d32;
     --amber: #ef6c00;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 /* ---------- Base ---------- */
@@ -19,8 +20,8 @@
     min-height: 100vh;
     background-color: var(--navy);
     color: var(--ink);
-    font-family: Georgia, 'Times New Roman', Times, serif;
-    font-size: 18px;
+    font-family: var(--font);
+    font-size: 16px;
 }
 
 .page {
@@ -31,7 +32,9 @@
 
 h1, h2 {
     color: var(--gold);
-    font-family: Georgia, 'Times New Roman', Times, serif;
+    font-family: var(--font);
+    font-weight: 600;
+    letter-spacing: -0.01em;
     margin-top: 0;
 }
 
@@ -78,7 +81,7 @@ h1, h2 {
     border: 1px solid var(--gold);
     color: var(--gold);
     text-decoration: none;
-    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font);
     font-size: 15px;
     padding: 8px 16px;
     border-radius: 4px;
@@ -135,7 +138,7 @@ button[type="submit"] {
     color: var(--navy-dark);
     border: 1px solid var(--gold);
     text-decoration: none;
-    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font);
     font-size: 16px;
     font-weight: 600;
     padding: 10px 20px;
@@ -162,7 +165,7 @@ input, textarea, select {
     border-radius: 6px;
     box-sizing: border-box;
     width: 100%;
-    font-family: inherit;
+    font-family: var(--font);
 }
 
 input:focus, textarea:focus, select:focus {
@@ -373,7 +376,7 @@ input:focus, textarea:focus, select:focus {
 .row-actions .btn-small,
 .modal .btn-small {
     display: inline-block;
-    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font);
     font-size: 13px;
     font-weight: 600;
     padding: 5px 12px;
