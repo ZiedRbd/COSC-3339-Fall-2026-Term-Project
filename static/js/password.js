@@ -21,7 +21,8 @@ function togglePasswordVisibility() {
 
 // Live password checklist on the registration page.
 // Same five rules as clean_password in forms.py. Server still validates.
-document.addEventListener("DOMContentLoaded", () => {
+// This file is loaded with defer so the DOM is ready when it runs.
+(function () {
     const input = document.getElementById("id_password1") || document.getElementById("id_password");
     const list = document.querySelector(".pw-rules");
     if (!input || !list) return;
@@ -34,10 +35,15 @@ document.addEventListener("DOMContentLoaded", () => {
         symbol: pw => /[^A-Za-z0-9]/.test(pw),
     };
 
-    input.addEventListener("input", () => {
+    function update() {
         const pw = input.value;
         list.querySelectorAll("li").forEach(li => {
-            li.classList.toggle("ok", rules[li.dataset.rule](pw));
+            const ok = rules[li.dataset.rule](pw);
+            li.classList.toggle("ok", ok);
+            li.querySelector(".mark").textContent = ok ? "✓" : "✗";
         });
-    });
-});
+    }
+
+    input.addEventListener("input", update);
+    update();
+})();
