@@ -1,0 +1,488 @@
+/* ---------- Palette ---------- */
+:root {
+    --navy: #07388e;
+    --navy-dark: #052b6e;
+    --gold: #d4af37;
+    --gold-dark: #b8962e;
+    --white: #ffffff;
+    --ink: #1f2933;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --red: #c62828;
+    --green: #2e7d32;
+    --amber: #ef6c00;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ---------- Base ---------- */
+.base-body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--navy);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 16px;
+}
+
+.page {
+    padding: 100px 20px 40px;
+    display: flex;
+    justify-content: center;
+}
+
+h1, h2 {
+    color: var(--gold);
+    font-family: var(--font);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-top: 0;
+}
+
+/* ---------- Nav ---------- */
+.navbar {
+    display: flex;
+    align-items: center;
+    height: 60px;
+    padding: 0 20px;
+    position: fixed;
+    top: 0;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--navy-dark);
+    border-bottom: 1px solid var(--gold);
+    z-index: 10;
+}
+
+.nav-links {
+    display: flex;
+    gap: 12px;
+}
+
+.nav-user-section {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logout-form {
+    display: inline-block;
+    margin: 0;
+}
+
+.info {
+    color: var(--gold);
+    font-size: 15px;
+}
+
+.nav-btn {
+    display: inline-block;
+    background: transparent;
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    text-decoration: none;
+    font-family: var(--font);
+    font-size: 15px;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.nav-btn:hover {
+    background: var(--gold);
+    color: var(--navy-dark);
+}
+
+/* ---------- Cards and buttons ---------- */
+.card {
+    background: var(--white);
+    border-radius: 10px;
+    padding: 32px;
+    width: 100%;
+    max-width: 560px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.card.wide {
+    max-width: 1000px;
+}
+
+.card h1,
+.card h2 {
+    color: var(--navy);
+}
+
+.form-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.lead {
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 0 0 24px;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.btn-gold,
+.btn-link,
+button[type="submit"] {
+    display: inline-block;
+    background: var(--gold);
+    color: var(--navy-dark);
+    border: 1px solid var(--gold);
+    text-decoration: none;
+    font-family: var(--font);
+    font-size: 16px;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.btn-gold:hover,
+.btn-link:hover,
+button[type="submit"]:hover {
+    background: var(--gold-dark);
+}
+
+.btn-link {
+    margin-top: 12px;
+}
+
+/* ---------- Forms ---------- */
+input, textarea, select {
+    font-size: 16px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-sizing: border-box;
+    width: 100%;
+    font-family: var(--font);
+}
+
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--navy);
+}
+
+.stacked {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 400px;
+    padding: 24px;
+    background: var(--white);
+    border-radius: 8px;
+}
+
+.login-field,
+.form-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 480px;
+}
+
+.form-body {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.form-item {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.form-label {
+    margin-bottom: 6px;
+    font-weight: bold;
+    color: var(--ink);
+}
+
+.form-input {
+    width: 100%;
+    resize: vertical;
+}
+
+.password {
+    width: auto;
+    font-size: 14px;
+    padding: 6px 12px;
+    margin: 4px 0 8px;
+    background: var(--white);
+    border: 1px solid var(--line);
+}
+
+.stacked button[type="submit"],
+.stacked .btn-link {
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.error {
+    color: var(--red);
+    font-weight: bold;
+    font-size: 15px;
+    margin: 0;
+}
+
+.error-popup {
+    width: 100%;
+}
+
+.notice {
+    background: #e8f5e9;
+    color: var(--green);
+    border: 1px solid var(--green);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+}
+
+.empty {
+    color: var(--muted);
+    text-align: center;
+    padding: 24px 0;
+}
+
+/* ---------- Incident table ---------- */
+.incident-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-size: 15px;
+}
+
+.incident-table th,
+.incident-table td {
+    text-align: left;
+    padding: 12px 10px;
+    border-bottom: 1px solid var(--line);
+}
+
+.incident-table th {
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+}
+
+.incident-table tr:hover td {
+    background: #f9fafb;
+}
+
+/* ---------- Badges (priority, status, criticality) ---------- */
+.badge,
+.criticality-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--line);
+    color: var(--ink);
+    align-self: flex-start;
+    margin-top: 8px;
+}
+
+.badge.low,        .criticality-badge.low        { background: #e8f5e9; color: var(--green); }
+.badge.medium,     .criticality-badge.medium     { background: #fff8e1; color: var(--amber); }
+.badge.high,       .criticality-badge.high       { background: #ffebee; color: var(--red); }
+.badge.critical,   .criticality-badge.critical   { background: var(--red); color: var(--white); }
+.badge.open        { background: #e3f2fd; color: var(--navy); }
+.badge.in_progress { background: #fff8e1; color: var(--amber); }
+.badge.resolved    { background: #e8f5e9; color: var(--green); }
+.badge.closed      { background: var(--line); color: var(--muted); }
+
+/* ---------- Services page ---------- */
+.services-container {
+    width: 100%;
+    max-width: 1000px;
+}
+
+.services-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.team-section {
+    margin-bottom: 40px;
+}
+
+.team-title {
+    font-size: 1.3rem;
+    color: var(--gold);
+    border-bottom: 2px solid var(--gold);
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+}
+
+.services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.service-wrapper {
+    display: flex;
+    flex-direction: column;
+    padding: 18px;
+    border-radius: 8px;
+    background-color: var(--white);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.service-item {
+    margin: 0 0 8px;
+    color: var(--ink);
+}
+
+.service-title {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: var(--navy);
+}
+
+.no-services {
+    color: var(--gold);
+    text-align: center;
+    font-size: 1.1rem;
+}
+
+/* ---------- Row actions ---------- */
+.row-actions {
+    white-space: nowrap;
+}
+
+.row-actions form {
+    display: inline;
+}
+
+.row-actions .btn-small,
+.modal .btn-small {
+    display: inline-block;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--navy);
+    color: var(--navy);
+    background: var(--white);
+    text-decoration: none;
+    cursor: pointer;
+    margin-right: 6px;
+    width: auto;
+}
+
+.row-actions .btn-small:hover,
+.modal .btn-small:hover {
+    background: var(--navy);
+    color: var(--white);
+}
+
+.row-actions .btn-small.danger,
+.modal .btn-small.danger {
+    border-color: var(--red);
+    color: var(--red);
+}
+
+.row-actions .btn-small.danger:hover,
+.modal .btn-small.danger:hover {
+    background: var(--red);
+    color: var(--white);
+}
+
+/* ---------- Two fields side by side ---------- */
+.form-row {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+}
+
+.form-row .form-item {
+    flex: 1;
+}
+
+.muted {
+    color: var(--muted);
+    font-style: italic;
+}
+
+/* ---------- Confirm modal ---------- */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+}
+
+.modal-overlay[hidden] {
+    display: none;
+}
+
+.modal {
+    background: var(--white);
+    border-radius: 10px;
+    padding: 28px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.modal h2 {
+    color: var(--navy);
+    margin-bottom: 8px;
+}
+
+.modal .actions {
+    justify-content: flex-end;
+}
+
+.modal .btn-small {
+    font-size: 15px;
+    padding: 8px 18px;
+}
+
+/* ---------- Live password checklist ---------- */
+.pw-rules {
+    list-style: none;
+    margin: 2px 0 0;
+    padding: 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--muted);
+}
+
+.pw-rules .mark {
+    display: inline-block;
+    width: 16px;
+    font-weight: 700;
+    color: var(--red);
+}
+
+.pw-rules li.ok {
+    color: var(--green);
+}
+
+.pw-rules li.ok .mark {
+    color: var(--green);
+}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Topper Help Desk{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1 class="form-header">Topper Help Desk</h1>
+  <p class="lead">
+    One place to report anything broken on campus. Plumbing, lighting, heating
+    and cooling, Wi-Fi, printing, classroom technology, and more. File a ticket
+    and the right team takes it from there.
+  </p>
+  <div class="actions">
+    <a href="{% url 'services' %}" class="btn-gold">See our services</a>
+    {% if user.is_authenticated %}
+      <a href="{% url 'form' %}" class="btn-gold">Open a ticket</a>
+    {% else %}
+      <a href="{% url 'register' %}" class="btn-gold">Get started</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

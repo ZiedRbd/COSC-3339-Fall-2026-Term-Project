@@ -1,7 +1,12 @@
-from django.shortcuts import render, redirect
-from .forms import RegisterForm
-from .models import User
-from django.contrib.auth import authenticate, login
+from django.shortcuts import render, redirect, get_object_or_404
+from .forms import RegisterForm, IncidentForm, LoginForm
+from django.contrib.auth import authenticate, login, logout
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
+from django.db.models import Prefetch
+from .models import User, Incident, Service, Team
+
 
 
 # Each function shows one page
@@ -9,7 +14,11 @@ from django.contrib.auth import authenticate, login
 def home(request):
     return render(request, "home.html")
 
+def logout_view(request):
+    logout(request)
+    return redirect("home")
 
+@never_cache
 def login_page(request):
     """
     GET  - show the empty login form.
@@ -19,22 +28,45 @@ def login_page(request):
     """
     error = None
     if request.method == "POST":
-        user = authenticate(
-            request,
-            username=request.POST["email"],
-            password=request.POST["password"],
-        )
-        if user is not None:
-            login(request, user)
-            return redirect("incidents")
-        error = "Invalid email or password"
-    return render(request, "login.html", {"error": error})
+        form =LoginForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data.get("email").lower()
+            password = form.cleaned_data.get("password")
+            user = authenticate(
+                request,
+                username=email,
+                password=password
+            )
+            if user is not None:
+                login(request, user)
+                return redirect("incidents")
+
+        messages.error(request, "Invalid email or password")
+        return redirect("login")
+    else:
+        form = LoginForm()
+    return render(request, "login.html", {"form": form})
+
 
 
 def services(request):
-    return render(request, "services.html")
+    """
+    Services page prefetches active services and
+    links them to their owning team so that they can
+    be rendered in the frontend
+    """
 
+    services_prefetch = Prefetch(
+        'service_set',
+        queryset=Service.objects.filter(is_active=True),
+        to_attr='active_services'
+    )
 
+    teams = Team.objects.prefetch_related(services_prefetch).all()
+    
+    return render(request, "services.html", {"teams": teams})
+
+@never_cache
 def register(request):
     """
     Two situations land here.
@@ -60,5 +92,94 @@ def register(request):
     return render(request, "register.html", {"form": form})
 
 
+@login_required
+def landing(request):
+    """
+    Landing page after successful sign in
+    """
+    return render(request, "incidents/landing.html")
+
+@login_required
 def incident_list(request):
-    return render(request, "incidents/list.html")
+    """
+    Show every incident that has not been soft deleted.
+    Redirects to the login page if the user is not signed in.
+    """
+    incidents = Incident.objects.filter(is_deleted=False).select_related("service", "reported_by")
+    return render(request, "incidents/list.html", {"incidents": incidents})
+
+
+#ian
+@login_required
+def incident_form(request):
+    if request.method == "POST":
+        form = IncidentForm(request.POST)
+        if form.is_valid():
+            Incident.objects.create(
+                title=form.cleaned_data['title'],
+                description=form.cleaned_data['description'],
+                building=form.cleaned_data['building'],
+                room=form.cleaned_data['room'],
+                service=form.cleaned_data['service'],
+                reported_by=request.user,  # Injects the logged-in user
+                priority=form.cleaned_data.get('priority', 'medium'),
+                assigned_to=form.cleaned_data.get('assigned_to'),
+                assigned_team=form.cleaned_data.get('assigned_team'),
+            )
+            messages.success(request, "Ticket created")
+            return redirect('incidents')
+    else:
+        form = IncidentForm()
+                
+    return render(request, "incidents/form.html", {"form": form})
+
+@login_required
+def incident_edit(request, pk):
+    """
+    Load one incident by its id. GET shows the form filled with the
+    current values. POST saves the changes and returns to the list.
+    """
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if request.method == "POST":
+        form = IncidentForm(request.POST)
+        if form.is_valid():
+            incident.title = form.cleaned_data["title"]
+            incident.description = form.cleaned_data["description"]
+            incident.building = form.cleaned_data["building"]
+            incident.room = form.cleaned_data["room"]
+            incident.service = form.cleaned_data["service"]
+            incident.priority = form.cleaned_data["priority"]
+            incident.save()
+            messages.success(request, "Ticket updated")
+            return redirect("incidents")
+    else:
+        form = IncidentForm(initial={
+            "title": incident.title,
+            "description": incident.description,
+            "building": incident.building,
+            "room": incident.room,
+            "service": incident.service,
+            "priority": incident.priority,
+        })
+    return render(request, "incidents/form.html", {"form": form, "incident": incident})
+
+
+@login_required
+def incident_delete(request, pk):
+    """
+    Soft delete. The row stays in the database with is_deleted set
+    so it disappears from the list but nothing is lost.
+    Only runs on POST so a plain link cannot delete anything.
+    """
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if request.method == "POST":
+        incident.is_deleted = True
+        incident.save()
+        messages.success(request, "Ticket deleted")
+    return redirect("incidents")
+
+
+@login_required
+def user_page(request):
+    return render(request, "home.html")
+

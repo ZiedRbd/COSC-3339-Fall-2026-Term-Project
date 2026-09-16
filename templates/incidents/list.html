@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Incidents{% endblock %}
+{% load static %}
+{% block extra_js %}
+  <script src="{% static 'js/incidents.js' %}?v=2" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="card wide">
+  <h1 class="form-header">Active Incidents</h1>
+
+  {% if messages %}
+    {% for message in messages %}
+      <p class="notice">{{ message }}</p>
+    {% endfor %}
+  {% endif %}
+
+  <a href="{% url 'form' %}" class="btn-gold">New ticket</a>
+
+  {% if incidents %}
+    <table class="incident-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Location</th>
+          <th>Service</th>
+          <th>Priority</th>
+          <th>Status</th>
+          <th>Reported by</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for incident in incidents %}
+          <tr>
+            <td>{{ incident.title }}</td>
+            <td>{% if incident.building or incident.room %}{{ incident.building }}{% if incident.building and incident.room %}, {% endif %}{{ incident.room }}{% else %}<span class="muted">Not given</span>{% endif %}</td>
+            <td>{{ incident.service.name }}</td>
+            <td><span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></td>
+            <td><span class="badge {{ incident.status }}">{{ incident.status|title }}</span></td>
+            <td>{{ incident.reported_by.first_name }} {{ incident.reported_by.last_name }}</td>
+            <td>{{ incident.created_at|date:"M j, Y" }}</td>
+            <td class="row-actions">
+              <a href="{% url 'incident_edit' incident.pk %}" class="btn-small">Edit</a>
+              <form method="post" action="{% url 'incident_delete' incident.pk %}" class="delete-form">
+                {% csrf_token %}
+                <button type="button" class="btn-small danger" data-title="{{ incident.title }}">Delete</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">No active incidents.</p>
+  {% endif %}
+</div>
+
+<div id="confirm-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2>Delete this ticket?</h2>
+    <p id="confirm-title" class="lead"></p>
+    <div class="actions">
+      <button type="button" id="confirm-cancel" class="btn-small">Cancel</button>
+      <button type="button" id="confirm-delete" class="btn-small danger">Delete</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
