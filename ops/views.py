@@ -39,7 +39,7 @@ def login_page(request):
             )
             if user is not None:
                 login(request, user)
-                return redirect("landing")
+                return redirect("incidents")
 
         messages.error(request, "Invalid email or password")
         return redirect("login")
