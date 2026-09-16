@@ -73,6 +73,17 @@ class IncidentForm(forms.Form):
         empty_label="Select a service"
     )
 
+    # How urgent the reporter thinks it is
+    priority = forms.ChoiceField(
+        choices=[
+            ("low", "Low"),
+            ("medium", "Medium"),
+            ("high", "High"),
+            ("critical", "Critical"),
+        ],
+        initial="medium",
+    )
+
 
 
 
