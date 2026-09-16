@@ -56,6 +56,9 @@ class Service(models.Model):
 class Incident(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
+    # Where on campus the problem is. Both optional
+    building = models.CharField(max_length=100, blank=True)
+    room = models.CharField(max_length=50, blank=True)
     service = models.ForeignKey(Service, on_delete=models.PROTECT)
     reported_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="reported_incidents")
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="assigned_incidents")

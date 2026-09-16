@@ -50,6 +50,8 @@ erDiagram
         int id PK
         string title
         string description
+        string building "optional"
+        string room "optional"
         int service_id FK
         int reported_by_id FK
         int assigned_to_id FK "nullable"

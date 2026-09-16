@@ -370,7 +370,8 @@ input:focus, textarea:focus, select:focus {
     display: inline;
 }
 
-.row-actions .btn-small {
+.row-actions .btn-small,
+.modal .btn-small {
     display: inline-block;
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     font-size: 13px;
@@ -386,17 +387,74 @@ input:focus, textarea:focus, select:focus {
     width: auto;
 }
 
-.row-actions .btn-small:hover {
+.row-actions .btn-small:hover,
+.modal .btn-small:hover {
     background: var(--navy);
     color: var(--white);
 }
 
-.row-actions .btn-small.danger {
+.row-actions .btn-small.danger,
+.modal .btn-small.danger {
     border-color: var(--red);
     color: var(--red);
 }
 
-.row-actions .btn-small.danger:hover {
+.row-actions .btn-small.danger:hover,
+.modal .btn-small.danger:hover {
     background: var(--red);
     color: var(--white);
+}
+
+/* ---------- Two fields side by side ---------- */
+.form-row {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+}
+
+.form-row .form-item {
+    flex: 1;
+}
+
+.muted {
+    color: var(--muted);
+    font-style: italic;
+}
+
+/* ---------- Confirm modal ---------- */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+}
+
+.modal-overlay[hidden] {
+    display: none;
+}
+
+.modal {
+    background: var(--white);
+    border-radius: 10px;
+    padding: 28px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.modal h2 {
+    color: var(--navy);
+    margin-bottom: 8px;
+}
+
+.modal .actions {
+    justify-content: flex-end;
+}
+
+.modal .btn-small {
+    font-size: 15px;
+    padding: 8px 18px;
 }
