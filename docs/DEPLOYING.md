@@ -21,5 +21,3 @@ sudo systemctl status campusdesk --no-pager -l
 sudo journalctl -u campusdesk -n 50 --no-pager
 sudo nginx -t
 ```
-
-First-time setup and HTTPS are in [`deploy/DEPLOY.md`](../deploy/DEPLOY.md).
