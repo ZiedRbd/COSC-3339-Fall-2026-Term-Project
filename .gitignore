@@ -22,3 +22,6 @@ staticfiles/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Server setup notes, kept local
+deploy/DEPLOY.md
