@@ -40,6 +40,7 @@
         <button type="button" id="togglePasswordBtn" onclick="togglePasswordVisibility()" class="password">Show</button>
         {% if form.password2.errors %}<div class="error">{{ form.password2.errors}}</div>{% endif %}
       </div>
+      <p class="hint">Password must be at least 8 characters with an uppercase letter, a lowercase letter, a number, and a symbol.</p>
       <button>Register</button>
     </form>
 
