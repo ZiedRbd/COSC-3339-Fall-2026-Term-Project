@@ -27,6 +27,12 @@
         {{ form.service }}
         {% if form.service.errors %}<div class="error">{{ form.service.errors }}</div>{% endif %}
       </div>
+
+      <div class="form-item">
+        <label for="{{ form.priority.id_for_label }}" class="form-label">Priority</label>
+        {{ form.priority }}
+        {% if form.priority.errors %}<div class="error">{{ form.priority.errors }}</div>{% endif %}
+      </div>
       
       <button type="submit">{% if incident %}Save Changes{% else %}Submit Incident{% endif %}</button>
     </form>
