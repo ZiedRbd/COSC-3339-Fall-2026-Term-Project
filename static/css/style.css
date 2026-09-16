@@ -400,3 +400,19 @@ input:focus, textarea:focus, select:focus {
     background: var(--red);
     color: var(--white);
 }
+
+/* ---------- Two fields side by side ---------- */
+.form-row {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+}
+
+.form-row .form-item {
+    flex: 1;
+}
+
+.muted {
+    color: var(--muted);
+    font-style: italic;
+}

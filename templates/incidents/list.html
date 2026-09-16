@@ -18,6 +18,7 @@
       <thead>
         <tr>
           <th>Title</th>
+          <th>Location</th>
           <th>Service</th>
           <th>Priority</th>
           <th>Status</th>
@@ -30,6 +31,7 @@
         {% for incident in incidents %}
           <tr>
             <td>{{ incident.title }}</td>
+            <td>{% if incident.building or incident.room %}{{ incident.building }}{% if incident.building and incident.room %}, {% endif %}{{ incident.room }}{% else %}<span class="muted">Not given</span>{% endif %}</td>
             <td>{{ incident.service.name }}</td>
             <td><span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></td>
             <td><span class="badge {{ incident.status }}">{{ incident.status|title }}</span></td>
