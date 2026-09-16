@@ -1,18 +1,36 @@
-<style>
-  body { font-size: 24px; }
-  input, button { font-size: 24px; margin: 6px 0; padding: 8px; }
-  .error { color: red; font-weight: bold; }
-</style>
+{%extends "base.html"%}
+{%block title%}Login{%endblock%}
+{% load static %}
+{% block extra_js %}
+  <script src="{% static 'js/password.js' %}?v=2" defer></script>
+{% endblock %}
 
-<h1>Log in</h1>
 
-{% if error %}<p class="error">{{ error }}</p>{% endif %}
 
-<form method="post">
-  {% csrf_token %}
-  <input name="email" required placeholder="Email"><br>
-  <input name="password" type="password" required placeholder="Password"><br>
-  <button>Log in</button>
-</form>
+{%block content%}
 
-<a href="{% url 'register' %}">Need an account? Register</a>
+
+<div class="login-field">
+  <h1 class="form-header">Login</h1>
+  <div class="stacked">
+    {% if messages %}
+        <div class="error-popup">
+            {% for message in messages %}
+                <p class="error">{{ message }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+    <form method="post">
+      {% csrf_token %}
+      {{ form.email }}
+      <div>
+        {{ form.password }}
+        <button type="button" id="togglePasswordBtn" onclick="togglePasswordVisibility()" class="password">Show</button>
+      </div>
+      <button type="submit">Log in</button>
+    </form>
+
+    <a href="{% url 'register' %}" class="btn-link">Need an account? Register</a>
+  </div>
+</div>
+{%endblock%}

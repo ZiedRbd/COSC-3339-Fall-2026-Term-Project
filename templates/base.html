@@ -1,0 +1,39 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}CampusDesk{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=3">
+    {% block extra_js %}{% endblock %}
+</head>
+<body class="base-body">
+    <nav class="navbar">
+        <div class="nav-links">
+            <a href="{% url 'home' %}" class="nav-btn">Home</a>
+            <a href="{% url 'services' %}" class="nav-btn">Services</a>
+            <a href="{% url 'landing' %}" class="nav-btn">Incidents</a>
+
+        </div>
+        <div class="nav-user-section">
+        {% if user.is_authenticated %}
+
+            <span class="info">Logged in as: <strong>{{ user.username }}</strong></span>
+            <form action="{% url 'logout' %}" method="POST" class="logout-form">
+                {% csrf_token %}
+                <button type="submit" class="nav-btn logout-btn">Log out</button>
+            </form>
+            {%elif not user.is_authenticated and request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'register'%}
+                <a href="{% url 'login' %}" class="nav-btn">Log in</a>
+                <a href="{% url 'register' %}" class="nav-btn">Register</a>
+        {% endif %}
+        </div>
+    </nav>
+
+    <main class="page">
+    {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
+
+

@@ -1,25 +1,56 @@
-<style>
-  body { font-size: 24px; }
-  input, button { font-size: 24px; margin: 6px 0; padding: 8px; }
-  .error { color: red; font-weight: bold; }
-</style>
+{% extends "base.html"%}
+{% load static %}
+{%block title%}Registration form{%endblock%}
+{% block extra_js %}
+  <script src="{% static 'js/password.js' %}?v=3" defer></script>
+{% endblock %}
+{%block content%}
+<div>
 
-<h1>Register</h1>
+  <div class="form-layout">
 
-{% for field in form %}
-  {% for msg in field.errors %}
-    <p class="error">{{ field.label }}: {{ msg }}</p>
-  {% endfor %}
-{% endfor %}
+    <h1 class="form-header">Registration</h1>
 
-<form method="post">
-  {% csrf_token %}
-  <input name="first_name" required placeholder="First name" value="{{ form.first_name.value|default:'' }}"><br>
-  <input name="last_name" required placeholder="Last name" value="{{ form.last_name.value|default:'' }}"><br>
-  <input name="email" required placeholder="Email" value="{{ form.email.value|default:'' }}"><br>
-  <input name="password" type="password" required placeholder="Password"><br>
-  <input name="password2" type="password" required placeholder="Confirm password"><br>
-  <button>Register</button>
-</form>
+    <form method="POST" class="stacked">
+      {% csrf_token %}
+      <div class="form-item">
+        <label for="{{ form.first_name.id_for_label}}" class="form-label"></label>
+        {{ form.first_name }}
+        {% if form.name.errors %}<div class="error">{{ form.name.errors}}</div>{% endif %}
+      </div>
+      <div class="form-item">
+        <label for="{{ form.last_name.id_for_label}}" class="form-label"></label>
+        {{ form.last_name}}
+        {% if form.last_name.errors %}<div class="error">{{ form.last_name.errors}}</div>{% endif %}
+      </div>
+      <div class="form-item">
+        <label for="{{ form.email.id_for_label}}" class="form-label"></label>
+        {{ form.email}}
+        {% if form.email.errors %}<div class="error">{{ form.email.errors}}</div>{% endif %}
+      </div>
+      <div class="form-item">
+        <label for="{{ form.password.id_for_label}}" class="form-label"></label>
+        {{ form.password }}
+        {% if form.password.errors %}<div class="error">{{ form.password.errors}}</div>{% endif %}
+      </div>
+      <div class="form-item">
+        <label for="{{ form.password2.id_for_label}}" class="form-label"></label>
+        {{ form.password2}}
+        <button type="button" id="togglePasswordBtn" onclick="togglePasswordVisibility()" class="password">Show</button>
+        {% if form.password2.errors %}<div class="error">{{ form.password2.errors}}</div>{% endif %}
+        <ul class="pw-rules">
+          <li data-rule="length"><span class="mark">✗</span>At least 8 characters</li>
+          <li data-rule="upper"><span class="mark">✗</span>An uppercase letter</li>
+          <li data-rule="lower"><span class="mark">✗</span>A lowercase letter</li>
+          <li data-rule="digit"><span class="mark">✗</span>A number</li>
+          <li data-rule="symbol"><span class="mark">✗</span>A symbol</li>
+          <li data-rule="match"><span class="mark">✗</span>Passwords match</li>
+        </ul>
+      </div>
+      <button type="submit">Register</button>
+    </form>
 
-<a href="{% url 'login' %}">Already have an account? Log in</a>
+
+  <a href="{% url 'login' %}" class = "btn-link">Already have an account? Log in</a>
+
+{%endblock%}
