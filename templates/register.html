@@ -31,13 +31,6 @@
       <div class="form-item">
         <label for="{{ form.password.id_for_label}}" class="form-label"></label>
         {{ form.password }}
-        <ul class="pw-rules">
-          <li data-rule="length">At least 8 characters</li>
-          <li data-rule="upper">An uppercase letter</li>
-          <li data-rule="lower">A lowercase letter</li>
-          <li data-rule="digit">A number</li>
-          <li data-rule="symbol">A symbol</li>
-        </ul>
         {% if form.password.errors %}<div class="error">{{ form.password.errors}}</div>{% endif %}
       </div>
       <div class="form-item">
@@ -45,8 +38,15 @@
         {{ form.password2}}
         <button type="button" id="togglePasswordBtn" onclick="togglePasswordVisibility()" class="password">Show</button>
         {% if form.password2.errors %}<div class="error">{{ form.password2.errors}}</div>{% endif %}
+        <ul class="pw-rules">
+          <li data-rule="length"><span class="mark">✗</span>At least 8 characters</li>
+          <li data-rule="upper"><span class="mark">✗</span>An uppercase letter</li>
+          <li data-rule="lower"><span class="mark">✗</span>A lowercase letter</li>
+          <li data-rule="digit"><span class="mark">✗</span>A number</li>
+          <li data-rule="symbol"><span class="mark">✗</span>A symbol</li>
+        </ul>
       </div>
-      <button>Register</button>
+      <button type="submit">Register</button>
     </form>
 
 
