@@ -23,6 +23,7 @@
           <th>Status</th>
           <th>Reported by</th>
           <th>Created</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -34,6 +35,14 @@
             <td><span class="badge {{ incident.status }}">{{ incident.status|title }}</span></td>
             <td>{{ incident.reported_by.first_name }} {{ incident.reported_by.last_name }}</td>
             <td>{{ incident.created_at|date:"M j, Y" }}</td>
+            <td class="row-actions">
+              <a href="{% url 'incident_edit' incident.pk %}" class="btn-small">Edit</a>
+              <form method="post" action="{% url 'incident_delete' incident.pk %}"
+                    onsubmit="return confirm('Delete this ticket?');">
+                {% csrf_token %}
+                <button type="submit" class="btn-small danger">Delete</button>
+              </form>
+            </td>
           </tr>
         {% endfor %}
       </tbody>
