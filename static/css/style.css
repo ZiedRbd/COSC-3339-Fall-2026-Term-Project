@@ -244,6 +244,7 @@ input:focus, textarea:focus, select:focus {
     width: 100%;
 }
 
+.success,
 .notice {
     background: #e8f5e9;
     color: var(--green);

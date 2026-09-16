@@ -16,7 +16,7 @@
     {% if messages %}
         <div class="error-popup">
             {% for message in messages %}
-                <p class="error">{{ message }}</p>
+                <p class="{{ message.tags }}">{{ message }}</p>
             {% endfor %}
         </div>
     {% endif %}
