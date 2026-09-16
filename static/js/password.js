@@ -22,7 +22,7 @@ function togglePasswordVisibility() {
 // Live password checklist on the registration page.
 // Same five rules as clean_password in forms.py. Server still validates.
 document.addEventListener("DOMContentLoaded", () => {
-    const input = document.getElementById("id_password");
+    const input = document.getElementById("id_password1") || document.getElementById("id_password");
     const list = document.querySelector(".pw-rules");
     if (!input || !list) return;
 
