@@ -29,6 +29,18 @@ nginx -t && systemctl restart nginx
 ufw allow 'Nginx Full'
 ```
 
+## HTTPS
+
+Point a domain at the droplet (DuckDNS works), add it to `ALLOWED_HOSTS` in `.env`, then:
+
+```bash
+apt install -y certbot python3-certbot-nginx
+certbot --nginx -d campusdesk.duckdns.org
+systemctl restart campusdesk
+```
+
+Certbot rewrites the nginx config for port 443 and renews the certificate automatically.
+
 ## Every update
 
 ```bash
