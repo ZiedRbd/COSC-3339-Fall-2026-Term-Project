@@ -100,3 +100,9 @@ gitGraph
 - No direct commits to `main`. Documentation-only changes (`docs/`, `README.md`) are the one exception.
 - Commit frequently with descriptive messages.
 - Pull `dev` before starting a new feature branch.
+
+## Deployment
+
+Live site: https://campusdesk.duckdns.org
+
+The server runs the `main` branch. Steps for pulling a new release onto the server are in [`docs/DEPLOYING.md`](docs/DEPLOYING.md).

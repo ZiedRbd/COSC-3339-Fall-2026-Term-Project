@@ -43,10 +43,4 @@ Certbot rewrites the nginx config for port 443 and renews the certificate automa
 
 ## Every update
 
-```bash
-cd /srv/campusdesk && git pull
-venv/bin/pip install -r requirements.txt
-venv/bin/python manage.py migrate
-venv/bin/python manage.py collectstatic --noinput
-systemctl restart campusdesk
-```
+See [`docs/DEPLOYING.md`](../docs/DEPLOYING.md).
