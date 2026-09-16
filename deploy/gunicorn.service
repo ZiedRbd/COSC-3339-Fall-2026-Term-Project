@@ -3,11 +3,12 @@ Description=CampusDesk gunicorn
 After=network.target
 
 [Service]
+RuntimeDirectory=campusdesk
 User=www-data
 Group=www-data
 WorkingDirectory=/srv/campusdesk
 EnvironmentFile=/srv/campusdesk/.env
-ExecStart=/srv/campusdesk/venv/bin/gunicorn --workers 3 --bind unix:/run/campusdesk.sock campusdesk.wsgi:application
+ExecStart=/srv/campusdesk/venv/bin/gunicorn --workers 3 --bind unix:/run/campusdesk/gunicorn.sock campusdesk.wsgi:application
 Restart=always
 
 [Install]
