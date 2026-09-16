@@ -370,7 +370,7 @@ input:focus, textarea:focus, select:focus {
     display: inline;
 }
 
-.btn-small {
+.row-actions .btn-small {
     display: inline-block;
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     font-size: 13px;
@@ -386,17 +386,17 @@ input:focus, textarea:focus, select:focus {
     width: auto;
 }
 
-.btn-small:hover {
+.row-actions .btn-small:hover {
     background: var(--navy);
     color: var(--white);
 }
 
-.btn-small.danger {
+.row-actions .btn-small.danger {
     border-color: var(--red);
     color: var(--red);
 }
 
-.btn-small.danger:hover {
+.row-actions .btn-small.danger:hover {
     background: var(--red);
     color: var(--white);
 }
