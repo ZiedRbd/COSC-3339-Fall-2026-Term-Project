@@ -6,7 +6,7 @@
 <div class="form-body">
 
   <div class="form-layout">
-    <h1 class="form-header">Ticket Request Form</h1>
+    <h1 class="form-header">{% if incident %}Edit Ticket{% else %}Ticket Request Form{% endif %}</h1>
     <form method="POST" class="stacked">
       {% csrf_token %}
 
@@ -22,13 +22,30 @@
         {% if form.description.errors %}<div class="error">{{ form.description.errors }}</div>{% endif %}
       </div>
 
+      <div class="form-row">
+        <div class="form-item">
+          <label for="{{ form.building.id_for_label }}" class="form-label">Building</label>
+          {{ form.building }}
+        </div>
+        <div class="form-item">
+          <label for="{{ form.room.id_for_label }}" class="form-label">Room</label>
+          {{ form.room }}
+        </div>
+      </div>
+
       <div class="form-item">
         <label for="{{ form.service.id_for_label }}" class="form-label">Service</label>
         {{ form.service }}
         {% if form.service.errors %}<div class="error">{{ form.service.errors }}</div>{% endif %}
       </div>
+
+      <div class="form-item">
+        <label for="{{ form.priority.id_for_label }}" class="form-label">Priority</label>
+        {{ form.priority }}
+        {% if form.priority.errors %}<div class="error">{{ form.priority.errors }}</div>{% endif %}
+      </div>
       
-      <button type="submit">Submit Incident</button>
+      <button type="submit">{% if incident %}Save Changes{% else %}Submit Incident{% endif %}</button>
     </form>
   </div>
 </div>

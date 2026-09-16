@@ -11,5 +11,7 @@ urlpatterns = [
     path("incidents/list", views.incident_list, name="incidents"),
     path("incidents/form", views.incident_form, name="form"),
     path("incidents/landing", views.landing, name="landing"),
+    path("incidents/<int:pk>/edit/", views.incident_edit, name="incident_edit"),
+    path("incidents/<int:pk>/delete/", views.incident_delete, name="incident_delete"),
     path("logout/", views.logout_view, name='logout'),
 ]
