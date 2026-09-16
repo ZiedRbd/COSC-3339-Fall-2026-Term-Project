@@ -218,9 +218,16 @@ input:focus, textarea:focus, select:focus {
     width: auto;
     font-size: 14px;
     padding: 6px 12px;
-    margin-top: 6px;
+    margin: 6px 0 16px;
     background: var(--white);
     border: 1px solid var(--line);
+}
+
+.stacked button[type="submit"],
+.stacked .btn-link {
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
 }
 
 .error {
