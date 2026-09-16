@@ -144,6 +144,7 @@ def incident_edit(request, pk):
             incident.title = form.cleaned_data["title"]
             incident.description = form.cleaned_data["description"]
             incident.service = form.cleaned_data["service"]
+            incident.priority = form.cleaned_data["priority"]
             incident.save()
             messages.success(request, "Ticket updated")
             return redirect("incidents")
@@ -152,6 +153,7 @@ def incident_edit(request, pk):
             "title": incident.title,
             "description": incident.description,
             "service": incident.service,
+            "priority": incident.priority,
         })
     return render(request, "incidents/form.html", {"form": form, "incident": incident})
 
