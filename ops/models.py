@@ -2,8 +2,9 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 
-# Anyone who can log in
-# AbstractUser already gives us email password first_name last_name and is_active
+# Anyone who can sign in. AbstractUser supplies username, password,
+# first_name, last_name, and is_active. The email is also stored as the
+# username so it acts as the login field.
 class User(AbstractUser):
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, default="user")
@@ -13,7 +14,7 @@ class User(AbstractUser):
         return self.email
 
 
-# An IT group such as Networking or Hardware
+# A group that handles tickets, such as Plumbing or IT Support
 class Team(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
@@ -23,22 +24,24 @@ class Team(models.Model):
         return self.name
 
 
-# Links users to teams
-# One user can be on many teams and one team can have many users
+# Join table between users and teams. A user can be on many teams and a
+# team can have many users.
 class TeamMember(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     team = models.ForeignKey(Team, on_delete=models.CASCADE)
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        # The same user cannot be added to the same team twice
         unique_together = ["user", "team"]
 
     def __str__(self):
         return f"{self.user} in {self.team}"
 
 
-# Something IT supports such as Wifi or Printing
-# Each service is owned by one team
+# Something the campus supports, such as Wi-Fi or restroom plumbing.
+# Each service is owned by one team. Criticality is reserved for
+# escalation rules in later sprints.
 class Service(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -51,12 +54,12 @@ class Service(models.Model):
         return self.name
 
 
-# A ticket filed by a user about a service
-# assigned_to assigned_team escalation and sla fields stay empty until later sprints
+# A ticket filed by a user about a service. The assignment, escalation,
+# and SLA fields exist for later sprints and stay empty in Sprint 1.
 class Incident(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
-    # Where on campus the problem is. Both optional
+    # Where on campus the problem is. Both optional.
     building = models.CharField(max_length=100, blank=True)
     room = models.CharField(max_length=50, blank=True)
     service = models.ForeignKey(Service, on_delete=models.PROTECT)
@@ -69,6 +72,7 @@ class Incident(models.Model):
     escalated_at = models.DateTimeField(null=True, blank=True)
     sla_due_at = models.DateTimeField(null=True, blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
+    # Soft delete flag. Deleted tickets are hidden, never removed.
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -77,8 +81,7 @@ class Incident(models.Model):
         return self.title
 
 
-# A note or report written on a ticket
-# Not used in sprint one
+# A note or progress report written on a ticket. Not used in Sprint 1.
 class IncidentUpdate(models.Model):
     incident = models.ForeignKey(Incident, on_delete=models.CASCADE)
     author = models.ForeignKey(User, on_delete=models.PROTECT)

@@ -1,20 +1,32 @@
-from django import forms 
-from .models import User, Service
+from django import forms
 
-# What a new user must fill in to register
+from .models import Service, User
+
+
 class RegisterForm(forms.Form):
-    first_name = forms.CharField(max_length=50,
-                                 widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'First name'})
-                                 )
-    last_name = forms.CharField(max_length=50,
-                                 widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Last name'})
-                                 )
-    email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-input', 'placeholder': 'Email'}))
-    password = forms.CharField(min_length=8,
-                               widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password1', 'placeholder': 'Password'}))
-    password2 = forms.CharField(min_length=8,
-                                widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password2', 'placeholder': 'Confirm Password'}))
-    
+    """Fields and rules for creating an account."""
+    first_name = forms.CharField(
+        max_length=50,
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'First name'})
+    )
+    last_name = forms.CharField(
+        max_length=50,
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Last name'})
+    )
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={'class': 'form-input', 'placeholder': 'Email'})
+    )
+    password = forms.CharField(
+        min_length=8,
+        widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password1', 'placeholder': 'Password'})
+    )
+    password2 = forms.CharField(
+        min_length=8,
+        widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password2', 'placeholder': 'Confirm Password'})
+    )
+
+    # Django calls clean_<field> automatically while validating that field.
+    # All failing rules are reported together rather than one at a time.
     def clean_password(self):
         pw_errors = []
         pw = self.cleaned_data.get("password", "")
@@ -33,7 +45,8 @@ class RegisterForm(forms.Form):
 
         return pw
 
-    # Runs after all fields pass. Checks the two passwords match.
+    # Runs after every field has been cleaned. Compares the two passwords
+    # only if both survived their own validation.
     def clean(self):
         data = super().clean()
         pw, pw2 = data.get("password"), data.get("password2")
@@ -41,30 +54,33 @@ class RegisterForm(forms.Form):
             self.add_error("password2", "Passwords do not match")
         return data
 
-    # Rejects an email that is already registered
+    # Emails are stored lowercase so the same address cannot register twice
+    # with different capitalization.
     def clean_email(self):
         email = self.cleaned_data["email"].lower()
         if User.objects.filter(email=email).exists():
             raise forms.ValidationError("This email is already registered")
         return email
 
+
 class LoginForm(forms.Form):
-    email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-input', 'placeholder': 'Email'}))
+    """Email and password for signing in. Credentials are checked in the view."""
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={'class': 'form-input', 'placeholder': 'Email'})
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password', 'placeholder': 'Password'})
+    )
 
-    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password', 'placeholder': 'Password'}))
 
-
-    
-    
-    
-#ian
 class IncidentForm(forms.Form):
+    """Fields for creating or editing a ticket. Used by both views."""
     title = forms.CharField(
-        max_length=200, # Matched to Incident model's max_length=200
-        widget=forms.TextInput(attrs={'class': 'form-input', ' placeholder': 'Brief title'})
+        max_length=200,
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Brief title'})
     )
     description = forms.CharField(
-        widget=forms.Textarea(attrs={'class': 'form-input text-field', 'rows': 4}) # Renders a text box instead of a single-line input
+        widget=forms.Textarea(attrs={'class': 'form-input text-field', 'rows': 4})
     )
 
     # Optional location details
@@ -79,7 +95,7 @@ class IncidentForm(forms.Form):
         widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Room (optional)'})
     )
 
-    # Pulls all services available in database for selection
+    # Dropdown of every service in the database
     service = forms.ModelChoiceField(
         queryset=Service.objects.all(),
         empty_label="Select a service"
@@ -95,7 +111,3 @@ class IncidentForm(forms.Form):
         ],
         initial="medium",
     )
-
-
-
-

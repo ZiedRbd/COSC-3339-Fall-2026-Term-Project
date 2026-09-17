@@ -1,3 +1,4 @@
+// Show/hide toggle for the password fields. Called from the Show button.
 function togglePasswordVisibility() {
     const pass1 = document.getElementById("id_password1") || document.getElementById("id_password");
     const pass2 = document.getElementById("id_password2");
