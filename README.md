@@ -20,7 +20,7 @@ python manage.py seed
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000. The `seed` command loads three teams, six services, five users, and ten incidents. Sign in with `demo@campusdesk.edu` / `Demo!Pass1`.
+Open http://127.0.0.1:8000. The `seed` command loads three teams, six services, five users, and ten incidents.
 
 Local development uses SQLite. No `.env` file is needed; production settings are read from environment variables only when they are present.
 
