@@ -1,80 +1,68 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from .forms import RegisterForm, IncidentForm, LoginForm
-from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.cache import never_cache
 from django.db.models import Prefetch
-from .models import User, Incident, Service, Team
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.cache import never_cache
+
+from .forms import IncidentForm, LoginForm, RegisterForm
+from .models import Incident, Service, Team, User
 
 
-
-# Each function shows one page
-# The template file is created by whoever owns that page
 def home(request):
+    """Public landing page."""
     return render(request, "home.html")
 
+
 def logout_view(request):
+    """End the session and return to the home page."""
     logout(request)
     return redirect("home")
+
 
 @never_cache
 def login_page(request):
     """
-    GET  - show the empty login form.
-    POST - look up the user by email and password. If found log them
-           in and send them to the incident list. If not show the page
-           again with an error.
+    GET shows the login form. POST checks the email and password;
+    on success the user is signed in and sent to the incident list,
+    otherwise they return to the form with an error message.
     """
-    error = None
     if request.method == "POST":
-        form =LoginForm(request.POST)
+        form = LoginForm(request.POST)
         if form.is_valid():
             email = form.cleaned_data.get("email").lower()
             password = form.cleaned_data.get("password")
-            user = authenticate(
-                request,
-                username=email,
-                password=password
-            )
+            user = authenticate(request, username=email, password=password)
             if user is not None:
                 login(request, user)
                 return redirect("incidents")
-
         messages.error(request, "Invalid email or password")
         return redirect("login")
-    else:
-        form = LoginForm()
+    form = LoginForm()
     return render(request, "login.html", {"form": form})
-
 
 
 def services(request):
     """
-    Services page prefetches active services and
-    links them to their owning team so that they can
-    be rendered in the frontend
+    List every team with its active services. The services are
+    prefetched and attached to each team as `active_services` so the
+    template can loop them without extra queries.
     """
-
-    services_prefetch = Prefetch(
-        'service_set',
+    active_services = Prefetch(
+        "service_set",
         queryset=Service.objects.filter(is_active=True),
-        to_attr='active_services'
+        to_attr="active_services",
     )
-
-    teams = Team.objects.prefetch_related(services_prefetch).all()
-    
+    teams = Team.objects.prefetch_related(active_services)
     return render(request, "services.html", {"teams": teams})
+
 
 @never_cache
 def register(request):
     """
-    Two situations land here.
-
-    GET  - user just opened the page. Show an empty form.
-    POST - user hit submit. Check the form. If it passes create the
-           user with a hashed password and send them to login. If it
-           fails show the page again with the errors filled in.
+    GET shows the registration form. POST validates it; on success the
+    user is created with a hashed password and sent to the login page,
+    otherwise the form is shown again with its errors.
     """
     if request.method == "POST":
         form = RegisterForm(request.POST)
@@ -95,51 +83,52 @@ def register(request):
 
 @login_required
 def landing(request):
-    """
-    Landing page after successful sign in
-    """
+    """Dashboard shown after sign in with links to file or view tickets."""
     return render(request, "incidents/landing.html")
+
 
 @login_required
 def incident_list(request):
-    """
-    Show every incident that has not been soft deleted.
-    Redirects to the login page if the user is not signed in.
-    """
-    incidents = Incident.objects.filter(is_deleted=False).select_related("service", "reported_by").order_by("-created_at")
-
+    """Active incidents, newest first. Soft-deleted tickets are excluded."""
+    incidents = (
+        Incident.objects.filter(is_deleted=False)
+        .select_related("service", "reported_by")
+        .order_by("-created_at")
+    )
     return render(request, "incidents/list.html", {"incidents": incidents})
 
 
-#ian
 @login_required
 def incident_form(request):
+    """
+    GET shows an empty ticket form. POST validates it and creates the
+    incident, recording the signed-in user as the reporter.
+    """
     if request.method == "POST":
         form = IncidentForm(request.POST)
         if form.is_valid():
             Incident.objects.create(
-                title=form.cleaned_data['title'],
-                description=form.cleaned_data['description'],
-                building=form.cleaned_data['building'],
-                room=form.cleaned_data['room'],
-                service=form.cleaned_data['service'],
-                reported_by=request.user,  # Injects the logged-in user
-                priority=form.cleaned_data.get('priority', 'medium'),
-                assigned_to=form.cleaned_data.get('assigned_to'),
-                assigned_team=form.cleaned_data.get('assigned_team'),
+                title=form.cleaned_data["title"],
+                description=form.cleaned_data["description"],
+                building=form.cleaned_data["building"],
+                room=form.cleaned_data["room"],
+                service=form.cleaned_data["service"],
+                priority=form.cleaned_data["priority"],
+                reported_by=request.user,
             )
             messages.success(request, "Ticket created")
-            return redirect('incidents')
+            return redirect("incidents")
     else:
         form = IncidentForm()
-                
     return render(request, "incidents/form.html", {"form": form})
+
 
 @login_required
 def incident_edit(request, pk):
     """
-    Load one incident by its id. GET shows the form filled with the
-    current values. POST saves the changes and returns to the list.
+    GET shows the form pre-filled with the incident's current values.
+    POST saves the changes and returns to the list. Returns 404 for an
+    unknown or deleted incident.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
     if request.method == "POST":
@@ -169,9 +158,9 @@ def incident_edit(request, pk):
 @login_required
 def incident_delete(request, pk):
     """
-    Soft delete. The row stays in the database with is_deleted set
-    so it disappears from the list but nothing is lost.
-    Only runs on POST so a plain link cannot delete anything.
+    Soft delete: sets is_deleted so the ticket leaves the list but the
+    row and its history are kept. Only acts on POST so a plain link
+    cannot delete anything.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
     if request.method == "POST":
@@ -179,9 +168,3 @@ def incident_delete(request, pk):
         incident.save()
         messages.success(request, "Ticket deleted")
     return redirect("incidents")
-
-
-@login_required
-def user_page(request):
-    return render(request, "home.html")
-
