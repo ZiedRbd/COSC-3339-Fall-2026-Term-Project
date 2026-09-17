@@ -32,6 +32,7 @@ def login_page(request):
         if form.is_valid():
             email = form.cleaned_data.get("email").lower()
             password = form.cleaned_data.get("password")
+            # Returns the matching user, or None if the credentials are wrong
             user = authenticate(request, username=email, password=password)
             if user is not None:
                 login(request, user)
@@ -67,6 +68,7 @@ def register(request):
     if request.method == "POST":
         form = RegisterForm(request.POST)
         if form.is_valid():
+            # create_user hashes the password before saving
             User.objects.create_user(
                 username=form.cleaned_data["email"],
                 email=form.cleaned_data["email"],
@@ -107,6 +109,7 @@ def incident_form(request):
     if request.method == "POST":
         form = IncidentForm(request.POST)
         if form.is_valid():
+            # reported_by comes from the session, not the form
             Incident.objects.create(
                 title=form.cleaned_data["title"],
                 description=form.cleaned_data["description"],
@@ -144,6 +147,7 @@ def incident_edit(request, pk):
             messages.success(request, "Ticket updated")
             return redirect("incidents")
     else:
+        # Pre-fill the form with the current values
         form = IncidentForm(initial={
             "title": incident.title,
             "description": incident.description,
@@ -158,9 +162,8 @@ def incident_edit(request, pk):
 @login_required
 def incident_delete(request, pk):
     """
-    Soft delete: sets is_deleted so the ticket leaves the list but the
-    row and its history are kept. Only acts on POST so a plain link
-    cannot delete anything.
+    Soft delete. Sets is_deleted so the ticket leaves the list while the
+    row and its history are kept. Only responds to POST.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
     if request.method == "POST":
