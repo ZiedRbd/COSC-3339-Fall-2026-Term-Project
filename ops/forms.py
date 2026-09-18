@@ -6,10 +6,12 @@ from .models import Service, User
 class RegisterForm(forms.Form):
     """Fields and rules for creating an account."""
     first_name = forms.CharField(
+        min_length=2,
         max_length=50,
         widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'First name'})
     )
     last_name = forms.CharField(
+        min_length=2,
         max_length=50,
         widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Last name'})
     )
