@@ -15,7 +15,7 @@ erDiagram
     USER {
         int id PK
         string email UK
-        string password_hash
+        string password "hashed"
         string first_name
         string last_name
         string role
