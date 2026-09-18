@@ -110,7 +110,7 @@ def incident_form(request):
         form = IncidentForm(request.POST)
         if form.is_valid():
             # reported_by comes from the session, not the form
-            Incident.objects.create(
+            incident = Incident.objects.create(
                 title=form.cleaned_data["title"],
                 description=form.cleaned_data["description"],
                 building=form.cleaned_data["building"],
@@ -119,7 +119,7 @@ def incident_form(request):
                 priority=form.cleaned_data["priority"],
                 reported_by=request.user,
             )
-            messages.success(request, "Ticket created")
+            messages.success(request, f"Ticket #{incident.pk} created")
             return redirect("incidents")
     else:
         form = IncidentForm()
@@ -144,7 +144,7 @@ def incident_edit(request, pk):
             incident.service = form.cleaned_data["service"]
             incident.priority = form.cleaned_data["priority"]
             incident.save()
-            messages.success(request, "Ticket updated")
+            messages.success(request, f"Ticket #{incident.pk} updated")
             return redirect("incidents")
     else:
         # Pre-fill the form with the current values
@@ -169,5 +169,5 @@ def incident_delete(request, pk):
     if request.method == "POST":
         incident.is_deleted = True
         incident.save()
-        messages.success(request, "Ticket deleted")
+        messages.success(request, f"Ticket #{incident.pk} deleted")
     return redirect("incidents")
