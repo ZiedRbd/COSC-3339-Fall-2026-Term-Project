@@ -1,37 +1,254 @@
 from django.test import TestCase
-from .models import User
+
+from .models import Incident, Service, Team, User
 
 
 # Run with: python manage.py test ops
 # Each test gets a fresh empty database. self.client acts as a browser.
-class EmailCaseTests(TestCase):
-    """Emails must work the same no matter how they are capitalized."""
 
-    # Helper that submits the registration form with a given email
-    # so each test does not repeat the same five fields
-    def register(self, email):
-        return self.client.post("/register/", {
-            "first_name": "Test",
-            "last_name": "User",
-            "email": email,
-            "password": "Good!Pass1",
-            "password2": "Good!Pass1",
-        })
+GOOD_PASSWORD = "Good!Pass1"
+
+
+def register(client, email, password=GOOD_PASSWORD, password2=None):
+    """Submit the registration form. password2 defaults to password."""
+    return client.post("/register/", {
+        "first_name": "Test",
+        "last_name": "User",
+        "email": email,
+        "password": password,
+        "password2": password2 if password2 is not None else password,
+    })
+
+
+def make_user(email="user@example.com"):
+    """Create a user directly, bypassing the form."""
+    return User.objects.create_user(
+        username=email, email=email, password=GOOD_PASSWORD,
+        first_name="Test", last_name="User",
+    )
+
+
+def make_service():
+    """Create one team and one service to file tickets against."""
+    team = Team.objects.create(name="Plumbing")
+    return Service.objects.create(name="Restroom Plumbing", owning_team=team)
+
+
+class PageTests(TestCase):
+    """Every public page loads and the nav links are present."""
+
+    def test_public_pages_load(self):
+        for path in ["/", "/services/", "/login/", "/register/"]:
+            self.assertEqual(self.client.get(path).status_code, 200, path)
+
+    def test_nav_links_on_every_page(self):
+        for path in ["/", "/services/", "/login/", "/register/"]:
+            html = self.client.get(path).content.decode()
+            for link in ['href="/"', "/services/", "/incidents/"]:
+                self.assertIn(link, html, f"{link} missing on {path}")
+
+    def test_incident_pages_require_login(self):
+        for path in ["/incidents/list", "/incidents/form", "/incidents/landing"]:
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 302)
+            self.assertTrue(response.url.startswith("/login/"))
+
+
+class RegistrationTests(TestCase):
+    """Registration enforces the email and password rules."""
+
+    def test_valid_registration_creates_user_and_redirects_to_login(self):
+        response = register(self.client, "new@example.com")
+        self.assertRedirects(response, "/login/")
+        self.assertTrue(User.objects.filter(email="new@example.com").exists())
+
+    def test_password_is_hashed_in_database(self):
+        register(self.client, "new@example.com")
+        user = User.objects.get(email="new@example.com")
+        self.assertTrue(user.password.startswith("pbkdf2_sha256$"))
+        self.assertNotEqual(user.password, GOOD_PASSWORD)
+
+    def test_password_rules_are_enforced(self):
+        bad_passwords = {
+            "too short": "Sh0rt!A",
+            "no uppercase": "nouppercase1!",
+            "no lowercase": "NOLOWERCASE1!",
+            "no number": "NoNumbers!!",
+            "no symbol": "NoSymbol11",
+        }
+        for reason, password in bad_passwords.items():
+            register(self.client, "new@example.com", password)
+            self.assertFalse(
+                User.objects.filter(email="new@example.com").exists(),
+                f"account was created with a password that has {reason}",
+            )
+
+    def test_mismatched_confirmation_is_rejected(self):
+        register(self.client, "new@example.com", GOOD_PASSWORD, "Other!Pass1")
+        self.assertFalse(User.objects.filter(email="new@example.com").exists())
+
+    def test_invalid_email_format_is_rejected(self):
+        register(self.client, "not-an-email")
+        self.assertEqual(User.objects.count(), 0)
+
+    def test_duplicate_email_is_rejected(self):
+        register(self.client, "new@example.com")
+        register(self.client, "new@example.com")
+        self.assertEqual(User.objects.filter(email="new@example.com").count(), 1)
 
     def test_email_is_stored_lowercase(self):
-        self.register("Test@Example.com")
-        self.assertTrue(User.objects.filter(email="test@example.com").exists())
+        register(self.client, "New@Example.COM")
+        self.assertTrue(User.objects.filter(email="new@example.com").exists())
 
     def test_duplicate_email_rejected_regardless_of_case(self):
-        self.register("test@example.com")
-        self.register("TEST@EXAMPLE.COM")
-        self.assertEqual(User.objects.filter(email="test@example.com").count(), 1)
+        register(self.client, "new@example.com")
+        register(self.client, "NEW@EXAMPLE.COM")
+        self.assertEqual(User.objects.count(), 1)
 
-    def test_login_works_with_different_case(self):
-        self.register("test@example.com")
+    def test_password_rules_are_shown_on_the_page(self):
+        html = self.client.get("/register/").content.decode()
+        for rule in ["8 characters", "uppercase", "lowercase", "number", "symbol"]:
+            self.assertIn(rule, html)
+
+
+class LoginTests(TestCase):
+    """Login checks credentials and sends users to the incident list."""
+
+    def setUp(self):
+        make_user()
+
+    def test_successful_login_redirects_to_incident_list(self):
         response = self.client.post("/login/", {
-            "email": "TEST@Example.COM",
-            "password": "Good!Pass1",
+            "email": "user@example.com", "password": GOOD_PASSWORD,
         })
+        self.assertRedirects(response, "/incidents/list")
+
+    def test_login_works_with_different_email_case(self):
+        response = self.client.post("/login/", {
+            "email": "USER@Example.COM", "password": GOOD_PASSWORD,
+        })
+        self.assertRedirects(response, "/incidents/list")
+
+    def test_wrong_password_shows_error(self):
+        response = self.client.post("/login/", {
+            "email": "user@example.com", "password": "wrong",
+        }, follow=True)
+        self.assertIn(b"Invalid email or password", response.content)
+
+    def test_logout_ends_session(self):
+        self.client.login(username="user@example.com", password=GOOD_PASSWORD)
+        self.client.post("/logout/")
+        response = self.client.get("/incidents/list")
         self.assertEqual(response.status_code, 302)
-        self.assertNotIn("login", response.url)
+
+
+class IncidentTests(TestCase):
+    """Logged in users can create, edit, and soft delete tickets."""
+
+    def setUp(self):
+        self.user = make_user()
+        self.service = make_service()
+        self.client.login(username="user@example.com", password=GOOD_PASSWORD)
+
+    def ticket_data(self, **overrides):
+        data = {
+            "title": "Sink leaking",
+            "description": "Steady drip under the sink",
+            "service": self.service.pk,
+            "priority": "high",
+            "building": "Moody",
+            "room": "214",
+        }
+        data.update(overrides)
+        return data
+
+    def test_create_ticket(self):
+        response = self.client.post("/incidents/form", self.ticket_data())
+        self.assertRedirects(response, "/incidents/list")
+        ticket = Incident.objects.get(title="Sink leaking")
+        self.assertEqual(ticket.reported_by, self.user)
+        self.assertEqual(ticket.priority, "high")
+        self.assertEqual(ticket.building, "Moody")
+
+    def test_create_ticket_without_location(self):
+        self.client.post("/incidents/form", self.ticket_data(building="", room=""))
+        self.assertTrue(Incident.objects.filter(title="Sink leaking").exists())
+
+    def test_ticket_appears_in_list_newest_first(self):
+        self.client.post("/incidents/form", self.ticket_data(title="First"))
+        self.client.post("/incidents/form", self.ticket_data(title="Second"))
+        html = self.client.get("/incidents/list").content.decode()
+        self.assertLess(html.index("Second"), html.index("First"))
+
+    def test_edit_ticket(self):
+        self.client.post("/incidents/form", self.ticket_data())
+        ticket = Incident.objects.get(title="Sink leaking")
+        self.client.post(
+            f"/incidents/{ticket.pk}/edit/",
+            self.ticket_data(title="Sink fixed", priority="low"),
+        )
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.title, "Sink fixed")
+        self.assertEqual(ticket.priority, "low")
+
+    def test_edit_form_is_prefilled(self):
+        self.client.post("/incidents/form", self.ticket_data())
+        ticket = Incident.objects.get(title="Sink leaking")
+        html = self.client.get(f"/incidents/{ticket.pk}/edit/").content.decode()
+        self.assertIn("Sink leaking", html)
+        self.assertIn("Moody", html)
+
+    def test_delete_is_soft(self):
+        self.client.post("/incidents/form", self.ticket_data())
+        ticket = Incident.objects.get(title="Sink leaking")
+        self.client.post(f"/incidents/{ticket.pk}/delete/")
+        ticket.refresh_from_db()
+        self.assertTrue(ticket.is_deleted)
+        self.assertTrue(Incident.objects.filter(pk=ticket.pk).exists())
+
+    def test_deleted_ticket_is_hidden_from_list(self):
+        self.client.post("/incidents/form", self.ticket_data())
+        ticket = Incident.objects.get(title="Sink leaking")
+        self.client.post(f"/incidents/{ticket.pk}/delete/")
+        html = self.client.get("/incidents/list").content.decode()
+        self.assertNotIn("Sink leaking", html)
+
+    def test_delete_persists_across_sessions(self):
+        self.client.post("/incidents/form", self.ticket_data())
+        ticket = Incident.objects.get(title="Sink leaking")
+        self.client.post(f"/incidents/{ticket.pk}/delete/")
+        other = self.client_class()
+        other.login(username="user@example.com", password=GOOD_PASSWORD)
+        html = other.get("/incidents/list").content.decode()
+        self.assertNotIn("Sink leaking", html)
+
+    def test_delete_ignores_get(self):
+        self.client.post("/incidents/form", self.ticket_data())
+        ticket = Incident.objects.get(title="Sink leaking")
+        self.client.get(f"/incidents/{ticket.pk}/delete/")
+        ticket.refresh_from_db()
+        self.assertFalse(ticket.is_deleted)
+
+    def test_editing_deleted_ticket_returns_404(self):
+        self.client.post("/incidents/form", self.ticket_data())
+        ticket = Incident.objects.get(title="Sink leaking")
+        self.client.post(f"/incidents/{ticket.pk}/delete/")
+        response = self.client.get(f"/incidents/{ticket.pk}/edit/")
+        self.assertEqual(response.status_code, 404)
+
+
+class ServicesPageTests(TestCase):
+    """The services page groups active services under their team."""
+
+    def test_services_grouped_by_team(self):
+        service = make_service()
+        html = self.client.get("/services/").content.decode()
+        self.assertIn(service.owning_team.name, html)
+        self.assertIn(service.name, html)
+
+    def test_inactive_services_are_hidden(self):
+        service = make_service()
+        service.is_active = False
+        service.save()
+        html = self.client.get("/services/").content.decode()
+        self.assertNotIn(service.name, html)
