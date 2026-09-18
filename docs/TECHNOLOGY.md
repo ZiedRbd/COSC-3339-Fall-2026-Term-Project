@@ -35,9 +35,3 @@ The secret key, debug flag, allowed hosts, and database credentials are read fro
 ## Front end: Django templates
 
 Pages are rendered server-side with Django templates and styled with a single stylesheet. A base template holds the navigation bar and shared layout; each page extends it. Two small JavaScript files handle the show/hide password toggle, the live password rule checklist, and the delete confirmation dialog. No front-end framework was needed for the pages in scope.
-
-## Known limitations in Sprint 1
-
-- All users have the same permissions. Roles arrive in Sprint 2.
-- Expired session rows are not purged automatically; a scheduled `clearsessions` will be added.
-- Releases are pulled onto the server by hand. Deployment is not yet automated.
