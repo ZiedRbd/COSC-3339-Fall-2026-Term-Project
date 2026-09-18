@@ -21,6 +21,7 @@
     <table class="incident-table">
       <thead>
         <tr>
+          <th>#</th>
           <th>Title</th>
           <th>Location</th>
           <th>Service</th>
@@ -34,6 +35,7 @@
       <tbody>
         {% for incident in incidents %}
           <tr>
+            <td class="ticket-id">{{ incident.pk }}</td>
             <td>{{ incident.title }}</td>
             <td>{% if incident.building or incident.room %}{{ incident.building }}{% if incident.building and incident.room %}, {% endif %}{{ incident.room }}{% else %}<span class="muted">Not given</span>{% endif %}</td>
             <td>{{ incident.service.name }}</td>

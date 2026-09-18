@@ -487,3 +487,9 @@ input:focus, textarea:focus, select:focus {
 .pw-rules li.ok .mark {
     color: var(--green);
 }
+
+.ticket-id {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    width: 1%;
+}
