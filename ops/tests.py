@@ -116,6 +116,21 @@ class RegistrationTests(TestCase):
         register(self.client, "NEW@EXAMPLE.COM")
         self.assertEqual(User.objects.count(), 1)
 
+    def test_names_need_at_least_two_characters(self):
+        """A one character first or last name is rejected."""
+        for field in ["first_name", "last_name"]:
+            self.client.post("/register/", {
+                "first_name": "A" if field == "first_name" else "Test",
+                "last_name": "B" if field == "last_name" else "User",
+                "email": "new@example.com",
+                "password": GOOD_PASSWORD,
+                "password2": GOOD_PASSWORD,
+            })
+            self.assertFalse(
+                User.objects.filter(email="new@example.com").exists(),
+                f"account was created with a one character {field}",
+            )
+
     def test_password_rules_are_shown_on_the_page(self):
         """The registration page tells the user what the password needs."""
         html = self.client.get("/register/").content.decode()
