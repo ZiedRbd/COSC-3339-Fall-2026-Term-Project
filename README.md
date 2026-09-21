@@ -67,6 +67,9 @@ COSC-3339-Fall-2026-Term-Project/
 └── docs/
     ├── ER-DIAGRAM.md           Entity relationship diagram
     ├── er-diagram.puml         Same diagram in PlantUML
+    ├── incident-state-machine.puml   Incident lifecycle states and transitions
+    ├── solver-sequence.puml    How a solver acknowledges an assigned incident
+    ├── TECHNOLOGY.md           Technology choices and reasoning
     └── DEPLOYING.md            Steps to release to the server
 ```
 

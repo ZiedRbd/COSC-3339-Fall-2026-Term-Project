@@ -1,0 +1,72 @@
+@startuml Solver Begins Work
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #555555
+  LifeLineBorderColor #999999
+  ParticipantBackgroundColor #FAFAFA
+  ParticipantBorderColor #444444
+  ActorBackgroundColor #FAFAFA
+  FontName Helvetica
+}
+skinparam noteBackgroundColor #FFF8E1
+skinparam noteBorderColor #D4AF37
+
+title Solver Begins Resolving an Assigned Incident
+
+actor Solver
+participant "Browser\n(incident page)" as Browser
+participant "nginx" as Nginx
+participant "Django view\nincident_transition" as View
+participant "Transition rules" as Rules
+database "PostgreSQL" as DB
+
+== Open the incident ==
+Solver -> Browser : Click incident from list
+Browser -> Nginx : GET /incidents/12/
+Nginx -> View : forward request
+View -> DB : SELECT incident 12
+DB --> View : incident row
+View -> View : Verify user is a solver\nand incident is assigned to\none of their teams
+View -> DB : SELECT updates for incident 12
+DB --> View : timeline rows
+View --> Browser : Render incident page\nwith allowed next actions
+Browser --> Solver : Show ticket, timeline,\nand "Acknowledge" button
+
+== Acknowledge ==
+Solver -> Browser : Click "Acknowledge"
+Browser -> Nginx : POST /incidents/12/transition/\nnew_status=acknowledged
+Nginx -> View : forward request
+View -> DB : SELECT incident 12
+DB --> View : incident row (status = open)
+View -> View : Verify solver role and\nteam assignment again
+View -> Rules : is_allowed(open -> acknowledged)
+Rules --> View : allowed
+
+View -> DB : UPDATE incident\nSET status = acknowledged,\nassigned_to = solver
+View -> DB : INSERT IncidentUpdate\n(incident, author, type = status_change,\nold = open, new = acknowledged, timestamp)
+DB --> View : committed
+
+View --> Browser : 302 redirect to /incidents/12/\nwith success message
+Browser -> Nginx : GET /incidents/12/
+Nginx -> View : forward request
+View -> DB : SELECT incident and updates
+DB --> View : rows
+View --> Browser : Render page
+Browser --> Solver : "Ticket #12 acknowledged"\ntimeline shows the change\nnext action is "Start work"
+
+== Rejected transition ==
+Solver -> Browser : Attempt "Resolve" from Acknowledged
+Browser -> Nginx : POST /incidents/12/transition/\nnew_status=resolved
+Nginx -> View : forward request
+View -> Rules : is_allowed(acknowledged -> resolved)
+Rules --> View : rejected: must be In Progress first
+View --> Browser : 302 redirect with error message
+Browser --> Solver : "Cannot move from Acknowledged\nto Resolved. Start work first."
+
+note over View, DB
+  The status update and the timeline insert run in one
+  database transaction. Either both succeed or neither does.
+end note
+
+@enduml
