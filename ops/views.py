@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
@@ -133,7 +133,7 @@ def incident_edit(request, pk):
     POST saves the changes and returns to the list. Returns 404 for an
     unknown or deleted incident.
     """
-    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    incident = get_object_or_404(Incident, Q(reported_by=request.user) | Q(assigned_to=request.user), pk=pk, is_deleted=False)
     if request.method == "POST":
         form = IncidentForm(request.POST)
         if form.is_valid():
