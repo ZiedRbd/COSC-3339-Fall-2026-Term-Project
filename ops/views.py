@@ -92,11 +92,14 @@ def landing(request):
 @login_required
 def incident_list(request):
     """Active incidents, newest first. Soft-deleted tickets are excluded."""
-    incidents = (
-        Incident.objects.filter(is_deleted=False)
-        .select_related("service", "reported_by")
-        .order_by("-created_at")
-    )
+    if(request.user.role != "solver"):
+        return redirect("home")
+    else:
+        incidents = (
+            Incident.objects.filter(is_deleted=False)
+            .select_related("service", "reported_by")
+            .order_by("-created_at")
+        )
     return render(request, "incidents/list.html", {"incidents": incidents})
 
 

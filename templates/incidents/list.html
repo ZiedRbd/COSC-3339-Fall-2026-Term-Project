@@ -16,7 +16,7 @@
   {% endif %}
 
   <a href="{% url 'form' %}" class="btn-gold">New ticket</a>
-
+  
   {% if incidents %}
     <table class="incident-table">
       <thead>
@@ -34,6 +34,7 @@
       </thead>
       <tbody>
         {% for incident in incidents %}
+        {% if user == incident.assigned_to or user == incident.reported_by %}
           <tr>
             <td class="ticket-id">{{ incident.pk }}</td>
             <td>{{ incident.title }}</td>
@@ -51,6 +52,7 @@
               </form>
             </td>
           </tr>
+        {% endif %}
         {% endfor %}
       </tbody>
     </table>
