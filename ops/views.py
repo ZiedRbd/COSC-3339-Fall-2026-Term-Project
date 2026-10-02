@@ -171,3 +171,10 @@ def incident_delete(request, pk):
         incident.save()
         messages.success(request, f"Ticket #{incident.pk} deleted")
     return redirect("incidents")
+
+# @login_required
+# def profile(request):
+#     member = Team.objects.filter(user =request.user).select_related("team")
+#     reported = Incident.objects.filter(reported=request.user)
+        
+    #return render(request, "profile.html")
