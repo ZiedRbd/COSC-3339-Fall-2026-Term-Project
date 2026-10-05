@@ -493,3 +493,151 @@ input:focus, textarea:focus, select:focus {
     font-variant-numeric: tabular-nums;
     width: 1%;
 }
+
+/*------------------------------Profile page layout --------------------------------*/
+.profile-layout{
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-areas: "incident profiles";
+    gap: 32px;
+    align-items: start;
+
+}
+.incidents{
+    grid-area:incidents;}
+.profile-card{
+    grid-area: profile;
+}
+
+/*Profile card */
+.profile-card{
+    box-sizing: border-box;
+    padding: 28px;
+    background:rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    color: #FFFFFF;
+    text-align: center;
+}
+
+.avatar{
+    display: block;
+    width: 140px;
+    height: 140px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #D4B34A;
+    background: #FFFFFF;
+}
+
+.profile-card h1{
+    margin: 0;
+    color: #D4B34A;
+    font-size: 1.5rem;
+    overflow-wrap: anywhere;
+}
+.meta {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Bio Form */
+
+.bio-form{
+    display: grid;
+    gap: 8px;
+    margin-top: 24px;
+    text-align: left;
+
+}
+.bio-form lable{
+    font-weight: 600;
+
+}
+
+.bio-form textarea{
+    box-sizing: border-box;
+    width: 100%;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: #12286B;
+  font: inherit;
+  resize: vertical;
+}
+
+.bio-form textarea:focus{
+    outline: 3px solid #D4B34A;
+  outline-offset: 1px;
+}
+
+.bio-form button{
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 8px;
+  background: #D4B34A;
+  color: #12286B;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.bio-form button:hover {
+  background: #E2C463;
+}
+
+/* Incidents remaining*/
+
+.section-title{
+    margin: 0 0 16px;
+  color: #D4B34A;
+}
+.incident-columns{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    align-items: start;;
+
+}
+
+.incident-col{
+    padding: 20px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: #FFFFFF;
+}
+.incident-col h3 {
+  margin: 0 0 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  color: #D4B34A;
+  font-size: 1.1rem;
+}
+
+.incident-col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.incident-col li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+incident-col li span {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.incident-col .empty {
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+}
