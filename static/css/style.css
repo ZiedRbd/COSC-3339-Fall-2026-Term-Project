@@ -641,3 +641,6 @@ incident-col li span {
   color: rgba(255, 255, 255, 0.6);
   font-style: italic;
 }
+.incident-col li:last-child {
+  border-bottom: 0;
+}
