@@ -3,38 +3,32 @@
 {% block title %}Profile{% endblock %}
 
 {% block content %}
-<header class="header">
-    <div class = "cover" aria-hidden="true"></div>
-    <div class= "identity"></div>
-
-
-    <!-- Profile photo -->
-    <div class = "avatar-wrap">
-
-        <img class ="avatar" src ="{% static 'images/profile_icon.jpeg' %}" alt="Profile photo">
-    </div>
+    <div class =profile-layout>
     
+    <!--Profile on the rigtht side-->
+    <!-- Profile photo -->
+    <aside class="profile-card">
+    <img class ="avatar" src ="{% static 'images/profile_icon.jpeg' %}" alt="Profile photo">
 <!-- Identity -->
-<div class = "identity-row">
-    <div>
-        <h1>{{ user.username }}</h1>
-        <p >Email: {{ user.email }}</p>
-    </div>
-
-
-
-
+    <h1> {{ user.username }}</h1>
+    {% if user.email != user.username %}
+    <p class = "meta">{{ user.email }}</p>
+   
 <!-- Bio -->
-<form method = "POST">
+<form method = "POST" class = "bio-form">
 {% csrf_token %}
-<textarea name="bio" rows="4" placeholder="Write a short bio"></textarea>
+<label for ="bio"> Bio</label>
+<textarea id="bio" name="bio" rows="4" placeholder="Write a short bio"></textarea>
       <button type="submit">Save bio</button>
-</form>
+    </form>
+  </aside>
 
 
 
 <!-- Incidents -->
-<div class = "Incidents-cols">
+ <section class=" Incidents">
+<h2 class = section-class>My Incidents</h2>
+<div class =incident-columns>
     <div>
         <h2>Active</h2>
         <ul>{% for incident in active_incidents %}
@@ -68,6 +62,7 @@
         <li>No filed incidents.</li>
       {% endfor %}
         </ul>
+    </section>
     </div>
 
 </header>
