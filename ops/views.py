@@ -5,8 +5,8 @@ from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
-from .forms import IncidentForm, LoginForm, RegisterForm, BioForm
-from .models import Incident, Service, Team, User, Profile
+from .forms import IncidentForm, LoginForm, RegisterForm
+from .models import Incident, Service, Team, User
 
 
 def home(request):
