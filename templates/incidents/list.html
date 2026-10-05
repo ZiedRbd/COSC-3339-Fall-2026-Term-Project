@@ -7,18 +7,21 @@
 {% endblock %}
 
 {% block content %}
-<div class="card wide">
-  <h1 class="form-header">Active Incidents</h1>
-  <aside class-"filter-sidebar">
+<aside class="filter-sidebar">
     <h3>Filter Tickets</h3>
     <div class="filter-group">
       <span class="group-title">Priority</span>
-      <label><input type="checkbox" class="filter-priority" value="critical" onchange="filterTable()">Critical</label>
-      <label><input type="checkbox" class="filter-priority" value="high" onchange="filterTable()">High</label>
-      <label><input type="checkbox" class="filter-priority" value="medium" onchange="filterTable()">Medium</label>
-      <label><input type="checkbox" class="filter-priority" value="low" onchange="filterTable()">Low</label>
+      <label>Critical<input type="checkbox" class="filter-priority" value="critical" onchange="filterTable()"></label>
+      <label>High<input type="checkbox" class="filter-priority" value="high" onchange="filterTable()"></label>
+      <label>Medium<input type="checkbox" class="filter-priority" value="medium" onchange="filterTable()"></label>
+      <label>Low<input type="checkbox" class="filter-priority" value="low" onchange="filterTable()"></label>
     </div>
-  </aside>
+    <button type="button" onclick="clearFilters()">Reset</button>
+</aside>
+
+<div class="card wide">
+  <h1 class="form-header">Active Incidents</h1>
+  
   {% if messages %}
     {% for message in messages %}
       <p class="notice">{{ message }}</p>
