@@ -175,19 +175,5 @@ def incident_delete(request, pk):
 @login_required
 def profile(request):
 
-    user = user.request
-    profile,created = Profile.objects.get_create(user=user)
-
-    form = BioForm (request.POST or None, instance = profile)
-    if form.is_valid():
-        form.save()
-        return redirect("profile")
-    filed =Incident.objects.filter(reported_by =user)
-    assigned =Incident.objects.filter(assigned_to =user)
-    my_incidents = (filed | assigned ).order_by("created_at")
-    return render(request, "profile.html",{
-        "form":form,
-        "active_incidents":my_incidents.exclude(status__in=["resolved","closed"]),
-        "closed_incidents":my_incidents.filter(status__in=["resolved","closed"]),
-        "filed_incidents":filed.order_by("created_at"),
-    })
+    return render(request,"profile.html")
+    
