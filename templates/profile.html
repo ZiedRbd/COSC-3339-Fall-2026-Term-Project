@@ -7,27 +7,63 @@
     <div class= "identity"></div>
 
 
-    //--------Profile------------
+    //--------Profile PHOTO------------
+    <div class = "avatar-wrap">
 
-    <div class="avatar-wrap">
-    <img class="avatar" src="{% enter.jpg%}" alt ="Profile photo">
+        <img class ="avatar" src ="{% static 'images/avatar.jpg' %}" alt="Profile photo">
+    </div>
     
+//-------------Identity--------------------
+<div class = "identity-row">
+    <div>
+        <h1>{{ user.username }}</h1>
+        <p >Email: {{ user.email }}</p>
     </div>
 
-    <div class = "identity-row">
-        <div>
-            <h1>Jane Doe</h1>
-            <p class="handle">@JaneDoe</p>
-        </div>
-        <a class="btn" href="#">Edit Profile </a>
-    </div>
+
+
 
 /////  Bio Section------------------
 
 
+<form method="post">
+ {% csrf_token %}
+{{ form.bio }}
+<button type="submit">Save bio</button>
+</form>
+</div>
 
+
+<div class = "Incidents-cols">
+    <div>
+        <h2>Active</h2>
+        <ul>{% for incident in active_incidents %}
+            <li>{{ incident.title }} ({{ incident.created_at|date:"j M Y" }})</li>
+            {% empty %}
+            <li> No Active Incidents</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+
+    <div>
+        <h2> Closed ; Resolved</h2>
+        <ul>
+            {% for incident in closed_incidents %}
+        <li>{{ incident.title }} ({{ incident.created_at|date:"j M Y" }})</li>
+        {% empty %}
+        <li>No closed or resolved incidents.</li>
+        {% end for %}
+        </ul>
+    </div>
+
+
+
+</div>
 
 </header>
+
+{% endblock %}
 
 
 
