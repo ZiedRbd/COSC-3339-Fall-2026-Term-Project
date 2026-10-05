@@ -7,7 +7,7 @@ from django.contrib.auth.models import AbstractUser
 # username so it acts as the login field.
 class User(AbstractUser):
     email = models.EmailField(unique=True)
-    role = models.CharField(max_length=20, default="user")
+    role = models.CharField(max_length=20, default="reporter")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

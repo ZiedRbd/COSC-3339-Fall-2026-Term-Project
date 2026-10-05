@@ -102,7 +102,6 @@ def incident_list(request):
         )
     return render(request, "incidents/list.html", {"incidents": incidents})
 
-
 @login_required
 def incident_form(request):
     """
