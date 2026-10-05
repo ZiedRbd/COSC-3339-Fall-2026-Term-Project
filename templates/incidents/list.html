@@ -3,12 +3,25 @@
 {% load static %}
 {% block extra_js %}
   <script src="{% static 'js/incidents.js' %}?v=2" defer></script>
+  <script src="{% static 'js/filter.js' %}?v=1" defer></script>
 {% endblock %}
 
 {% block content %}
+<aside class="filter-sidebar">
+    <h3>Filter Tickets</h3>
+    <div class="filter-group">
+      <span class="group-title">Priority</span>
+      <label>Critical<input type="checkbox" class="filter-priority" value="critical" onchange="filterTable()"></label>
+      <label>High<input type="checkbox" class="filter-priority" value="high" onchange="filterTable()"></label>
+      <label>Medium<input type="checkbox" class="filter-priority" value="medium" onchange="filterTable()"></label>
+      <label>Low<input type="checkbox" class="filter-priority" value="low" onchange="filterTable()"></label>
+    </div>
+    <button type="button" onclick="clearFilters()">Reset</button>
+</aside>
+
 <div class="card wide">
   <h1 class="form-header">Active Incidents</h1>
-
+  
   {% if messages %}
     {% for message in messages %}
       <p class="notice">{{ message }}</p>
@@ -35,7 +48,7 @@
       <tbody>
         {% for incident in incidents %}
         {% if user == incident.assigned_to or user == incident.reported_by %}
-          <tr>
+          <tr class="incident-list-item">
             <td class="ticket-id">{{ incident.pk }}</td>
             <td>{{ incident.title }}</td>
             <td>{% if incident.building or incident.room %}{{ incident.building }}{% if incident.building and incident.room %}, {% endif %}{{ incident.room }}{% else %}<span class="muted">Not given</span>{% endif %}</td>
