@@ -2,8 +2,15 @@
 {% block title %}Ticket #{{ incident.pk }}{% endblock %}
 
 {% block content %}
-<div class="card wide">
-  <h1 class="form-header">Ticket #{{ incident.pk }}: {{ incident.title }}</h1>
+<div class="card wide detail">
+
+  <div class="detail-head">
+    <div>
+      <p class="detail-eyebrow">Ticket #{{ incident.pk }}</p>
+      <h1 class="detail-title">{{ incident.title }}</h1>
+    </div>
+    <span class="badge status-pill {{ incident.status }}">{{ incident.get_status_display }}</span>
+  </div>
 
   {% if messages %}
     {% for message in messages %}
@@ -11,53 +18,68 @@
     {% endfor %}
   {% endif %}
 
-  <table class="incident-table">
-    <tr><th>Status</th><td><span class="badge {{ incident.status }}">{{ incident.get_status_display }}</span></td></tr>
-    <tr><th>Severity</th><td><span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></td></tr>
-    <tr><th>Service</th><td>{{ incident.service.name }}</td></tr>
-    <tr><th>Location</th><td>{{ incident.building }} {{ incident.room }}</td></tr>
-    <tr><th>Reported by</th><td>{{ incident.reported_by.first_name }} {{ incident.reported_by.last_name }}</td></tr>
-    <tr><th>Description</th><td>{{ incident.description }}</td></tr>
-  </table>
+  <div class="detail-grid">
+    <div class="field"><span class="field-label">Severity</span>
+      <span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></div>
+    <div class="field"><span class="field-label">Service</span>
+      <span class="field-value">{{ incident.service.name }}</span></div>
+    <div class="field"><span class="field-label">Location</span>
+      <span class="field-value">{% if incident.building or incident.room %}{{ incident.building }} {{ incident.room }}{% else %}<span class="muted">Not given</span>{% endif %}</span></div>
+    <div class="field"><span class="field-label">Reported by</span>
+      <span class="field-value">{{ incident.reported_by.first_name }} {{ incident.reported_by.last_name }}</span></div>
+    <div class="field field-wide"><span class="field-label">Description</span>
+      <span class="field-value">{{ incident.description }}</span></div>
+  </div>
 
-  {% if user.role == "solver" %}
-    <div class="actions">
-      {% for state in incident.next_states %}
-        <form method="post" action="{% url 'incident_transition' incident.pk %}" style="display:inline">
-          {% csrf_token %}
-          <input type="hidden" name="new_status" value="{{ state }}">
-          <button type="submit" class="btn-gold">Move to {{ state }}</button>
-        </form>
-      {% endfor %}
+  {% if user.role == "solver" and incident.next_states %}
+    <div class="action-bar">
+      <span class="field-label">Next step</span>
+      <div class="action-buttons">
+        {% for state in incident.next_states %}
+          <form method="post" action="{% url 'incident_transition' incident.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="new_status" value="{{ state }}">
+            <button type="submit" class="btn-gold">Move to {{ state|cut:"_" }}</button>
+          </form>
+        {% endfor %}
+      </div>
     </div>
   {% endif %}
 
-  <h2>Timeline</h2>
+  <h2 class="section-title">Timeline</h2>
   <ul class="timeline">
     {% for entry in timeline %}
-      <li>
-        <span class="muted">{{ entry.created_at|date:"M j, Y g:i A" }}</span>
-        &mdash; {{ entry.author.first_name }} {{ entry.author.last_name }}
-        {% if entry.update_type == "status_change" %}
-          changed status: {{ entry.old_status }} &rarr; {{ entry.new_status }}
-        {% elif entry.update_type == "solver_note" %}
-          (note) {{ entry.body }}
-        {% else %}
-          (comment) {{ entry.body }}
-        {% endif %}
+      <li class="tl-{{ entry.update_type }}">
+        <div class="tl-meta">
+          <strong>{{ entry.author.first_name }} {{ entry.author.last_name }}</strong>
+          <span class="tl-role">{{ entry.author.role }}</span>
+          <span class="muted">{{ entry.created_at|date:"M j, g:i A" }}</span>
+        </div>
+        <div class="tl-body">
+          {% if entry.update_type == "status_change" %}
+            Changed status
+            <span class="badge {{ entry.old_status }}">{{ entry.old_status }}</span>
+            &rarr;
+            <span class="badge {{ entry.new_status }}">{{ entry.new_status }}</span>
+          {% elif entry.update_type == "solver_note" %}
+            <span class="tl-tag note">Note</span> {{ entry.body }}
+          {% else %}
+            <span class="tl-tag comment">Comment</span> {{ entry.body }}
+          {% endif %}
+        </div>
       </li>
     {% empty %}
       <li class="muted">No activity yet.</li>
     {% endfor %}
   </ul>
 
-  <h2>{% if user.role == "solver" %}Add a note{% else %}Add a comment{% endif %}</h2>
-  <form method="post" action="{% url 'incident_comment' incident.pk %}" class="stacked">
+  <h2 class="section-title">{% if user.role == "solver" %}Add a note{% else %}Add a comment{% endif %}</h2>
+  <form method="post" action="{% url 'incident_comment' incident.pk %}" class="comment-form">
     {% csrf_token %}
-    <textarea name="body" rows="3" class="form-input" required></textarea>
+    <textarea name="body" rows="3" class="form-input" placeholder="{% if user.role == 'solver' %}Add a note for the reporter...{% else %}Add a comment for the team...{% endif %}" required></textarea>
     <button type="submit" class="btn-gold">Post</button>
   </form>
 
-  <a href="{% url 'incidents' %}" class="btn-link">Back to incidents</a>
+  <a href="{% url 'incidents' %}" class="back-link">&larr; Back to incidents</a>
 </div>
 {% endblock %}

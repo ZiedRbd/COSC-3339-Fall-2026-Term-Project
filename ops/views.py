@@ -199,7 +199,7 @@ def incident_transition(request, pk):
     #only solvers change state
     if request.user.role != "solver":
         messages.error(request, "Only solvers can change incident status")
-        return redirect("incidents")
+        return redirect("incident_detail", pk=pk)
 
     new_status = request.POST.get("new_status")
     old_status = incident.status
@@ -207,7 +207,7 @@ def incident_transition(request, pk):
     # the move must be legal from the current state
     if new_status not in ALLOWED_TRANSITIONS.get(old_status, []):
         messages.error(request, f"Cannot move from {old_status} to {new_status}")
-        return redirect("incidents")
+        return redirect("incident_detail", pk=pk)
 
     # Apply the change and log it to the timeline
     incident.status = new_status
@@ -221,7 +221,7 @@ def incident_transition(request, pk):
         body=f"Status changed from {old_status} to {new_status}",
     )
     messages.success(request, f"Ticket #{incident.pk} moved to {new_status}")
-    return redirect("incidents")
+    return redirect("incident_detail", pk=pk)
 
 
 @login_required
