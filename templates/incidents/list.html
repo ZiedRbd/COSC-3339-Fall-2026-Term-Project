@@ -67,11 +67,7 @@
                   </form>
                 {% endfor %}
               {% endif %}
-              <a href="{% url 'incident_edit' incident.pk %}" class="btn-small">Edit</a>
-              <form method="post" action="{% url 'incident_delete' incident.pk %}" class="delete-form">
-                {% csrf_token %}
-                <button type="button" class="btn-small danger" data-title="{{ incident.title }}">Delete</button>
-              </form>
+              <a href="{% url 'incident_detail' incident.pk %}" class="btn-small">View</a>
             </td>
           </tr>
         {% endfor %}
