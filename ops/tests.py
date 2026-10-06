@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from .models import Incident, Service, Team, User
+from .models import Incident, Service, Team, TeamMember, User
 
 
 # Run with: python manage.py test ops
@@ -295,3 +295,46 @@ class ServicesPageTests(TestCase):
         service.save()
         html = self.client.get("/services/").content.decode()
         self.assertNotIn(service.name, html)
+
+
+class IncidentAccessTests(TestCase):
+    """Only the reporter or a solver on the assigned team may open a ticket."""
+
+    def setUp(self):
+        self.team_a = Team.objects.create(name="Team A")
+        self.team_b = Team.objects.create(name="Team B")
+        self.service = Service.objects.create(name="Svc A", owning_team=self.team_a)
+        self.reporter = User.objects.create_user(
+            username="rep@x.com", email="rep@x.com", password=GOOD_PASSWORD, role="reporter")
+        self.solver_a = User.objects.create_user(
+            username="sa@x.com", email="sa@x.com", password=GOOD_PASSWORD, role="solver")
+        self.solver_b = User.objects.create_user(
+            username="sb@x.com", email="sb@x.com", password=GOOD_PASSWORD, role="solver")
+        TeamMember.objects.create(user=self.solver_a, team=self.team_a)
+        TeamMember.objects.create(user=self.solver_b, team=self.team_b)
+        self.incident = Incident.objects.create(
+            title="Guarded", description="d", service=self.service,
+            reported_by=self.reporter, assigned_team=self.team_a, status="open")
+
+    def view_as(self, email):
+        self.client.login(username=email, password=GOOD_PASSWORD)
+        return self.client.get(f"/incidents/{self.incident.pk}/")
+
+    def test_reporter_can_view_own_ticket(self):
+        """The person who filed the ticket can open it."""
+        self.assertEqual(self.view_as("rep@x.com").status_code, 200)
+
+    def test_solver_on_team_can_view(self):
+        """A solver on the assigned team can open the ticket."""
+        self.assertEqual(self.view_as("sa@x.com").status_code, 200)
+
+    def test_solver_on_other_team_is_blocked(self):
+        """A solver not on the assigned team is redirected away."""
+        self.assertEqual(self.view_as("sb@x.com").status_code, 302)
+
+    def test_other_team_solver_cannot_transition(self):
+        """A solver off the team cannot change the ticket's status."""
+        self.client.login(username="sb@x.com", password=GOOD_PASSWORD)
+        self.client.post(f"/incidents/{self.incident.pk}/transition/", {"new_status": "acknowledged"})
+        self.incident.refresh_from_db()
+        self.assertEqual(self.incident.status, "open")

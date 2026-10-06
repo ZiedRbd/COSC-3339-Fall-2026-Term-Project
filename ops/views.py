@@ -209,6 +209,18 @@ def profile(request):
     })
 
 
+def _can_access_incident(user, incident):
+    """
+    A user may access an incident if they reported it, or they are a solver
+    on the team the incident is assigned to.
+    """
+    if incident.reported_by_id == user.id:
+        return True
+    if user.role == "solver" and incident.assigned_team_id:
+        return TeamMember.objects.filter(user=user, team_id=incident.assigned_team_id).exists()
+    return False
+
+
 @login_required
 def incident_transition(request, pk):
     """
@@ -217,6 +229,9 @@ def incident_transition(request, pk):
     recorded as an IncidentUpdate row for the timeline.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if not _can_access_incident(request.user, incident):
+        messages.error(request, "You do not have access to that ticket")
+        return redirect("incidents")
 
     #only solvers change state
     if request.user.role != "solver":
@@ -253,6 +268,9 @@ def incident_detail(request, pk):
     IncidentUpdate row for this ticket, oldest first.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if not _can_access_incident(request.user, incident):
+        messages.error(request, "You do not have access to that ticket")
+        return redirect("incidents")
     timeline = (
         IncidentUpdate.objects.filter(incident=incident)
         .select_related("author")
@@ -273,6 +291,9 @@ def incident_comment(request, pk):
     neither side can edit the other's entries.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if not _can_access_incident(request.user, incident):
+        messages.error(request, "You do not have access to that ticket")
+        return redirect("incidents")
     if request.method == "POST":
         body = request.POST.get("body", "").strip()
         if len(body) > 1000:
