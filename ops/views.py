@@ -186,6 +186,11 @@ def incident_delete(request, pk):
         messages.success(request, f"Ticket #{incident.pk} deleted")
     return redirect("incidents")
 
+@login_required
+def profile(request):
+
+    return render(request,"profile.html")
+
 
 @login_required
 def incident_transition(request, pk):

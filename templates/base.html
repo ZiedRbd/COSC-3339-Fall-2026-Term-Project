@@ -13,11 +13,12 @@
             <a href="{% url 'home' %}" class="nav-btn">Home</a>
             <a href="{% url 'services' %}" class="nav-btn">Services</a>
             <a href="{% url 'landing' %}" class="nav-btn">Incidents</a>
+            
 
         </div>
         <div class="nav-user-section">
         {% if user.is_authenticated %}
-
+            <a href="{% url  'profile' %}" class="nav-btn">Profile</a>
             <span class="info">Logged in as: <strong>{{ user.username }}</strong></span>
             <form action="{% url 'logout' %}" method="POST" class="logout-form">
                 {% csrf_token %}
