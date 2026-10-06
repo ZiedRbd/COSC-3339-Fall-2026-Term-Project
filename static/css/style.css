@@ -18,16 +18,21 @@
 .base-body {
     margin: 0;
     min-height: 100vh;
-    background-color: var(--navy);
+    background: linear-gradient(160deg, var(--navy) 0%, var(--navy-dark) 100%);
+    background-attachment: fixed;
     color: var(--ink);
     font-family: var(--font);
     font-size: 16px;
+    -webkit-font-smoothing: antialiased;
 }
 
 .page {
-    padding: 100px 20px 40px;
+    padding: 92px 24px 48px;
     display: flex;
     justify-content: center;
+    align-items: flex-start;
+    gap: 24px;
+    flex-wrap: wrap;
 }
 
 h1, h2 {
@@ -49,7 +54,7 @@ h1, h2 {
     width: 100%;
     box-sizing: border-box;
     background-color: var(--navy-dark);
-    border-bottom: 1px solid var(--gold);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
     z-index: 10;
 }
 
@@ -97,11 +102,11 @@ h1, h2 {
 /* ---------- Cards and buttons ---------- */
 .card {
     background: var(--white);
-    border-radius: 10px;
-    padding: 32px;
+    border-radius: 14px;
+    padding: 36px;
     width: 100%;
     max-width: 560px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 10px 30px rgba(5, 43, 110, 0.18), 0 2px 6px rgba(0,0,0,0.06);
 }
 
 .card.wide {
@@ -151,7 +156,10 @@ button[type="submit"] {
 .btn-link:hover,
 button[type="submit"]:hover {
     background: var(--gold-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(212,175,55,0.35);
 }
+.btn-gold, .btn-link, button[type="submit"] { transition: all 0.15s ease; }
 
 .btn-link {
     margin-top: 12px;
@@ -279,14 +287,58 @@ input:focus, textarea:focus, select:focus {
     color: var(--muted);
     font-weight: 600;
     text-transform: uppercase;
-    font-size: 12px;
-    letter-spacing: 0.04em;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    border-bottom: 2px solid var(--line);
 }
 
-.incident-table tr:hover td {
-    background: #f9fafb;
+.incident-table tbody tr { transition: background 0.12s; }
+.incident-table tbody tr:hover td { background: #f5f8ff; }
+.incident-table td a { color: var(--navy); font-weight: 600; text-decoration: none; }
+.incident-table td a:hover { text-decoration: underline; }
+
+/* ---------- Incident table filter ---------- */
+.filter-sidebar {
+  width: 230px;
+  flex-shrink: 0;
+  padding: 24px;
+  background: var(--white);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(5, 43, 110, 0.18), 0 2px 6px rgba(0,0,0,0.06);
+}
+.filter-sidebar h3 { color: var(--navy); margin: 0 0 18px; font-size: 1.05rem; }
+.filter-sidebar button {
+  width: 100%; margin-top: 4px; font-size: 14px; padding: 8px;
+  background: var(--white); border: 1px solid var(--line); border-radius: 8px;
+  color: var(--ink); cursor: pointer; font-family: var(--font);
+}
+.filter-sidebar button:hover { background: var(--line); }
+
+.filter-group {
+  margin-bottom: 20px;
 }
 
+.group-title {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.filter-group label {
+  display: grid;
+  grid-template-columns: 24px 1fr; /* Fixed 24px column for checkbox, rest for text */
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.filter-group label input[type="checkbox"] {
+  margin: 0;
+  justify-self: center; /* Centers the checkbox inside the 24px column */
+  align-self: center;
+  cursor: pointer;
+}
 /* ---------- Badges (priority, status, criticality) ---------- */
 .badge,
 .criticality-badge {
@@ -493,3 +545,30 @@ input:focus, textarea:focus, select:focus {
     font-variant-numeric: tabular-nums;
     width: 1%;
 }
+
+
+/* ---------- Timeline (incident detail) ---------- */
+.timeline {
+    list-style: none;
+    margin: 12px 0 28px;
+    padding: 0;
+    border-left: 2px solid var(--line);
+}
+.timeline li {
+    position: relative;
+    padding: 10px 0 10px 22px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+.timeline li::before {
+    content: "";
+    position: absolute;
+    left: -7px;
+    top: 16px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--gold);
+    border: 2px solid var(--white);
+}
+.timeline .muted { font-size: 12px; }

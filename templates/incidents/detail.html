@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Ticket #{{ incident.pk }}{% endblock %}
+
+{% block content %}
+<div class="card wide">
+  <h1 class="form-header">Ticket #{{ incident.pk }}: {{ incident.title }}</h1>
+
+  {% if messages %}
+    {% for message in messages %}
+      <p class="notice">{{ message }}</p>
+    {% endfor %}
+  {% endif %}
+
+  <table class="incident-table">
+    <tr><th>Status</th><td><span class="badge {{ incident.status }}">{{ incident.get_status_display }}</span></td></tr>
+    <tr><th>Severity</th><td><span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></td></tr>
+    <tr><th>Service</th><td>{{ incident.service.name }}</td></tr>
+    <tr><th>Location</th><td>{{ incident.building }} {{ incident.room }}</td></tr>
+    <tr><th>Reported by</th><td>{{ incident.reported_by.first_name }} {{ incident.reported_by.last_name }}</td></tr>
+    <tr><th>Description</th><td>{{ incident.description }}</td></tr>
+  </table>
+
+  {% if user.role == "solver" %}
+    <div class="actions">
+      {% for state in incident.next_states %}
+        <form method="post" action="{% url 'incident_transition' incident.pk %}" style="display:inline">
+          {% csrf_token %}
+          <input type="hidden" name="new_status" value="{{ state }}">
+          <button type="submit" class="btn-gold">Move to {{ state }}</button>
+        </form>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <h2>Timeline</h2>
+  <ul class="timeline">
+    {% for entry in timeline %}
+      <li>
+        <span class="muted">{{ entry.created_at|date:"M j, Y g:i A" }}</span>
+        &mdash; {{ entry.author.first_name }} {{ entry.author.last_name }}
+        {% if entry.update_type == "status_change" %}
+          changed status: {{ entry.old_status }} &rarr; {{ entry.new_status }}
+        {% elif entry.update_type == "solver_note" %}
+          (note) {{ entry.body }}
+        {% else %}
+          (comment) {{ entry.body }}
+        {% endif %}
+      </li>
+    {% empty %}
+      <li class="muted">No activity yet.</li>
+    {% endfor %}
+  </ul>
+
+  <h2>{% if user.role == "solver" %}Add a note{% else %}Add a comment{% endif %}</h2>
+  <form method="post" action="{% url 'incident_comment' incident.pk %}" class="stacked">
+    {% csrf_token %}
+    <textarea name="body" rows="3" class="form-input" required></textarea>
+    <button type="submit" class="btn-gold">Post</button>
+  </form>
+
+  <a href="{% url 'incidents' %}" class="btn-link">Back to incidents</a>
+</div>
+{% endblock %}
