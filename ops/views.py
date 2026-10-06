@@ -111,14 +111,17 @@ def incident_list(request):
     Active incidents, newest first. Solvers see tickets assigned to any of
     their teams; reporters see the tickets they filed.
     """
-    incidents = Incident.objects.filter(is_deleted=False)
-    if request.user.role == "solver":
-        # Solvers see tickets assigned to their teams plus any they filed
-        team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
-        incidents = incidents.filter(Q(assigned_team_id__in=team_ids) | Q(reported_by=request.user))
-    else:
-        incidents = incidents.filter(reported_by=request.user)
-    incidents = incidents.select_related("service", "reported_by").order_by("-created_at")
+    # The full incident list is for solvers only. Reporters see their own
+    # tickets on their profile page instead.
+    if request.user.role != "solver":
+        return redirect("profile")
+    team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
+    incidents = (
+        Incident.objects.filter(is_deleted=False)
+        .filter(Q(assigned_team_id__in=team_ids) | Q(reported_by=request.user))
+        .select_related("service", "reported_by")
+        .order_by("-created_at")
+    )
     for i in incidents:
         i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
     return render(request, "incidents/list.html", {"incidents": incidents})
@@ -161,9 +164,15 @@ def incident_edit(request, pk):
     POST saves the changes and returns to the list. Returns 404 for an
     unknown or deleted incident.
     """
-    incident = get_object_or_404(Incident, Q(reported_by=request.user) | Q(assigned_to=request.user), pk=pk, is_deleted=False)
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if not _can_access_incident(request.user, incident):
+        messages.error(request, "You do not have access to that ticket")
+        return redirect("profile")
     if request.method == "POST":
-        form = IncidentForm(request.POST)
+        # The service cannot be changed on edit; force the existing one.
+        data = request.POST.copy()
+        data["service"] = str(incident.service_id)
+        form = IncidentForm(data)
         if form.is_valid():
             old_team = incident.assigned_team
             old_severity = incident.priority

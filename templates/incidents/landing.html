@@ -10,7 +10,7 @@
     {% if user.role == "solver" %}
       <a href="{% url 'incidents' %}" class="btn-gold">View team incidents</a>
     {% else %}
-      <a href="{% url 'incidents' %}" class="btn-gold">View my incidents</a>
+      <a href="{% url 'profile' %}" class="btn-gold">View my incidents</a>
     {% endif %}
   </div>
 </div>

@@ -149,14 +149,14 @@ class LoginTests(TestCase):
         response = self.client.post("/login/", {
             "email": "user@example.com", "password": GOOD_PASSWORD,
         })
-        self.assertRedirects(response, "/incidents/list")
+        self.assertRedirects(response, "/incidents/list", target_status_code=302)
 
     def test_login_works_with_different_email_case(self):
         """Login is not case sensitive on the email."""
         response = self.client.post("/login/", {
             "email": "USER@Example.COM", "password": GOOD_PASSWORD,
         })
-        self.assertRedirects(response, "/incidents/list")
+        self.assertRedirects(response, "/incidents/list", target_status_code=302)
 
     def test_wrong_password_shows_error(self):
         """A bad password returns to the login page with an error message."""
@@ -196,7 +196,7 @@ class IncidentTests(TestCase):
     def test_create_ticket(self):
         """A submitted ticket is saved with the signed in user as the reporter."""
         response = self.client.post("/incidents/form", self.ticket_data())
-        self.assertRedirects(response, "/incidents/list")
+        self.assertRedirects(response, "/incidents/list", target_status_code=302)
         ticket = Incident.objects.get(title="Sink leaking")
         self.assertEqual(ticket.reported_by, self.user)
         self.assertEqual(ticket.priority, "high")
@@ -209,6 +209,8 @@ class IncidentTests(TestCase):
 
     def test_ticket_appears_in_list_newest_first(self):
         """The most recently created ticket is at the top of the list."""
+        self.user.role = "solver"; self.user.save()
+        TeamMember.objects.create(user=self.user, team=self.service.owning_team)
         self.client.post("/incidents/form", self.ticket_data(title="First"))
         self.client.post("/incidents/form", self.ticket_data(title="Second"))
         html = self.client.get("/incidents/list").content.decode()
@@ -368,6 +370,46 @@ class TimelineEventTests(TestCase):
             "title": "T", "description": "d2", "service": self.svc_b.pk,
             "priority": "high", "building": "", "room": ""})
         types = set(inc.incidentupdate_set.values_list("update_type", flat=True))
-        self.assertIn("assignment", types)
         self.assertIn("severity", types)
         self.assertIn("edit", types)
+
+
+class RoleUIRulesTests(TestCase):
+    """Reporters use their profile; solvers use the list; service is locked on edit."""
+
+    def setUp(self):
+        self.team = Team.objects.create(name="Plumbing")
+        self.svc = Service.objects.create(name="Pipes", owning_team=self.team)
+        self.svc2 = Service.objects.create(name="Drains", owning_team=self.team)
+        self.reporter = User.objects.create_user(
+            username="r@x.com", email="r@x.com", password=GOOD_PASSWORD, role="reporter")
+        self.solver = User.objects.create_user(
+            username="s@x.com", email="s@x.com", password=GOOD_PASSWORD, role="solver")
+        TeamMember.objects.create(user=self.solver, team=self.team)
+        self.incident = Incident.objects.create(
+            title="X", description="d", service=self.svc,
+            reported_by=self.reporter, assigned_team=self.team, status="open")
+
+    def test_reporter_redirected_from_list(self):
+        """A reporter hitting the incident list is sent to their profile."""
+        self.client.login(username="r@x.com", password=GOOD_PASSWORD)
+        r = self.client.get("/incidents/list")
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(r.url.endswith("/profile/"))
+
+    def test_solver_list_has_no_edit_button(self):
+        """The solver's incident list shows no Edit link."""
+        self.client.login(username="s@x.com", password=GOOD_PASSWORD)
+        html = self.client.get("/incidents/list").content.decode()
+        self.assertNotIn("incident_edit", html)
+        self.assertNotIn(">Edit<", html)
+
+    def test_reporter_cannot_change_service_on_edit(self):
+        """Even if a reporter submits a different service, it is ignored."""
+        self.client.login(username="r@x.com", password=GOOD_PASSWORD)
+        self.client.post(f"/incidents/{self.incident.pk}/edit/", {
+            "title": "X2", "description": "d", "service": self.svc2.pk,
+            "priority": "high", "building": "", "room": ""})
+        self.incident.refresh_from_db()
+        self.assertEqual(self.incident.title, "X2")
+        self.assertEqual(self.incident.service, self.svc)  # unchanged
