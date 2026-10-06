@@ -1,12 +1,20 @@
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
 from .forms import IncidentForm, LoginForm, RegisterForm
-from .models import Incident, Service, Team, User
+from .models import Incident, IncidentUpdate, Service, Team, TeamMember, User
+
+ALLOWED_TRANSITIONS = {
+    "open": ["acknowledged"],
+    "acknowledged": ["in_progress"],
+    "in_progress": ["resolved"],
+    "resolved": ["closed", "open"],
+    "closed": ["open"],
+}
 
 
 def home(request):
@@ -91,14 +99,20 @@ def landing(request):
 
 @login_required
 def incident_list(request):
-    """Active incidents, newest first. Soft-deleted tickets are excluded."""
-    incidents = (
-        Incident.objects.filter(is_deleted=False)
-        .select_related("service", "reported_by")
-        .order_by("-created_at")
-    )
+    """
+    Active incidents, newest first. Solvers see tickets assigned to any of
+    their teams; reporters see the tickets they filed.
+    """
+    incidents = Incident.objects.filter(is_deleted=False)
+    if request.user.role == "solver":
+        team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
+        incidents = incidents.filter(assigned_team_id__in=team_ids)
+    else:
+        incidents = incidents.filter(reported_by=request.user)
+    incidents = incidents.select_related("service", "reported_by").order_by("-created_at")
+    for i in incidents:
+        i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
     return render(request, "incidents/list.html", {"incidents": incidents})
-
 
 @login_required
 def incident_form(request):
@@ -133,7 +147,7 @@ def incident_edit(request, pk):
     POST saves the changes and returns to the list. Returns 404 for an
     unknown or deleted incident.
     """
-    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    incident = get_object_or_404(Incident, Q(reported_by=request.user) | Q(assigned_to=request.user), pk=pk, is_deleted=False)
     if request.method == "POST":
         form = IncidentForm(request.POST)
         if form.is_valid():
@@ -176,4 +190,81 @@ def incident_delete(request, pk):
 def profile(request):
 
     return render(request,"profile.html")
-    
+
+
+@login_required
+def incident_transition(request, pk):
+    """
+    Move an incident to a new status. Only solvers may do this, and only
+    along a transition the state machine allows. Every successful move is
+    recorded as an IncidentUpdate row for the timeline.
+    """
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+
+    #only solvers change state
+    if request.user.role != "solver":
+        messages.error(request, "Only solvers can change incident status")
+        return redirect("incident_detail", pk=pk)
+
+    new_status = request.POST.get("new_status")
+    old_status = incident.status
+
+    # the move must be legal from the current state
+    if new_status not in ALLOWED_TRANSITIONS.get(old_status, []):
+        messages.error(request, f"Cannot move from {old_status} to {new_status}")
+        return redirect("incident_detail", pk=pk)
+
+    # Apply the change and log it to the timeline
+    incident.status = new_status
+    incident.save()
+    IncidentUpdate.objects.create(
+        incident=incident,
+        author=request.user,
+        update_type="status_change",
+        old_status=old_status,
+        new_status=new_status,
+        body=f"Status changed from {old_status} to {new_status}",
+    )
+    messages.success(request, f"Ticket #{incident.pk} moved to {new_status}")
+    return redirect("incident_detail", pk=pk)
+
+
+@login_required
+def incident_detail(request, pk):
+    """
+    Show one incident with its full timeline. The timeline is every
+    IncidentUpdate row for this ticket, oldest first.
+    """
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    timeline = (
+        IncidentUpdate.objects.filter(incident=incident)
+        .select_related("author")
+        .order_by("created_at")
+    )
+    incident.next_states = ALLOWED_TRANSITIONS.get(incident.status, [])
+    return render(request, "incidents/detail.html", {
+        "incident": incident,
+        "timeline": timeline,
+    })
+
+
+@login_required
+def incident_comment(request, pk):
+    """
+    Add a comment to an incident. A reporter adds a comment, a solver adds
+    a note. Both are stored as IncidentUpdate rows and shown in the timeline;
+    neither side can edit the other's entries.
+    """
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if request.method == "POST":
+        body = request.POST.get("body", "").strip()
+        if body:
+            update_type = "solver_note" if request.user.role == "solver" else "comment"
+            IncidentUpdate.objects.create(
+                incident=incident,
+                author=request.user,
+                update_type=update_type,
+                body=body,
+            )
+            messages.success(request, "Comment added")
+    return redirect("incident_detail", pk=pk)

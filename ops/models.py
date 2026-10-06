@@ -7,8 +7,10 @@ from django.contrib.auth.models import AbstractUser
 # username so it acts as the login field.
 class User(AbstractUser):
     email = models.EmailField(unique=True)
-    role = models.CharField(max_length=20, default="user")
+    role = models.CharField(max_length=20, default="reporter")
     created_at = models.DateTimeField(auto_now_add=True)
+    bio = models.TextField(blank=True)
+
 
     def __str__(self):
         return self.email
@@ -66,7 +68,14 @@ class Incident(models.Model):
     reported_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="reported_incidents")
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="assigned_incidents")
     assigned_team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True)
-    status = models.CharField(max_length=20, default="open")
+    STATUS_CHOICES = [
+        ("open", "Open"),
+        ("acknowledged", "Acknowledged"),
+        ("in_progress", "In Progress"),
+        ("resolved", "Resolved"),
+        ("closed", "Closed"),
+    ]
+    status = models.CharField(max_length=20,choices=STATUS_CHOICES, default="open")
     priority = models.CharField(max_length=20, default="medium")
     escalation_level = models.IntegerField(default=0)
     escalated_at = models.DateTimeField(null=True, blank=True)
@@ -88,6 +97,8 @@ class IncidentUpdate(models.Model):
     update_type = models.CharField(max_length=20, default="note")
     body = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    old_status = models.CharField(max_length=20, blank=True)
+    new_status = models.CharField(max_length=20, blank=True)
 
     def __str__(self):
         return f"Update on {self.incident}"

@@ -7,7 +7,9 @@
   <p class="lead">What would you like to do?</p>
   <div class="actions">
     <a href="{% url 'form' %}" class="btn-gold">Fill out a support ticket</a>
-    <a href="{% url 'incidents' %}" class="btn-gold">View active incidents</a>
+    {% if user.role == "solver" %}
+      <a href="{% url 'incidents' %}" class="btn-gold">View active incidents</a>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
