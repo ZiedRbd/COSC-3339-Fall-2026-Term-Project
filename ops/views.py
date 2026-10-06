@@ -188,8 +188,20 @@ def incident_delete(request, pk):
 
 @login_required
 def profile(request):
-
-    return render(request,"profile.html")
+    """
+    Show the logged-in user's profile: identity, an editable bio, and their
+    incidents split into active, closed/resolved, and all filed.
+    """
+    if request.method == "POST":
+        request.user.bio = request.POST.get("bio", "")
+        request.user.save()
+        return redirect("profile")
+    user_incidents = Incident.objects.filter(reported_by=request.user, is_deleted=False)
+    return render(request, "profile.html", {
+        "active_incidents": user_incidents.exclude(status__in=["resolved", "closed"]),
+        "closed_incidents": user_incidents.filter(status__in=["resolved", "closed"]),
+        "filed_incidents": user_incidents,
+    })
 
 
 @login_required

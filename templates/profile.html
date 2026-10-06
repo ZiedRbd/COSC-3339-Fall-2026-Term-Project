@@ -21,7 +21,7 @@
 <form method = "POST" class = "bio-form">
 {% csrf_token %}
 <label for ="bio"> Bio</label>
-<textarea id="bio" name="bio" rows="4" placeholder="Write a short bio"></textarea>
+<textarea id="bio" name="bio" rows="4" placeholder="Write a short bio">{{ user.bio }}</textarea>
       <button type="submit">Save bio</button>
     </form>
   </aside>

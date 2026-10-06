@@ -1,0 +1,285 @@
+/*------------------------------Profile page layout --------------------------------*/
+.profile-layout{
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-areas: "incidents profile";
+    gap: 32px;
+    align-items: start;
+
+}
+.incidents{
+    grid-area:incidents;}
+.profile-card{
+    grid-area: profile;
+}
+
+/*Profile card */
+.profile-card{
+    box-sizing: border-box;
+    padding: 28px;
+    background:rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    color: #FFFFFF;
+    text-align: center;
+}
+
+.avatar{
+    display: block;
+    width: 140px;
+    height: 140px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #D4B34A;
+    background: #FFFFFF;
+}
+
+.profile-card h1{
+    margin: 0;
+    color: #D4B34A;
+    font-size: 1.5rem;
+    overflow-wrap: anywhere;
+}
+.meta {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Bio Form */
+
+.bio-form{
+    display: grid;
+    gap: 8px;
+    margin-top: 24px;
+    text-align: left;
+
+}
+.bio-form lable{
+    font-weight: 600;
+
+}
+
+.bio-form textarea{
+    box-sizing: border-box;
+    width: 100%;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: #12286B;
+  font: inherit;
+  resize: vertical;
+}
+
+.bio-form textarea:focus{
+    outline: 3px solid #D4B34A;
+  outline-offset: 1px;
+}
+
+.bio-form button{
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 8px;
+  background: #D4B34A;
+  color: #12286B;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.bio-form button:hover {
+  background: #E2C463;
+}
+
+/* Incidents remaining*/
+
+.incident-columns{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    align-items: start;;
+
+}
+
+.incident-col{
+    padding: 20px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: #FFFFFF;
+}
+.incident-col h3 {
+  margin: 0 0 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  color: #D4B34A;
+  font-size: 1.1rem;
+}
+
+.incident-col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.incident-col li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+incident-col li span {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.incident-col .empty {
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+}
+.incident-col li:last-child {
+  border-bottom: 0;
+}
+
+/* ---------- Timeline (incident detail) ---------- */
+.timeline {
+    list-style: none;
+    margin: 12px 0 28px;
+    padding: 0;
+    border-left: 2px solid var(--line);
+}
+.timeline li {
+    position: relative;
+    padding: 10px 0 10px 22px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+.timeline li::before {
+    content: "";
+    position: absolute;
+    left: -7px;
+    top: 16px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--gold);
+    border: 2px solid var(--white);
+}
+.timeline .muted { font-size: 12px; }
+
+
+/* ---------- Incident detail redesign ---------- */
+.detail { max-width: 760px; }
+
+.detail-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--line);
+}
+.detail-eyebrow {
+    margin: 0 0 4px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.detail-title { margin: 0; color: var(--navy); font-size: 1.6rem; line-height: 1.2; }
+
+.status-pill {
+    font-size: 14px;
+    padding: 6px 16px;
+    margin-top: 4px;
+    white-space: nowrap;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px 28px;
+    margin-bottom: 28px;
+}
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field-wide { grid-column: 1 / -1; }
+.field-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.field-value { color: var(--ink); font-size: 15px; }
+.field .badge { align-self: flex-start; margin-top: 0; }
+
+.action-bar {
+    background: #f5f8ff;
+    border: 1px solid #dbe4f3;
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.action-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.action-buttons form { margin: 0; }
+.action-buttons .btn-gold { text-transform: capitalize; }
+
+.section-title {
+    color: var(--navy);
+    font-size: 1.15rem;
+    margin: 0 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--line);
+}
+
+/* richer timeline */
+.timeline li { padding: 14px 0 14px 24px; border-left: none; }
+.timeline { border-left: 2px solid var(--line); }
+.tl-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.tl-meta strong { color: var(--ink); font-size: 14px; }
+.tl-role {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+    background: var(--line); color: var(--muted);
+    padding: 2px 7px; border-radius: 999px; font-weight: 700;
+}
+.tl-body { font-size: 14px; color: var(--ink); line-height: 1.5; }
+.tl-body .badge { font-size: 11px; margin-top: 0; }
+.tl-tag {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 2px 8px; border-radius: 999px; margin-right: 4px;
+}
+.tl-tag.note { background: #ede7f6; color: #5e35b1; }
+.tl-tag.comment { background: #e3f2fd; color: var(--navy); }
+/* dot color by event type */
+.timeline li::before { top: 18px; }
+.tl-status_change::before { background: var(--gold); }
+.tl-solver_note::before { background: #5e35b1; }
+.tl-comment::before { background: var(--navy); }
+
+.comment-form { max-width: 100%; padding: 0; background: none; }
+.comment-form textarea { margin-bottom: 10px; }
+.comment-form .btn-gold { align-self: flex-start; }
+
+.back-link {
+    display: inline-block;
+    margin-top: 24px;
+    color: var(--navy);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+}
+.back-link:hover { text-decoration: underline; }
+
+@media (max-width: 560px) {
+    .detail-grid { grid-template-columns: 1fr; }
+    .detail-head { flex-direction: column; }
+}
