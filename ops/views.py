@@ -105,8 +105,9 @@ def incident_list(request):
     """
     incidents = Incident.objects.filter(is_deleted=False)
     if request.user.role == "solver":
+        # Solvers see tickets assigned to their teams plus any they filed
         team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
-        incidents = incidents.filter(assigned_team_id__in=team_ids)
+        incidents = incidents.filter(Q(assigned_team_id__in=team_ids) | Q(reported_by=request.user))
     else:
         incidents = incidents.filter(reported_by=request.user)
     incidents = incidents.select_related("service", "reported_by").order_by("-created_at")
@@ -124,14 +125,17 @@ def incident_form(request):
         form = IncidentForm(request.POST)
         if form.is_valid():
             # reported_by comes from the session, not the form
+            service = form.cleaned_data["service"]
             incident = Incident.objects.create(
                 title=form.cleaned_data["title"],
                 description=form.cleaned_data["description"],
                 building=form.cleaned_data["building"],
                 room=form.cleaned_data["room"],
-                service=form.cleaned_data["service"],
+                service=service,
                 priority=form.cleaned_data["priority"],
                 reported_by=request.user,
+                # Route the ticket to the team that owns the service
+                assigned_team=service.owning_team,
             )
             messages.success(request, f"Ticket #{incident.pk} created")
             return redirect("incidents")
@@ -156,6 +160,7 @@ def incident_edit(request, pk):
             incident.building = form.cleaned_data["building"]
             incident.room = form.cleaned_data["room"]
             incident.service = form.cleaned_data["service"]
+            incident.assigned_team = form.cleaned_data["service"].owning_team
             incident.priority = form.cleaned_data["priority"]
             incident.save()
             messages.success(request, f"Ticket #{incident.pk} updated")
@@ -270,6 +275,9 @@ def incident_comment(request, pk):
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
     if request.method == "POST":
         body = request.POST.get("body", "").strip()
+        if len(body) > 1000:
+            messages.error(request, "Comment is too long (1000 characters max)")
+            return redirect("incident_detail", pk=pk)
         if body:
             update_type = "solver_note" if request.user.role == "solver" else "comment"
             IncidentUpdate.objects.create(

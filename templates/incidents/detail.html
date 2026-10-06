@@ -76,7 +76,7 @@
   <h2 class="section-title">{% if user.role == "solver" %}Add a note{% else %}Add a comment{% endif %}</h2>
   <form method="post" action="{% url 'incident_comment' incident.pk %}" class="comment-form">
     {% csrf_token %}
-    <textarea name="body" rows="3" class="form-input" placeholder="{% if user.role == 'solver' %}Add a note for the reporter...{% else %}Add a comment for the team...{% endif %}" required></textarea>
+    <textarea name="body" rows="3" maxlength="1000" class="form-input" placeholder="{% if user.role == 'solver' %}Add a note for the reporter...{% else %}Add a comment for the team...{% endif %}" required></textarea>
     <button type="submit" class="btn-gold">Post</button>
   </form>
 
