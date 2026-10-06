@@ -283,3 +283,12 @@ incident-col li span {
     .detail-grid { grid-template-columns: 1fr; }
     .detail-head { flex-direction: column; }
 }
+
+.tl-tag.created    { background: #e8f5e9; color: var(--green); }
+.tl-tag.assignment { background: #e3f2fd; color: var(--navy); }
+.tl-tag.severity   { background: #fff8e1; color: var(--amber); }
+.tl-tag.edit       { background: var(--line); color: var(--muted); }
+.tl-created::before    { background: var(--green); }
+.tl-assignment::before { background: var(--navy); }
+.tl-severity::before   { background: var(--amber); }
+.tl-edit::before       { background: var(--muted); }
