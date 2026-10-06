@@ -36,12 +36,14 @@
       <span class="field-label">Next step</span>
       <div class="action-buttons">
         {% for state in incident.next_states %}
+          {% with label=state|cut:"_" %}
           <form method="post" action="{% url 'incident_transition' incident.pk %}"
-                onsubmit="return confirm('Move this ticket to {{ state|cut:'_' }}?');">
+                onsubmit="return confirm('Move this ticket to {{ label }}?');">
             {% csrf_token %}
             <input type="hidden" name="new_status" value="{{ state }}">
-            <button type="submit" class="btn-gold">Move to {{ state|cut:"_" }}</button>
+            <button type="submit" class="btn-gold">Move to {{ label }}</button>
           </form>
+          {% endwith %}
         {% endfor %}
       </div>
     </div>

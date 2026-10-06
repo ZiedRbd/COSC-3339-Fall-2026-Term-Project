@@ -127,6 +127,8 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
+# All timestamps (incident timeline, created_at, etc.) are recorded using the
+# server's clock in this timezone, not the viewer's local time.
 TIME_ZONE = "America/Chicago"
 
 USE_I18N = True
