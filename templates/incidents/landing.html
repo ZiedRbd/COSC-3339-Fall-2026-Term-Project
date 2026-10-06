@@ -8,7 +8,9 @@
   <div class="actions">
     <a href="{% url 'form' %}" class="btn-gold">Fill out a support ticket</a>
     {% if user.role == "solver" %}
-      <a href="{% url 'incidents' %}" class="btn-gold">View active incidents</a>
+      <a href="{% url 'incidents' %}" class="btn-gold">View team incidents</a>
+    {% else %}
+      <a href="{% url 'incidents' %}" class="btn-gold">View my incidents</a>
     {% endif %}
   </div>
 </div>
