@@ -105,8 +105,9 @@ def incident_list(request):
     """
     incidents = Incident.objects.filter(is_deleted=False)
     if request.user.role == "solver":
+        # Solvers see tickets assigned to their teams plus any they filed
         team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
-        incidents = incidents.filter(assigned_team_id__in=team_ids)
+        incidents = incidents.filter(Q(assigned_team_id__in=team_ids) | Q(reported_by=request.user))
     else:
         incidents = incidents.filter(reported_by=request.user)
     incidents = incidents.select_related("service", "reported_by").order_by("-created_at")
@@ -124,14 +125,17 @@ def incident_form(request):
         form = IncidentForm(request.POST)
         if form.is_valid():
             # reported_by comes from the session, not the form
+            service = form.cleaned_data["service"]
             incident = Incident.objects.create(
                 title=form.cleaned_data["title"],
                 description=form.cleaned_data["description"],
                 building=form.cleaned_data["building"],
                 room=form.cleaned_data["room"],
-                service=form.cleaned_data["service"],
+                service=service,
                 priority=form.cleaned_data["priority"],
                 reported_by=request.user,
+                # Route the ticket to the team that owns the service
+                assigned_team=service.owning_team,
             )
             messages.success(request, f"Ticket #{incident.pk} created")
             return redirect("incidents")
@@ -156,6 +160,7 @@ def incident_edit(request, pk):
             incident.building = form.cleaned_data["building"]
             incident.room = form.cleaned_data["room"]
             incident.service = form.cleaned_data["service"]
+            incident.assigned_team = form.cleaned_data["service"].owning_team
             incident.priority = form.cleaned_data["priority"]
             incident.save()
             messages.success(request, f"Ticket #{incident.pk} updated")
@@ -186,6 +191,23 @@ def incident_delete(request, pk):
         messages.success(request, f"Ticket #{incident.pk} deleted")
     return redirect("incidents")
 
+@login_required
+def profile(request):
+    """
+    Show the logged-in user's profile: identity, an editable bio, and their
+    incidents split into active, closed/resolved, and all filed.
+    """
+    if request.method == "POST":
+        request.user.bio = request.POST.get("bio", "")
+        request.user.save()
+        return redirect("profile")
+    user_incidents = Incident.objects.filter(reported_by=request.user, is_deleted=False)
+    return render(request, "profile.html", {
+        "active_incidents": user_incidents.exclude(status__in=["resolved", "closed"]),
+        "closed_incidents": user_incidents.filter(status__in=["resolved", "closed"]),
+        "filed_incidents": user_incidents,
+    })
+
 
 @login_required
 def incident_transition(request, pk):
@@ -199,7 +221,7 @@ def incident_transition(request, pk):
     #only solvers change state
     if request.user.role != "solver":
         messages.error(request, "Only solvers can change incident status")
-        return redirect("incidents")
+        return redirect("incident_detail", pk=pk)
 
     new_status = request.POST.get("new_status")
     old_status = incident.status
@@ -207,7 +229,7 @@ def incident_transition(request, pk):
     # the move must be legal from the current state
     if new_status not in ALLOWED_TRANSITIONS.get(old_status, []):
         messages.error(request, f"Cannot move from {old_status} to {new_status}")
-        return redirect("incidents")
+        return redirect("incident_detail", pk=pk)
 
     # Apply the change and log it to the timeline
     incident.status = new_status
@@ -221,7 +243,7 @@ def incident_transition(request, pk):
         body=f"Status changed from {old_status} to {new_status}",
     )
     messages.success(request, f"Ticket #{incident.pk} moved to {new_status}")
-    return redirect("incidents")
+    return redirect("incident_detail", pk=pk)
 
 
 @login_required
@@ -253,6 +275,9 @@ def incident_comment(request, pk):
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
     if request.method == "POST":
         body = request.POST.get("body", "").strip()
+        if len(body) > 1000:
+            messages.error(request, "Comment is too long (1000 characters max)")
+            return redirect("incident_detail", pk=pk)
         if body:
             update_type = "solver_note" if request.user.role == "solver" else "comment"
             IncidentUpdate.objects.create(

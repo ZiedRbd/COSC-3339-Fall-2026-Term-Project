@@ -4,7 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <title>{% block title %}CampusDesk{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=6">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=8">
+    <link rel="stylesheet" href="{% static 'css/components.css' %}?v=8">
+    <link rel="stylesheet" href="{% static 'css/incidents.css' %}?v=8">
+    <link rel="stylesheet" href="{% static 'css/profile.css' %}?v=8">
     {% block extra_js %}{% endblock %}
 </head>
 <body class="base-body">
@@ -13,11 +16,12 @@
             <a href="{% url 'home' %}" class="nav-btn">Home</a>
             <a href="{% url 'services' %}" class="nav-btn">Services</a>
             <a href="{% url 'landing' %}" class="nav-btn">Incidents</a>
+            
 
         </div>
         <div class="nav-user-section">
         {% if user.is_authenticated %}
-
+            <a href="{% url  'profile' %}" class="nav-btn">Profile</a>
             <span class="info">Logged in as: <strong>{{ user.username }}</strong></span>
             <form action="{% url 'logout' %}" method="POST" class="logout-form">
                 {% csrf_token %}
