@@ -6,7 +6,15 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
 from .forms import IncidentForm, LoginForm, RegisterForm
-from .models import Incident, Service, Team, User
+from .models import Incident, IncidentUpdate, Service, Team, User
+
+ALLOWED_TRANSITIONS = {
+    "open": ["acknowledged"],
+    "acknowledged": ["in_progress"],
+    "in_progress": ["resolved"],
+    "resolved": ["closed", "open"],
+    "closed": ["open"],
+}
 
 
 def home(request):
@@ -172,4 +180,41 @@ def incident_delete(request, pk):
         incident.is_deleted = True
         incident.save()
         messages.success(request, f"Ticket #{incident.pk} deleted")
+    return redirect("incidents")
+
+
+@login_required
+def incident_transition(request, pk):
+    """
+    Move an incident to a new status. Only solvers may do this, and only
+    along a transition the state machine allows. Every successful move is
+    recorded as an IncidentUpdate row for the timeline.
+    """
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+
+    #only solvers change state
+    if request.user.role != "solver":
+        messages.error(request, "Only solvers can change incident status")
+        return redirect("incidents")
+
+    new_status = request.POST.get("new_status")
+    old_status = incident.status
+
+    # the move must be legal from the current state
+    if new_status not in ALLOWED_TRANSITIONS.get(old_status, []):
+        messages.error(request, f"Cannot move from {old_status} to {new_status}")
+        return redirect("incidents")
+
+    # Apply the change and log it to the timeline
+    incident.status = new_status
+    incident.save()
+    IncidentUpdate.objects.create(
+        incident=incident,
+        author=request.user,
+        update_type="status_change",
+        old_status=old_status,
+        new_status=new_status,
+        body=f"Status changed from {old_status} to {new_status}",
+    )
+    messages.success(request, f"Ticket #{incident.pk} moved to {new_status}")
     return redirect("incidents")
