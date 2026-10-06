@@ -1,0 +1,168 @@
+/* ---------- Cards and buttons ---------- */
+.card {
+    background: var(--white);
+    border-radius: 14px;
+    padding: 36px;
+    width: 100%;
+    max-width: 560px;
+    box-shadow: 0 10px 30px rgba(5, 43, 110, 0.18), 0 2px 6px rgba(0,0,0,0.06);
+}
+
+.card.wide {
+    max-width: 1000px;
+}
+
+.card h1,
+.card h2 {
+    color: var(--navy);
+}
+
+.form-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.lead {
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 0 0 24px;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.btn-gold,
+.btn-link,
+button[type="submit"] {
+    display: inline-block;
+    background: var(--gold);
+    color: var(--navy-dark);
+    border: 1px solid var(--gold);
+    text-decoration: none;
+    font-family: var(--font);
+    font-size: 16px;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.btn-gold:hover,
+.btn-link:hover,
+button[type="submit"]:hover {
+    background: var(--gold-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(212,175,55,0.35);
+}
+.btn-gold, .btn-link, button[type="submit"] { transition: all 0.15s ease; }
+
+.btn-link {
+    margin-top: 12px;
+}
+
+/* ---------- Forms ---------- */
+input, textarea, select {
+    font-size: 16px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-sizing: border-box;
+    width: 100%;
+    font-family: var(--font);
+}
+
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--navy);
+}
+
+.stacked {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 400px;
+    padding: 24px;
+    background: var(--white);
+    border-radius: 8px;
+}
+
+.login-field,
+.form-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 480px;
+}
+
+.form-body {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.form-item {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.form-label {
+    margin-bottom: 6px;
+    font-weight: bold;
+    color: var(--ink);
+}
+
+.form-input {
+    width: 100%;
+    resize: vertical;
+}
+
+.password {
+    width: auto;
+    font-size: 14px;
+    padding: 6px 12px;
+    margin: 4px 0 8px;
+    background: var(--white);
+    border: 1px solid var(--line);
+}
+
+.stacked button[type="submit"],
+.stacked .btn-link {
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.error {
+    color: var(--red);
+    font-weight: bold;
+    font-size: 15px;
+    margin: 0;
+}
+
+.error-popup {
+    width: 100%;
+}
+
+.success,
+.notice {
+    background: #e8f5e9;
+    color: var(--green);
+    border: 1px solid var(--green);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+}
+
+.empty {
+    color: var(--muted);
+    text-align: center;
+    padding: 24px 0;
+}
