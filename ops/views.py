@@ -17,10 +17,11 @@ ALLOWED_TRANSITIONS = {
 }
 
 
-def log_event(incident, author, update_type, body):
+def log_event(incident, author, update_type, body, old_status="", new_status=""):
     """Record one event on an incident's timeline."""
     IncidentUpdate.objects.create(
-        incident=incident, author=author, update_type=update_type, body=body,
+        incident=incident, author=author, update_type=update_type,
+        body=body, old_status=old_status, new_status=new_status,
     )
 
 
@@ -268,13 +269,10 @@ def incident_transition(request, pk):
     # Apply the change and log it to the timeline
     incident.status = new_status
     incident.save()
-    IncidentUpdate.objects.create(
-        incident=incident,
-        author=request.user,
-        update_type="status_change",
-        old_status=old_status,
-        new_status=new_status,
-        body=f"Status changed from {old_status} to {new_status}",
+    log_event(
+        incident, request.user, "status_change",
+        f"Status changed from {old_status} to {new_status}",
+        old_status=old_status, new_status=new_status,
     )
     messages.success(request, f"Ticket #{incident.pk} moved to {new_status}")
     return redirect("incident_detail", pk=pk)
@@ -320,11 +318,6 @@ def incident_comment(request, pk):
             return redirect("incident_detail", pk=pk)
         if body:
             update_type = "solver_note" if request.user.role == "solver" else "comment"
-            IncidentUpdate.objects.create(
-                incident=incident,
-                author=request.user,
-                update_type=update_type,
-                body=body,
-            )
+            log_event(incident, request.user, update_type, body)
             messages.success(request, "Comment added")
     return redirect("incident_detail", pk=pk)
