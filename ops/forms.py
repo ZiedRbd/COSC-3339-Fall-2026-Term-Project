@@ -103,13 +103,15 @@ class IncidentForm(forms.Form):
         empty_label="Select a service"
     )
 
-    # How urgent the reporter thinks it is
+    # Severity: how serious the incident is. Required, no default, so the
+    # reporter makes a deliberate choice. Labels explain each level.
     priority = forms.ChoiceField(
+        label="Severity",
         choices=[
-            ("low", "Low"),
-            ("medium", "Medium"),
-            ("high", "High"),
-            ("critical", "Critical"),
+            ("", "Select a severity level"),
+            ("low", "Low - minor inconvenience, service still works"),
+            ("medium", "Medium - partial disruption, a workaround exists"),
+            ("high", "High - major disruption, no workaround"),
+            ("critical", "Critical - safety hazard or full outage"),
         ],
-        initial="medium",
     )
