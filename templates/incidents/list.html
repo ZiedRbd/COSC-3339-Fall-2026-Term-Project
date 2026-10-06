@@ -49,7 +49,7 @@
         {% for incident in incidents %}
           <tr class="incident-list-item">
             <td class="ticket-id">{{ incident.pk }}</td>
-            <td>{{ incident.title }}</td>
+            <td><a href="{% url 'incident_detail' incident.pk %}">{{ incident.title }}</a></td>
             <td>{% if incident.building or incident.room %}{{ incident.building }}{% if incident.building and incident.room %}, {% endif %}{{ incident.room }}{% else %}<span class="muted">Not given</span>{% endif %}</td>
             <td>{{ incident.service.name }}</td>
             <td><span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></td>

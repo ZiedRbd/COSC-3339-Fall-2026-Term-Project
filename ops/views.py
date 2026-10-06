@@ -222,3 +222,44 @@ def incident_transition(request, pk):
     )
     messages.success(request, f"Ticket #{incident.pk} moved to {new_status}")
     return redirect("incidents")
+
+
+@login_required
+def incident_detail(request, pk):
+    """
+    Show one incident with its full timeline. The timeline is every
+    IncidentUpdate row for this ticket, oldest first.
+    """
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    timeline = (
+        IncidentUpdate.objects.filter(incident=incident)
+        .select_related("author")
+        .order_by("created_at")
+    )
+    incident.next_states = ALLOWED_TRANSITIONS.get(incident.status, [])
+    return render(request, "incidents/detail.html", {
+        "incident": incident,
+        "timeline": timeline,
+    })
+
+
+@login_required
+def incident_comment(request, pk):
+    """
+    Add a comment to an incident. A reporter adds a comment, a solver adds
+    a note. Both are stored as IncidentUpdate rows and shown in the timeline;
+    neither side can edit the other's entries.
+    """
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if request.method == "POST":
+        body = request.POST.get("body", "").strip()
+        if body:
+            update_type = "solver_note" if request.user.role == "solver" else "comment"
+            IncidentUpdate.objects.create(
+                incident=incident,
+                author=request.user,
+                update_type=update_type,
+                body=body,
+            )
+            messages.success(request, "Comment added")
+    return redirect("incident_detail", pk=pk)
