@@ -6,7 +6,15 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
 from .forms import IncidentForm, LoginForm, RegisterForm
-from .models import Incident, Service, Team, User
+from .models import Incident, IncidentUpdate, Service, Team, TeamMember, User
+
+ALLOWED_TRANSITIONS = {
+    "open": ["acknowledged"],
+    "acknowledged": ["in_progress"],
+    "in_progress": ["resolved"],
+    "resolved": ["closed", "open"],
+    "closed": ["open"],
+}
 
 
 def home(request):
@@ -91,17 +99,20 @@ def landing(request):
 
 @login_required
 def incident_list(request):
-    """Active incidents, newest first. Soft-deleted tickets are excluded."""
-    if(request.user.role != "solver"):
-        return redirect("home")
+    """
+    Active incidents, newest first. Solvers see tickets assigned to any of
+    their teams; reporters see the tickets they filed.
+    """
+    incidents = Incident.objects.filter(is_deleted=False)
+    if request.user.role == "solver":
+        team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
+        incidents = incidents.filter(assigned_team_id__in=team_ids)
     else:
-        incidents = (
-            Incident.objects.filter(is_deleted=False)
-            .select_related("service", "reported_by")
-            .order_by("-created_at")
-        )
+        incidents = incidents.filter(reported_by=request.user)
+    incidents = incidents.select_related("service", "reported_by").order_by("-created_at")
+    for i in incidents:
+        i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
     return render(request, "incidents/list.html", {"incidents": incidents})
-
 
 @login_required
 def incident_form(request):
@@ -173,4 +184,41 @@ def incident_delete(request, pk):
         incident.is_deleted = True
         incident.save()
         messages.success(request, f"Ticket #{incident.pk} deleted")
+    return redirect("incidents")
+
+
+@login_required
+def incident_transition(request, pk):
+    """
+    Move an incident to a new status. Only solvers may do this, and only
+    along a transition the state machine allows. Every successful move is
+    recorded as an IncidentUpdate row for the timeline.
+    """
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+
+    #only solvers change state
+    if request.user.role != "solver":
+        messages.error(request, "Only solvers can change incident status")
+        return redirect("incidents")
+
+    new_status = request.POST.get("new_status")
+    old_status = incident.status
+
+    # the move must be legal from the current state
+    if new_status not in ALLOWED_TRANSITIONS.get(old_status, []):
+        messages.error(request, f"Cannot move from {old_status} to {new_status}")
+        return redirect("incidents")
+
+    # Apply the change and log it to the timeline
+    incident.status = new_status
+    incident.save()
+    IncidentUpdate.objects.create(
+        incident=incident,
+        author=request.user,
+        update_type="status_change",
+        old_status=old_status,
+        new_status=new_status,
+        body=f"Status changed from {old_status} to {new_status}",
+    )
+    messages.success(request, f"Ticket #{incident.pk} moved to {new_status}")
     return redirect("incidents")
