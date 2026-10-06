@@ -338,3 +338,36 @@ class IncidentAccessTests(TestCase):
         self.client.post(f"/incidents/{self.incident.pk}/transition/", {"new_status": "acknowledged"})
         self.incident.refresh_from_db()
         self.assertEqual(self.incident.status, "open")
+
+
+class TimelineEventTests(TestCase):
+    """Creating and editing a ticket records events on its timeline."""
+
+    def setUp(self):
+        self.team_a = Team.objects.create(name="Plumbing")
+        self.team_b = Team.objects.create(name="Electrical")
+        self.svc_a = Service.objects.create(name="Pipes", owning_team=self.team_a)
+        self.svc_b = Service.objects.create(name="Wiring", owning_team=self.team_b)
+        self.user = User.objects.create_user(
+            username="tl@x.com", email="tl@x.com", password=GOOD_PASSWORD, role="reporter")
+        self.client.login(username="tl@x.com", password=GOOD_PASSWORD)
+
+    def test_creation_is_logged(self):
+        """Filing a ticket records a 'created' timeline entry."""
+        self.client.post("/incidents/form", {
+            "title": "T", "description": "d", "service": self.svc_a.pk, "priority": "low"})
+        inc = Incident.objects.get(title="T")
+        self.assertTrue(inc.incidentupdate_set.filter(update_type="created").exists())
+
+    def test_edit_logs_assignment_severity_and_edit(self):
+        """Changing the service and severity records assignment, severity, and edit entries."""
+        self.client.post("/incidents/form", {
+            "title": "T", "description": "d", "service": self.svc_a.pk, "priority": "low"})
+        inc = Incident.objects.get(title="T")
+        self.client.post(f"/incidents/{inc.pk}/edit/", {
+            "title": "T", "description": "d2", "service": self.svc_b.pk,
+            "priority": "high", "building": "", "room": ""})
+        types = set(inc.incidentupdate_set.values_list("update_type", flat=True))
+        self.assertIn("assignment", types)
+        self.assertIn("severity", types)
+        self.assertIn("edit", types)

@@ -17,6 +17,13 @@ ALLOWED_TRANSITIONS = {
 }
 
 
+def log_event(incident, author, update_type, body):
+    """Record one event on an incident's timeline."""
+    IncidentUpdate.objects.create(
+        incident=incident, author=author, update_type=update_type, body=body,
+    )
+
+
 def home(request):
     """Public landing page."""
     return render(request, "home.html")
@@ -137,6 +144,8 @@ def incident_form(request):
                 # Route the ticket to the team that owns the service
                 assigned_team=service.owning_team,
             )
+            log_event(incident, request.user, "created",
+                      f"Ticket created and assigned to {service.owning_team.name}")
             messages.success(request, f"Ticket #{incident.pk} created")
             return redirect("incidents")
     else:
@@ -155,6 +164,8 @@ def incident_edit(request, pk):
     if request.method == "POST":
         form = IncidentForm(request.POST)
         if form.is_valid():
+            old_team = incident.assigned_team
+            old_severity = incident.priority
             incident.title = form.cleaned_data["title"]
             incident.description = form.cleaned_data["description"]
             incident.building = form.cleaned_data["building"]
@@ -163,6 +174,14 @@ def incident_edit(request, pk):
             incident.assigned_team = form.cleaned_data["service"].owning_team
             incident.priority = form.cleaned_data["priority"]
             incident.save()
+            new_team = incident.service.owning_team
+            if old_team != new_team:
+                log_event(incident, request.user, "assignment",
+                          f"Reassigned from {old_team} to {new_team}")
+            if old_severity != incident.priority:
+                log_event(incident, request.user, "severity",
+                          f"Severity changed from {old_severity} to {incident.priority}")
+            log_event(incident, request.user, "edit", "Ticket details updated")
             messages.success(request, f"Ticket #{incident.pk} updated")
             return redirect("incidents")
     else:
