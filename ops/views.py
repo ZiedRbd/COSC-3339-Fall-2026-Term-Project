@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
 from .forms import IncidentForm, LoginForm, RegisterForm
-from .models import Incident, IncidentUpdate, Service, Team, User
+from .models import Incident, IncidentUpdate, Service, Team, TeamMember, User
 
 ALLOWED_TRANSITIONS = {
     "open": ["acknowledged"],
@@ -99,15 +99,19 @@ def landing(request):
 
 @login_required
 def incident_list(request):
-    """Active incidents, newest first. Soft-deleted tickets are excluded."""
-    if(request.user.role != "solver"):
-        return redirect("home")
+    """
+    Active incidents, newest first. Solvers see tickets assigned to any of
+    their teams; reporters see the tickets they filed.
+    """
+    incidents = Incident.objects.filter(is_deleted=False)
+    if request.user.role == "solver":
+        team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
+        incidents = incidents.filter(assigned_team_id__in=team_ids)
     else:
-        incidents = (
-            Incident.objects.filter(is_deleted=False)
-            .select_related("service", "reported_by")
-            .order_by("-created_at")
-        )
+        incidents = incidents.filter(reported_by=request.user)
+    incidents = incidents.select_related("service", "reported_by").order_by("-created_at")
+    for i in incidents:
+        i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
     return render(request, "incidents/list.html", {"incidents": incidents})
 
 @login_required
