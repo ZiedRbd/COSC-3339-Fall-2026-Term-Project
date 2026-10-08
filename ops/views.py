@@ -229,11 +229,14 @@ def incident_delete(request, pk):
     row and its history are kept. Only responds to POST.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if not _can_access_incident(request.user, incident):
+        messages.error(request, "You do not have access to that ticket")
+        return redirect("profile")
     if request.method == "POST":
         incident.is_deleted = True
         incident.save()
         messages.success(request, f"Ticket #{incident.pk} deleted")
-    return redirect("incidents")
+    return redirect("profile")
 
 @login_required
 def profile(request):
@@ -245,11 +248,16 @@ def profile(request):
         request.user.bio = request.POST.get("bio", "")
         request.user.save()
         return redirect("profile")
-    user_incidents = Incident.objects.filter(reported_by=request.user, is_deleted=False)
+    team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
+    # Tickets involving the user: ones they filed or ones on their team(s).
+    involving = Incident.objects.filter(is_deleted=False).filter(
+        Q(reported_by=request.user) | Q(assigned_team_id__in=team_ids)
+    ).distinct()
+    filed = Incident.objects.filter(reported_by=request.user, is_deleted=False)
     return render(request, "profile.html", {
-        "active_incidents": user_incidents.exclude(status__in=["resolved", "closed"]),
-        "closed_incidents": user_incidents.filter(status__in=["resolved", "closed"]),
-        "filed_incidents": user_incidents,
+        "active_incidents": involving.exclude(status__in=["resolved", "closed"]),
+        "closed_incidents": involving.filter(status__in=["resolved", "closed"]),
+        "filed_incidents": filed,
     })
 
 
