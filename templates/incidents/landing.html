@@ -6,7 +6,9 @@
   <h1 class="form-header">Welcome, {{ user.first_name }}</h1>
   <p class="lead">What would you like to do?</p>
   <div class="actions">
-    <a href="{% url 'form' %}" class="btn-gold">Fill out a support ticket</a>
+    {% if user.role != "solver" %}
+      <a href="{% url 'form' %}" class="btn-gold">Fill out a support ticket</a>
+    {% endif %}
     {% if user.role == "solver" %}
       <a href="{% url 'incidents' %}" class="btn-gold">View team incidents</a>
     {% else %}
