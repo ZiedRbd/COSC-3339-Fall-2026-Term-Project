@@ -208,11 +208,13 @@ class IncidentTests(TestCase):
         self.assertTrue(Incident.objects.filter(title="Sink leaking").exists())
 
     def test_ticket_appears_in_list_newest_first(self):
-        """The most recently created ticket is at the top of the list."""
+        """The most recently created ticket is at the top of the solver's list."""
         self.user.role = "solver"; self.user.save()
         TeamMember.objects.create(user=self.user, team=self.service.owning_team)
-        self.client.post("/incidents/form", self.ticket_data(title="First"))
-        self.client.post("/incidents/form", self.ticket_data(title="Second"))
+        Incident.objects.create(title="First", description="d", service=self.service,
+            reported_by=self.user, assigned_team=self.service.owning_team)
+        Incident.objects.create(title="Second", description="d", service=self.service,
+            reported_by=self.user, assigned_team=self.service.owning_team)
         html = self.client.get("/incidents/list").content.decode()
         self.assertLess(html.index("Second"), html.index("First"))
 
@@ -413,3 +415,50 @@ class RoleUIRulesTests(TestCase):
         self.incident.refresh_from_db()
         self.assertEqual(self.incident.title, "X2")
         self.assertEqual(self.incident.service, self.svc)  # unchanged
+
+
+class SolverCannotCreateTests(TestCase):
+    """Solvers may not file tickets; only reporters can."""
+
+    def setUp(self):
+        self.team = Team.objects.create(name="Plumbing")
+        self.svc = Service.objects.create(name="Pipes", owning_team=self.team)
+        self.solver = User.objects.create_user(
+            username="s@x.com", email="s@x.com", password=GOOD_PASSWORD, role="solver")
+        TeamMember.objects.create(user=self.solver, team=self.team)
+
+    def test_solver_get_create_form_is_blocked(self):
+        """A solver opening the ticket form is redirected, not shown the form."""
+        self.client.login(username="s@x.com", password=GOOD_PASSWORD)
+        self.assertEqual(self.client.get("/incidents/form").status_code, 302)
+
+    def test_solver_post_create_is_blocked(self):
+        """A solver POSTing a new ticket creates nothing."""
+        self.client.login(username="s@x.com", password=GOOD_PASSWORD)
+        self.client.post("/incidents/form", {
+            "title": "X", "description": "d", "service": self.svc.pk, "priority": "low"})
+        self.assertEqual(Incident.objects.filter(title="X").count(), 0)
+
+
+class EditTimelineDetailTests(TestCase):
+    """Editing a ticket logs the old and new value of each changed field."""
+
+    def setUp(self):
+        self.team = Team.objects.create(name="Plumbing")
+        self.svc = Service.objects.create(name="Pipes", owning_team=self.team)
+        self.reporter = User.objects.create_user(
+            username="r@x.com", email="r@x.com", password=GOOD_PASSWORD, role="reporter")
+        self.incident = Incident.objects.create(
+            title="Old title", description="old desc", service=self.svc,
+            reported_by=self.reporter, assigned_team=self.team, status="open",
+            priority="low", building="A", room="1")
+        self.client.login(username="r@x.com", password=GOOD_PASSWORD)
+
+    def test_edit_logs_old_and_new_values(self):
+        """Changing the title records an entry naming both the old and new value."""
+        self.client.post(f"/incidents/{self.incident.pk}/edit/", {
+            "title": "New title", "description": "old desc", "service": self.svc.pk,
+            "priority": "low", "building": "A", "room": "1"})
+        bodies = list(self.incident.incidentupdate_set.filter(update_type="edit")
+                      .values_list("body", flat=True))
+        self.assertTrue(any("Old title" in b and "New title" in b for b in bodies))

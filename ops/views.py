@@ -130,8 +130,12 @@ def incident_list(request):
 def incident_form(request):
     """
     GET shows an empty ticket form. POST validates it and creates the
-    incident, recording the signed-in user as the reporter.
+    incident, recording the signed-in user as the reporter. Solvers cannot
+    file tickets; only reporters can.
     """
+    if request.user.role == "solver":
+        messages.error(request, "Solvers cannot file tickets")
+        return redirect("incidents")
     if request.method == "POST":
         form = IncidentForm(request.POST)
         if form.is_valid():
@@ -174,26 +178,37 @@ def incident_edit(request, pk):
         data["service"] = str(incident.service_id)
         form = IncidentForm(data)
         if form.is_valid():
-            old_team = incident.assigned_team
+            # Remember the old values so we can log exactly what changed.
+            old = {
+                "Title": incident.title,
+                "Description": incident.description,
+                "Building": incident.building or "(none)",
+                "Room": incident.room or "(none)",
+            }
             old_severity = incident.priority
             incident.title = form.cleaned_data["title"]
             incident.description = form.cleaned_data["description"]
             incident.building = form.cleaned_data["building"]
             incident.room = form.cleaned_data["room"]
-            incident.service = form.cleaned_data["service"]
-            incident.assigned_team = form.cleaned_data["service"].owning_team
             incident.priority = form.cleaned_data["priority"]
             incident.save()
-            new_team = incident.service.owning_team
-            if old_team != new_team:
-                log_event(incident, request.user, "assignment",
-                          f"Reassigned from {old_team} to {new_team}")
+            # Severity change is its own timeline tag
             if old_severity != incident.priority:
                 log_event(incident, request.user, "severity",
                           f"Severity changed from {old_severity} to {incident.priority}")
-            log_event(incident, request.user, "edit", "Ticket details updated")
+            # One timeline entry per changed detail field, showing old to new
+            new = {
+                "Title": incident.title,
+                "Description": incident.description,
+                "Building": incident.building or "(none)",
+                "Room": incident.room or "(none)",
+            }
+            for field in old:
+                if old[field] != new[field]:
+                    log_event(incident, request.user, "edit",
+                              f"{field} changed from \"{old[field]}\" to \"{new[field]}\"")
             messages.success(request, f"Ticket #{incident.pk} updated")
-            return redirect("incidents")
+            return redirect("incident_detail", pk=incident.pk)
     else:
         # Pre-fill the form with the current values
         form = IncidentForm(initial={
