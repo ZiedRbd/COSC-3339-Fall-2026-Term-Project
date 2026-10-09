@@ -137,6 +137,23 @@
     font-size: 1rem;
     font-weight: 500;
 }
+.team-cta {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 12px 22px;
+    background: var(--gold);
+    color: var(--navy-dark);
+    border: 1px solid var(--gold);
+    border-radius: 999px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+.team-cta:hover {
+    background: var(--gold-dark);
+    border-color: var(--gold-dark);
+    transform: translateY(-1px);
+}
 
 /* Incidents remaining*/
 
