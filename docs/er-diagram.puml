@@ -22,8 +22,8 @@ entity "USER" as user {
   * password : varchar
   * first_name : varchar
   * last_name : varchar
-  * role : varchar
-    bio : text = 'user'
+  * role : varchar = 'reporter'
+    bio : text
   * is_active : bool
   * created_at : datetime
 }

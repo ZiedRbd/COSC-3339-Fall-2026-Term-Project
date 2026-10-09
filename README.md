@@ -95,8 +95,10 @@ Full ER diagram: [`docs/ER-DIAGRAM.md`](docs/ER-DIAGRAM.md)
 ## Roles and Incident Lifecycle
 
 **Roles.** Every user is a *reporter* or a *solver* (the `role` field, default `reporter`).
-- **Reporters** file tickets and add comments, and manage their own tickets from their profile page. They cannot change a ticket's status.
-- **Solvers** work the tickets assigned to their team. They move tickets through the lifecycle and add notes. They see the full incident list, filtered to their team, and cannot file tickets.
+- **Reporters** file tickets and add comments, and manage their own tickets from their profile page. They may edit the details of a ticket they filed, except the service it was filed against, which is fixed once the ticket is routed. They cannot change a ticket's status.
+- **Solvers** work the tickets assigned to their team. They move tickets through the lifecycle and add notes. They see the full incident list, filtered to their team. They cannot file tickets, and they cannot edit ticket details; status is the only field a solver changes.
+
+Each role sees a different profile page. A reporter's profile lists the tickets they filed, split into active and closed. A solver's profile lists the teams they belong to and the members of each team.
 
 A reporter's comments and a solver's notes both appear on the ticket timeline, and neither side can edit the other's entries.
 
