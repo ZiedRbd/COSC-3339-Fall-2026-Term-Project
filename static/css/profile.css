@@ -99,6 +99,45 @@
   background: #E2C463;
 }
 
+/* Team panel (solvers only) — sits beside the profile card */
+.team-panel {
+    padding: 28px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+.team-name {
+    margin: 0;
+    color: #0c2d6b;
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+.team-label {
+    margin: 14px 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #6b7280;
+}
+.team-members {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+}
+.team-members li {
+    padding: 12px 16px;
+    background: #f5f8ff;
+    border: 1px solid #dbe4f3;
+    border-radius: 10px;
+    color: #0c2d6b;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
 /* Incidents remaining*/
 
 .incident-columns{
