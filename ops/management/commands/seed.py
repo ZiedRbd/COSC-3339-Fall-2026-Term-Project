@@ -52,6 +52,7 @@ class Command(BaseCommand):
             make_user("james.chen@campusdesk.edu", "James", "Chen", "reporter"),
             make_user("aisha.khan@campusdesk.edu", "Aisha", "Khan", "reporter"),
             make_user("tom.rivera@campusdesk.edu", "Tom", "Rivera", "reporter"),
+            make_user("drmichaelsreporter@campusdesk.edu", "Doctor", "Michaels", "reporter"),
         ]
 
         # Four solvers, each on a team
@@ -60,6 +61,7 @@ class Command(BaseCommand):
             "Electrical": make_user("sam.okoro@campusdesk.edu", "Sam", "Okoro", "solver", "Electrical"),
             "IT Support": make_user("lee.nguyen@campusdesk.edu", "Lee", "Nguyen", "solver", "IT Support"),
             "IT Support 2": make_user("nina.park@campusdesk.edu", "Nina", "Park", "solver", "IT Support"),
+            "Prof": make_user("drmichaelssolver@campusdesk.edu", "Doctor", "Michaels", "solver", "IT Support"),
         }
 
         # Ten incidents across the services, each routed to the owning team.
