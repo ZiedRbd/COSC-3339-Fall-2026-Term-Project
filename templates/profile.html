@@ -30,7 +30,6 @@
 
 <!-- Incidents -->
  <section class="incidents">
-<h2 class = "section-title">My Incidents</h2>
 <div class ="incident-columns">
     <div class = "incident-col">
         <h3>Active</h3>
@@ -55,17 +54,7 @@
     </div>
 
 
-    <div class ="incident-col">
 
-        <h3>Filed by me</h3>
-        <ul>
-            {% for incident in filed_incidents %}
-            <li class="profile-incident"><span class="pi-title">{{ incident.title }}</span><span class="pi-date">{{ incident.created_at|date:"j M Y" }}</span><span class="pi-actions"><a href="{% url 'incident_detail' incident.pk %}" class="pi-btn">Details</a><a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a></span></li>
-      {% empty %}
-        <li>No filed incidents.</li>
-      {% endfor %}
-        </ul>
-    </div>
   </div>
 </section>
 </div>
