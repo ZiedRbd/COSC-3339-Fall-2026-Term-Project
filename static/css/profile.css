@@ -357,7 +357,16 @@ incident-col li span {
 .tl-edit::before       { background: var(--muted); }
 
 /* ---------- Profile incident rows ---------- */
-.incident-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+/* align-content keeps cards at their natural height instead of stretching
+   to fill the column when there are only one or two of them */
+.incident-col ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+    align-content: start;
+}
 
 .profile-incident {
     display: flex;
