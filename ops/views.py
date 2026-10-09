@@ -264,10 +264,11 @@ def profile(request):
         for team in Team.objects.filter(teammember__user=request.user):
             team.members = [tm.user for tm in TeamMember.objects.filter(team=team).select_related("user")]
             my_teams.append(team)
+    # Newest first, so each column reads in date order
     return render(request, "profile.html", {
-        "active_incidents": involving.exclude(status__in=["resolved", "closed"]),
-        "closed_incidents": involving.filter(status__in=["resolved", "closed"]),
-        "filed_incidents": filed,
+        "active_incidents": involving.exclude(status__in=["resolved", "closed"]).order_by("-created_at"),
+        "closed_incidents": involving.filter(status__in=["resolved", "closed"]).order_by("-created_at"),
+        "filed_incidents": filed.order_by("-created_at"),
         "my_teams": my_teams,
     })
 
