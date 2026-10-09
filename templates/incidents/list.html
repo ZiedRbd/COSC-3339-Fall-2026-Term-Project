@@ -4,6 +4,7 @@
 {% block extra_js %}
   <script src="{% static 'js/incidents.js' %}?v=2" defer></script>
   <script src="{% static 'js/filter.js' %}?v=1" defer></script>
+  <script src="{% static 'js/transition.js' %}?v=1" defer></script>
 {% endblock %}
 
 {% block content %}
@@ -59,7 +60,7 @@
               {% if user.role == "solver" %}
                 {% for state in incident.next_states %}
                   <form method="post" action="{% url 'incident_transition' incident.pk %}" style="display:inline"
-                        onsubmit="return confirm('Move this ticket to {{ state }}?');">
+                        class="transition-form" data-label="{{ state }}">
                     {% csrf_token %}
                     <input type="hidden" name="new_status" value="{{ state }}">
                     <button type="submit" class="btn-small">{{ state }}</button>
@@ -84,6 +85,17 @@
     <div class="actions">
       <button type="button" id="confirm-cancel" class="btn-small">Cancel</button>
       <button type="button" id="confirm-delete" class="btn-small danger">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="transition-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2>Move this ticket?</h2>
+    <p id="transition-title" class="lead"></p>
+    <div class="actions">
+      <button type="button" id="transition-cancel" class="btn-small">Cancel</button>
+      <button type="button" id="transition-confirm" class="btn-small">Move</button>
     </div>
   </div>
 </div>

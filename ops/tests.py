@@ -439,6 +439,21 @@ class SolverCannotCreateTests(TestCase):
             "title": "X", "description": "d", "service": self.svc.pk, "priority": "low"})
         self.assertEqual(Incident.objects.filter(title="X").count(), 0)
 
+    def test_solver_cannot_edit_ticket(self):
+        """A solver hitting the edit URL is redirected and cannot change details."""
+        reporter = User.objects.create_user(
+            username="r2@x.com", email="r2@x.com", password=GOOD_PASSWORD, role="reporter")
+        incident = Incident.objects.create(
+            title="Keep me", description="d", service=self.svc,
+            reported_by=reporter, assigned_team=self.team, status="open", priority="low")
+        self.client.login(username="s@x.com", password=GOOD_PASSWORD)
+        resp = self.client.post(f"/incidents/{incident.pk}/edit/", {
+            "title": "Hacked", "description": "d", "service": self.svc.pk,
+            "priority": "low", "building": "", "room": ""})
+        self.assertEqual(resp.status_code, 302)
+        incident.refresh_from_db()
+        self.assertEqual(incident.title, "Keep me")
+
 
 class EditTimelineDetailTests(TestCase):
     """Editing a ticket logs the old and new value of each changed field."""
@@ -603,3 +618,32 @@ class ProfileAccessTests(TestCase):
         r = self.client.get("/profile/")
         self.assertEqual(r.status_code, 302)
         self.assertTrue(r.url.startswith("/login/"))
+
+
+class SolverProfileTests(TestCase):
+    """A solver's profile shows their team and members, not ticket columns."""
+
+    def setUp(self):
+        self.team = Team.objects.create(name="Plumbing")
+        self.solver = User.objects.create_user(
+            username="s@x.com", email="s@x.com", password=GOOD_PASSWORD,
+            first_name="Sol", last_name="Ver", role="solver")
+        self.mate = User.objects.create_user(
+            username="m@x.com", email="m@x.com", password=GOOD_PASSWORD,
+            first_name="Team", last_name="Mate", role="solver")
+        TeamMember.objects.create(user=self.solver, team=self.team)
+        TeamMember.objects.create(user=self.mate, team=self.team)
+
+    def test_solver_profile_lists_team_and_members(self):
+        """The solver sees their team name and both members."""
+        self.client.login(username="s@x.com", password=GOOD_PASSWORD)
+        html = self.client.get("/profile/").content.decode()
+        self.assertIn("Plumbing", html)
+        self.assertIn("Team Mate", html)
+        self.assertIn("(you)", html)
+
+    def test_solver_profile_has_no_edit_links(self):
+        """Solvers get no ticket edit links on their profile."""
+        self.client.login(username="s@x.com", password=GOOD_PASSWORD)
+        html = self.client.get("/profile/").content.decode()
+        self.assertNotIn("/edit/", html)

@@ -30,6 +30,19 @@
 
 <!-- Incidents -->
  <section class="incidents">
+{% if user.role == "solver" %}
+{% for team in my_teams %}
+<div class="team-panel">
+  <h2 class="team-name">{{ team.name }}</h2>
+  <p class="team-label">Team members</p>
+  <ul class="team-members">
+    {% for member in team.members %}
+    <li>{{ member.first_name }} {{ member.last_name }}{% if member == user %} (you){% endif %}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endfor %}
+{% else %}
 <div class ="incident-columns">
     <div class = "incident-col">
         <h3>Active</h3>
@@ -76,6 +89,7 @@
 
 
   </div>
+{% endif %}
 </section>
 </div>
 
