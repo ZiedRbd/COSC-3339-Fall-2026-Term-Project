@@ -647,3 +647,10 @@ class SolverProfileTests(TestCase):
         self.client.login(username="s@x.com", password=GOOD_PASSWORD)
         html = self.client.get("/profile/").content.decode()
         self.assertNotIn("/edit/", html)
+
+    def test_solver_profile_links_to_team_tickets(self):
+        """The solver profile offers a route to the tickets assigned to their team."""
+        self.client.login(username="s@x.com", password=GOOD_PASSWORD)
+        html = self.client.get("/profile/").content.decode()
+        self.assertIn("/incidents/list", html)
+        self.assertIn("View tickets assigned to Plumbing", html)

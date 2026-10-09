@@ -40,6 +40,7 @@
     <li>{{ member.first_name }} {{ member.last_name }}{% if member == user %} (you){% endif %}</li>
     {% endfor %}
   </ul>
+  <a href="{% url 'incidents' %}" class="team-cta">View tickets assigned to {{ team.name }}</a>
 </div>
 {% endfor %}
 {% else %}
