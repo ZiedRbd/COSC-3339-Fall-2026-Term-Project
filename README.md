@@ -20,7 +20,7 @@ python manage.py seed
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000. The `seed` command loads three teams, six services, five users, and ten incidents.
+Open http://127.0.0.1:8000. The `seed` command loads three teams, six services, eleven users, and ten incidents.
 
 Local development uses SQLite. No `.env` file is needed; production settings are read from environment variables only when they are present.
 
@@ -43,6 +43,7 @@ COSC-3339-Fall-2026-Term-Project/
 │   ├── forms.py                Form fields and validation
 │   ├── urls.py                 Application URL routing
 │   ├── tests.py                Automated tests
+│   ├── admin.py                Django admin registration
 │   ├── migrations/             Database schema history
 │   └── management/commands/
 │       └── seed.py             Loads demo data
@@ -52,15 +53,26 @@ COSC-3339-Fall-2026-Term-Project/
 │   ├── services.html
 │   ├── login.html
 │   ├── register.html
+│   ├── profile.html            Profile, bio, and the user's incidents
 │   └── incidents/
-│       ├── landing.html        Dashboard shown after sign in
-│       ├── list.html           Active incidents table
-│       └── form.html           Create and edit an incident
+│       ├── landing.html        Links to file a ticket or view the list
+│       ├── list.html           Active incidents table with the severity filter
+│       ├── form.html           Create and edit an incident
+│       └── detail.html         One incident with its timeline
 ├── static/
-│   ├── css/style.css           Stylesheet
-│   └── js/
-│       ├── password.js         Show/hide password and live rule checklist
-│       └── incidents.js        Delete confirmation dialog
+│   ├── css/
+│   │   ├── base.css            Variables, layout, and typography
+│   │   ├── components.css      Buttons, badges, forms, and navigation
+│   │   ├── incidents.css       Incident list, detail page, and modals
+│   │   ├── profile.css         Profile page and incident columns
+│   │   └── animations.css      Transitions and entry animations
+│   ├── js/
+│   │   ├── password.js         Show/hide password and live rule checklist
+│   │   ├── incidents.js        Delete confirmation dialog
+│   │   ├── filter.js           Severity filtering on the incident list
+│   │   └── transition.js       Confirmation modal for status changes
+│   └── images/
+│       └── profile_icon.jpeg   Profile picture
 ├── deploy/
 │   ├── gunicorn.service        systemd unit for the application server
 │   └── nginx.conf              Reverse proxy configuration

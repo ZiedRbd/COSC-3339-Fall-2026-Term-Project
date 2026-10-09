@@ -43,7 +43,7 @@ View -> View : Verify solver role and\nteam assignment again
 View -> Rules : is_allowed(open -> acknowledged)
 Rules --> View : allowed
 
-View -> DB : UPDATE incident\nSET status = acknowledged,\nassigned_to = solver
+View -> DB : UPDATE incident\nSET status = acknowledged
 View -> DB : INSERT IncidentUpdate\n(incident, author, type = status_change,\nold = open, new = acknowledged, timestamp)
 DB --> View : committed
 
@@ -53,7 +53,7 @@ Nginx -> View : forward request
 View -> DB : SELECT incident and updates
 DB --> View : rows
 View --> Browser : Render page
-Browser --> Solver : "Ticket #12 acknowledged"\ntimeline shows the change\nnext action is "Start work"
+Browser --> Solver : "Ticket #12 moved to acknowledged"\ntimeline shows the change\nnext action is "Move to in progress"
 
 == Rejected transition ==
 Solver -> Browser : Attempt "Resolve" from Acknowledged
@@ -62,11 +62,11 @@ Nginx -> View : forward request
 View -> Rules : is_allowed(acknowledged -> resolved)
 Rules --> View : rejected: must be In Progress first
 View --> Browser : 302 redirect with error message
-Browser --> Solver : "Cannot move from Acknowledged\nto Resolved. Start work first."
+Browser --> Solver : "Cannot move from acknowledged\nto resolved"
 
 note over View, DB
-  The status update and the timeline insert run in one
-  database transaction. Either both succeed or neither does.
+  The timeline row is written only after a transition is
+  accepted, so the timeline never shows a refused move.
 end note
 
 @enduml

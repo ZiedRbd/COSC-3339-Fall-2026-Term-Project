@@ -363,8 +363,8 @@ class TimelineEventTests(TestCase):
         inc = Incident.objects.get(title="T")
         self.assertTrue(inc.incidentupdate_set.filter(update_type="created").exists())
 
-    def test_edit_logs_assignment_severity_and_edit(self):
-        """Changing the service and severity records assignment, severity, and edit entries."""
+    def test_edit_logs_severity_and_detail_changes(self):
+        """Changing severity and details records severity and edit entries."""
         self.client.post("/incidents/form", {
             "title": "T", "description": "d", "service": self.svc_a.pk, "priority": "low"})
         inc = Incident.objects.get(title="T")
@@ -438,6 +438,19 @@ class SolverCannotCreateTests(TestCase):
         self.client.post("/incidents/form", {
             "title": "X", "description": "d", "service": self.svc.pk, "priority": "low"})
         self.assertEqual(Incident.objects.filter(title="X").count(), 0)
+
+    def test_solver_cannot_delete_ticket(self):
+        """A solver POSTing a delete leaves the ticket in place."""
+        reporter = User.objects.create_user(
+            username="r3@x.com", email="r3@x.com", password=GOOD_PASSWORD, role="reporter")
+        incident = Incident.objects.create(
+            title="Keep this too", description="d", service=self.svc,
+            reported_by=reporter, assigned_team=self.team, status="open", priority="low")
+        self.client.login(username="s@x.com", password=GOOD_PASSWORD)
+        resp = self.client.post(f"/incidents/{incident.pk}/delete/")
+        self.assertEqual(resp.status_code, 302)
+        incident.refresh_from_db()
+        self.assertFalse(incident.is_deleted)
 
     def test_solver_cannot_edit_ticket(self):
         """A solver hitting the edit URL is redirected and cannot change details."""

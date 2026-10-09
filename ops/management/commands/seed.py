@@ -5,10 +5,10 @@ from ops.views import ALLOWED_TRANSITIONS, log_event
 
 
 # Loads demo data. Safe to run more than once, existing rows are reused.
-# Creates at least four reporters and four solvers as the sprint requires.
+# Creates six reporters and five solvers, which meets the sprint requirement of four of each.
 # Run with: python manage.py seed
 class Command(BaseCommand):
-    help = "Load demo teams, services, users (4 reporters + 4 solvers), and incidents"
+    help = "Load demo teams, services, users (6 reporters + 5 solvers), and incidents"
 
     def handle(self, *args, **options):
         teams = {}
