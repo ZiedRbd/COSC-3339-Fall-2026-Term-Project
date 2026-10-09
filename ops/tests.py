@@ -462,3 +462,144 @@ class EditTimelineDetailTests(TestCase):
         bodies = list(self.incident.incidentupdate_set.filter(update_type="edit")
                       .values_list("body", flat=True))
         self.assertTrue(any("Old title" in b and "New title" in b for b in bodies))
+
+
+class LifecycleEdgeTests(TestCase):
+    """Exhaustive legal and illegal transition coverage for the state machine."""
+
+    def setUp(self):
+        self.team = Team.objects.create(name="Plumbing")
+        self.svc = Service.objects.create(name="Pipes", owning_team=self.team)
+        self.reporter = User.objects.create_user(
+            username="r@x.com", email="r@x.com", password=GOOD_PASSWORD, role="reporter")
+        self.solver = User.objects.create_user(
+            username="s@x.com", email="s@x.com", password=GOOD_PASSWORD, role="solver")
+        TeamMember.objects.create(user=self.solver, team=self.team)
+        self.inc = Incident.objects.create(
+            title="T", description="d", service=self.svc,
+            reported_by=self.reporter, assigned_team=self.team, status="open")
+        self.client.login(username="s@x.com", password=GOOD_PASSWORD)
+
+    def move(self, to):
+        self.client.post(f"/incidents/{self.inc.pk}/transition/", {"new_status": to})
+        self.inc.refresh_from_db()
+        return self.inc.status
+
+    def set_status(self, status):
+        self.inc.status = status
+        self.inc.save()
+
+    def test_full_legal_path(self):
+        """A ticket walks open to closed one step at a time."""
+        self.assertEqual(self.move("acknowledged"), "acknowledged")
+        self.assertEqual(self.move("in_progress"), "in_progress")
+        self.assertEqual(self.move("resolved"), "resolved")
+        self.assertEqual(self.move("closed"), "closed")
+
+    def test_reopen_from_resolved(self):
+        """A resolved ticket can be reopened to open."""
+        self.set_status("resolved")
+        self.assertEqual(self.move("open"), "open")
+
+    def test_reopen_from_closed(self):
+        """A closed ticket can be reopened to open."""
+        self.set_status("closed")
+        self.assertEqual(self.move("open"), "open")
+
+    def test_illegal_open_to_resolved(self):
+        """Open cannot jump straight to resolved."""
+        self.assertEqual(self.move("resolved"), "open")
+
+    def test_illegal_open_to_in_progress(self):
+        """Open cannot skip to in progress."""
+        self.assertEqual(self.move("in_progress"), "open")
+
+    def test_illegal_backward_in_progress_to_open(self):
+        """In progress cannot go back to open without reopening."""
+        self.set_status("in_progress")
+        self.assertEqual(self.move("open"), "in_progress")
+
+    def test_illegal_backward_acknowledged_to_open(self):
+        """Acknowledged cannot go back to open."""
+        self.set_status("acknowledged")
+        self.assertEqual(self.move("open"), "acknowledged")
+
+    def test_garbage_status_rejected(self):
+        """An unknown status value is rejected."""
+        self.assertEqual(self.move("banana"), "open")
+
+    def test_transition_requires_post(self):
+        """A GET to the transition URL changes nothing."""
+        self.client.get(f"/incidents/{self.inc.pk}/transition/")
+        self.inc.refresh_from_db()
+        self.assertEqual(self.inc.status, "open")
+
+    def test_reporter_cannot_transition(self):
+        """A reporter cannot change status even with a direct POST."""
+        self.client.logout()
+        self.client.login(username="r@x.com", password=GOOD_PASSWORD)
+        self.assertEqual(self.move("acknowledged"), "open")
+
+    def test_transition_records_author_and_time(self):
+        """A successful transition logs who made it and when."""
+        self.move("acknowledged")
+        row = self.inc.incidentupdate_set.get(update_type="status_change")
+        self.assertEqual(row.author, self.solver)
+        self.assertIsNotNone(row.created_at)
+        self.assertEqual(row.old_status, "open")
+        self.assertEqual(row.new_status, "acknowledged")
+
+
+class CommentEdgeTests(TestCase):
+    """Comment and note rules: length, type by role, empty handling."""
+
+    def setUp(self):
+        self.team = Team.objects.create(name="Plumbing")
+        self.svc = Service.objects.create(name="Pipes", owning_team=self.team)
+        self.reporter = User.objects.create_user(
+            username="r@x.com", email="r@x.com", password=GOOD_PASSWORD, role="reporter")
+        self.solver = User.objects.create_user(
+            username="s@x.com", email="s@x.com", password=GOOD_PASSWORD, role="solver")
+        TeamMember.objects.create(user=self.solver, team=self.team)
+        self.inc = Incident.objects.create(
+            title="T", description="d", service=self.svc,
+            reported_by=self.reporter, assigned_team=self.team, status="open")
+
+    def post_comment(self, user, body):
+        self.client.login(username=user, password=GOOD_PASSWORD)
+        self.client.post(f"/incidents/{self.inc.pk}/comment/", {"body": body})
+
+    def test_reporter_comment_is_type_comment(self):
+        """A reporter's post is stored as a comment."""
+        self.post_comment("r@x.com", "please hurry")
+        self.assertTrue(self.inc.incidentupdate_set.filter(update_type="comment").exists())
+
+    def test_solver_comment_is_type_note(self):
+        """A solver's post is stored as a solver note."""
+        self.post_comment("s@x.com", "looking into it")
+        self.assertTrue(self.inc.incidentupdate_set.filter(update_type="solver_note").exists())
+
+    def test_empty_comment_is_ignored(self):
+        """A blank comment creates no timeline row."""
+        self.post_comment("r@x.com", "   ")
+        self.assertEqual(self.inc.incidentupdate_set.count(), 0)
+
+    def test_comment_at_limit_is_accepted(self):
+        """A 1000-character comment is accepted."""
+        self.post_comment("r@x.com", "x" * 1000)
+        self.assertEqual(self.inc.incidentupdate_set.filter(update_type="comment").count(), 1)
+
+    def test_comment_over_limit_is_rejected(self):
+        """A comment longer than 1000 characters is rejected."""
+        self.post_comment("r@x.com", "x" * 1001)
+        self.assertEqual(self.inc.incidentupdate_set.count(), 0)
+
+
+class ProfileAccessTests(TestCase):
+    """The profile page requires login."""
+
+    def test_profile_requires_login(self):
+        """A logged-out visitor is redirected away from the profile."""
+        r = self.client.get("/profile/")
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(r.url.startswith("/login/"))

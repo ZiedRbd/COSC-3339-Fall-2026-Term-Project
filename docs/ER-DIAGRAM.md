@@ -18,7 +18,8 @@ erDiagram
         string password "hashed"
         string first_name
         string last_name
-        string role
+        string role "reporter or solver"
+        string bio
         bool is_active
         datetime created_at
     }
@@ -56,7 +57,7 @@ erDiagram
         int reported_by_id FK
         int assigned_to_id FK "nullable"
         int assigned_team_id FK "nullable"
-        string status
+        string status "open, acknowledged, in_progress, resolved, closed"
         string priority
         int escalation_level
         datetime escalated_at "nullable"
@@ -71,8 +72,10 @@ erDiagram
         int id PK
         int incident_id FK
         int author_id FK
-        string update_type
+        string update_type "status_change, comment, solver_note, created, edit, severity"
         string body
+        string old_status "status changes only"
+        string new_status "status changes only"
         datetime created_at
     }
 ```

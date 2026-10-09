@@ -22,7 +22,8 @@ entity "USER" as user {
   * password : varchar
   * first_name : varchar
   * last_name : varchar
-  * role : varchar = 'user'
+  * role : varchar
+    bio : text = 'user'
   * is_active : bool
   * created_at : datetime
 }
@@ -86,6 +87,8 @@ entity "INCIDENT_UPDATE" as upd {
   * author_id : int <<FK>>
   * update_type : varchar
   * body : text
+    old_status : varchar
+    new_status : varchar
   * created_at : datetime
 }
 
