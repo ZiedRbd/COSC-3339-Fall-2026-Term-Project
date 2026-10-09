@@ -35,8 +35,13 @@
 
       <div class="form-item">
         <label for="{{ form.service.id_for_label }}" class="form-label">Service</label>
-        {{ form.service }}
-        {% if form.service.errors %}<div class="error">{{ form.service.errors }}</div>{% endif %}
+        {% if incident %}
+          <input type="text" class="form-input" value="{{ incident.service.name }}" disabled>
+          <p class="hint">The service cannot be changed after a ticket is filed.</p>
+        {% else %}
+          {{ form.service }}
+          {% if form.service.errors %}<div class="error">{{ form.service.errors }}</div>{% endif %}
+        {% endif %}
       </div>
 
       <div class="form-item">

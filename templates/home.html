@@ -11,9 +11,9 @@
   </p>
   <div class="actions">
     <a href="{% url 'services' %}" class="btn-gold">See our services</a>
-    {% if user.is_authenticated %}
+    {% if user.is_authenticated and user.role != "solver" %}
       <a href="{% url 'form' %}" class="btn-gold">Open a ticket</a>
-    {% else %}
+    {% elif not user.is_authenticated %}
       <a href="{% url 'register' %}" class="btn-gold">Get started</a>
     {% endif %}
   </div>

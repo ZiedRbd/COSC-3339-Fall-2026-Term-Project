@@ -28,7 +28,6 @@
     {% endfor %}
   {% endif %}
 
-  <a href="{% url 'form' %}" class="btn-gold">New ticket</a>
   
   {% if incidents %}
     <table class="incident-table">
@@ -59,18 +58,15 @@
             <td class="row-actions">
               {% if user.role == "solver" %}
                 {% for state in incident.next_states %}
-                  <form method="post" action="{% url 'incident_transition' incident.pk %}" style="display:inline">
+                  <form method="post" action="{% url 'incident_transition' incident.pk %}" style="display:inline"
+                        onsubmit="return confirm('Move this ticket to {{ state }}?');">
                     {% csrf_token %}
                     <input type="hidden" name="new_status" value="{{ state }}">
                     <button type="submit" class="btn-small">{{ state }}</button>
                   </form>
                 {% endfor %}
               {% endif %}
-              <a href="{% url 'incident_edit' incident.pk %}" class="btn-small">Edit</a>
-              <form method="post" action="{% url 'incident_delete' incident.pk %}" class="delete-form">
-                {% csrf_token %}
-                <button type="button" class="btn-small danger" data-title="{{ incident.title }}">Delete</button>
-              </form>
+              <a href="{% url 'incident_detail' incident.pk %}" class="btn-small">View</a>
             </td>
           </tr>
         {% endfor %}

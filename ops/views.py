@@ -17,6 +17,14 @@ ALLOWED_TRANSITIONS = {
 }
 
 
+def log_event(incident, author, update_type, body, old_status="", new_status=""):
+    """Record one event on an incident's timeline."""
+    IncidentUpdate.objects.create(
+        incident=incident, author=author, update_type=update_type,
+        body=body, old_status=old_status, new_status=new_status,
+    )
+
+
 def home(request):
     """Public landing page."""
     return render(request, "home.html")
@@ -103,14 +111,17 @@ def incident_list(request):
     Active incidents, newest first. Solvers see tickets assigned to any of
     their teams; reporters see the tickets they filed.
     """
-    incidents = Incident.objects.filter(is_deleted=False)
-    if request.user.role == "solver":
-        # Solvers see tickets assigned to their teams plus any they filed
-        team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
-        incidents = incidents.filter(Q(assigned_team_id__in=team_ids) | Q(reported_by=request.user))
-    else:
-        incidents = incidents.filter(reported_by=request.user)
-    incidents = incidents.select_related("service", "reported_by").order_by("-created_at")
+    # The full incident list is for solvers only. Reporters see their own
+    # tickets on their profile page instead.
+    if request.user.role != "solver":
+        return redirect("profile")
+    team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
+    incidents = (
+        Incident.objects.filter(is_deleted=False)
+        .filter(Q(assigned_team_id__in=team_ids) | Q(reported_by=request.user))
+        .select_related("service", "reported_by")
+        .order_by("-created_at")
+    )
     for i in incidents:
         i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
     return render(request, "incidents/list.html", {"incidents": incidents})
@@ -119,8 +130,12 @@ def incident_list(request):
 def incident_form(request):
     """
     GET shows an empty ticket form. POST validates it and creates the
-    incident, recording the signed-in user as the reporter.
+    incident, recording the signed-in user as the reporter. Solvers cannot
+    file tickets; only reporters can.
     """
+    if request.user.role == "solver":
+        messages.error(request, "Solvers cannot file tickets")
+        return redirect("incidents")
     if request.method == "POST":
         form = IncidentForm(request.POST)
         if form.is_valid():
@@ -137,6 +152,8 @@ def incident_form(request):
                 # Route the ticket to the team that owns the service
                 assigned_team=service.owning_team,
             )
+            log_event(incident, request.user, "created",
+                      f"Ticket created and assigned to {service.owning_team.name}")
             messages.success(request, f"Ticket #{incident.pk} created")
             return redirect("incidents")
     else:
@@ -151,20 +168,47 @@ def incident_edit(request, pk):
     POST saves the changes and returns to the list. Returns 404 for an
     unknown or deleted incident.
     """
-    incident = get_object_or_404(Incident, Q(reported_by=request.user) | Q(assigned_to=request.user), pk=pk, is_deleted=False)
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if not _can_access_incident(request.user, incident):
+        messages.error(request, "You do not have access to that ticket")
+        return redirect("profile")
     if request.method == "POST":
-        form = IncidentForm(request.POST)
+        # The service cannot be changed on edit; force the existing one.
+        data = request.POST.copy()
+        data["service"] = str(incident.service_id)
+        form = IncidentForm(data)
         if form.is_valid():
+            # Remember the old values so we can log exactly what changed.
+            old = {
+                "Title": incident.title,
+                "Description": incident.description,
+                "Building": incident.building or "(none)",
+                "Room": incident.room or "(none)",
+            }
+            old_severity = incident.priority
             incident.title = form.cleaned_data["title"]
             incident.description = form.cleaned_data["description"]
             incident.building = form.cleaned_data["building"]
             incident.room = form.cleaned_data["room"]
-            incident.service = form.cleaned_data["service"]
-            incident.assigned_team = form.cleaned_data["service"].owning_team
             incident.priority = form.cleaned_data["priority"]
             incident.save()
+            # Severity change is its own timeline tag
+            if old_severity != incident.priority:
+                log_event(incident, request.user, "severity",
+                          f"Severity changed from {old_severity} to {incident.priority}")
+            # One timeline entry per changed detail field, showing old to new
+            new = {
+                "Title": incident.title,
+                "Description": incident.description,
+                "Building": incident.building or "(none)",
+                "Room": incident.room or "(none)",
+            }
+            for field in old:
+                if old[field] != new[field]:
+                    log_event(incident, request.user, "edit",
+                              f"{field} changed from \"{old[field]}\" to \"{new[field]}\"")
             messages.success(request, f"Ticket #{incident.pk} updated")
-            return redirect("incidents")
+            return redirect("incident_detail", pk=incident.pk)
     else:
         # Pre-fill the form with the current values
         form = IncidentForm(initial={
@@ -185,11 +229,14 @@ def incident_delete(request, pk):
     row and its history are kept. Only responds to POST.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if not _can_access_incident(request.user, incident):
+        messages.error(request, "You do not have access to that ticket")
+        return redirect("profile")
     if request.method == "POST":
         incident.is_deleted = True
         incident.save()
         messages.success(request, f"Ticket #{incident.pk} deleted")
-    return redirect("incidents")
+    return redirect("profile")
 
 @login_required
 def profile(request):
@@ -201,12 +248,29 @@ def profile(request):
         request.user.bio = request.POST.get("bio", "")
         request.user.save()
         return redirect("profile")
-    user_incidents = Incident.objects.filter(reported_by=request.user, is_deleted=False)
+    team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
+    # Tickets involving the user: ones they filed or ones on their team(s).
+    involving = Incident.objects.filter(is_deleted=False).filter(
+        Q(reported_by=request.user) | Q(assigned_team_id__in=team_ids)
+    ).distinct()
+    filed = Incident.objects.filter(reported_by=request.user, is_deleted=False)
     return render(request, "profile.html", {
-        "active_incidents": user_incidents.exclude(status__in=["resolved", "closed"]),
-        "closed_incidents": user_incidents.filter(status__in=["resolved", "closed"]),
-        "filed_incidents": user_incidents,
+        "active_incidents": involving.exclude(status__in=["resolved", "closed"]),
+        "closed_incidents": involving.filter(status__in=["resolved", "closed"]),
+        "filed_incidents": filed,
     })
+
+
+def _can_access_incident(user, incident):
+    """
+    A user may access an incident if they reported it, or they are a solver
+    on the team the incident is assigned to.
+    """
+    if incident.reported_by_id == user.id:
+        return True
+    if user.role == "solver" and incident.assigned_team_id:
+        return TeamMember.objects.filter(user=user, team_id=incident.assigned_team_id).exists()
+    return False
 
 
 @login_required
@@ -217,6 +281,9 @@ def incident_transition(request, pk):
     recorded as an IncidentUpdate row for the timeline.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if not _can_access_incident(request.user, incident):
+        messages.error(request, "You do not have access to that ticket")
+        return redirect("incidents")
 
     #only solvers change state
     if request.user.role != "solver":
@@ -234,13 +301,10 @@ def incident_transition(request, pk):
     # Apply the change and log it to the timeline
     incident.status = new_status
     incident.save()
-    IncidentUpdate.objects.create(
-        incident=incident,
-        author=request.user,
-        update_type="status_change",
-        old_status=old_status,
-        new_status=new_status,
-        body=f"Status changed from {old_status} to {new_status}",
+    log_event(
+        incident, request.user, "status_change",
+        f"Status changed from {old_status} to {new_status}",
+        old_status=old_status, new_status=new_status,
     )
     messages.success(request, f"Ticket #{incident.pk} moved to {new_status}")
     return redirect("incident_detail", pk=pk)
@@ -253,6 +317,9 @@ def incident_detail(request, pk):
     IncidentUpdate row for this ticket, oldest first.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if not _can_access_incident(request.user, incident):
+        messages.error(request, "You do not have access to that ticket")
+        return redirect("incidents")
     timeline = (
         IncidentUpdate.objects.filter(incident=incident)
         .select_related("author")
@@ -273,6 +340,9 @@ def incident_comment(request, pk):
     neither side can edit the other's entries.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if not _can_access_incident(request.user, incident):
+        messages.error(request, "You do not have access to that ticket")
+        return redirect("incidents")
     if request.method == "POST":
         body = request.POST.get("body", "").strip()
         if len(body) > 1000:
@@ -280,11 +350,6 @@ def incident_comment(request, pk):
             return redirect("incident_detail", pk=pk)
         if body:
             update_type = "solver_note" if request.user.role == "solver" else "comment"
-            IncidentUpdate.objects.create(
-                incident=incident,
-                author=request.user,
-                update_type=update_type,
-                body=body,
-            )
+            log_event(incident, request.user, update_type, body)
             messages.success(request, "Comment added")
     return redirect("incident_detail", pk=pk)
