@@ -285,6 +285,9 @@ def incident_transition(request, pk):
         messages.error(request, "You do not have access to that ticket")
         return redirect("incidents")
 
+    if request.method != "POST":
+        return redirect("incident_detail", pk=pk)
+
     #only solvers change state
     if request.user.role != "solver":
         messages.error(request, "Only solvers can change incident status")
