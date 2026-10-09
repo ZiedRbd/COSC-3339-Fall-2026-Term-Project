@@ -1,5 +1,5 @@
 /* ---------- Site-wide animations (presentation only) ---------- */
-/* Pure visual polish. No layout or behavior depends on any of this. */
+
 
 @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(14px); }
@@ -83,7 +83,7 @@ input:focus, textarea:focus, select:focus {
     animation: fadeIn 0.35s ease both;
 }
 
-/* Respect users who prefer no motion */
+
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation: none !important;
