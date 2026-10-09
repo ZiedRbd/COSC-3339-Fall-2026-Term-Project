@@ -34,7 +34,17 @@
     <div class = "incident-col">
         <h3>Active</h3>
         <ul>{% for incident in active_incidents %}
-            <li class="profile-incident"><span class="pi-title">{{ incident.title }}</span><span class="pi-date">{{ incident.created_at|date:"j M Y" }}</span><span class="pi-actions"><a href="{% url 'incident_detail' incident.pk %}" class="pi-btn">Details</a><a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a></span></li>
+            <li class="profile-incident">
+                <span class="pi-title">{{ incident.title }}</span>
+                <div class="pi-meta">
+                  <span class="pi-date">{{ incident.created_at|date:"j M Y" }}</span>
+                  <span class="badge {{ incident.status }}">{{ incident.get_status_display }}</span>
+                </div>
+                <div class="pi-actions">
+                  <a href="{% url 'incident_detail' incident.pk %}" class="pi-btn">Details</a>
+                  <a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a>
+                </div>
+              </li>
             {% empty %}
             <li> No Active Incidents</li>
             {% endfor %}
@@ -46,7 +56,17 @@
         <h3> Closed &amp; Resolved</h3>
         <ul>
             {% for incident in closed_incidents %}
-        <li class="profile-incident"><span class="pi-title">{{ incident.title }}</span><span class="pi-date">{{ incident.created_at|date:"j M Y" }}</span><span class="pi-actions"><a href="{% url 'incident_detail' incident.pk %}" class="pi-btn">Details</a><a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a></span></li>
+        <li class="profile-incident">
+                <span class="pi-title">{{ incident.title }}</span>
+                <div class="pi-meta">
+                  <span class="pi-date">{{ incident.created_at|date:"j M Y" }}</span>
+                  <span class="badge {{ incident.status }}">{{ incident.get_status_display }}</span>
+                </div>
+                <div class="pi-actions">
+                  <a href="{% url 'incident_detail' incident.pk %}" class="pi-btn">Details</a>
+                  <a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a>
+                </div>
+              </li>
         {% empty %}
         <li>No closed or resolved incidents.</li>
         {% endfor %}

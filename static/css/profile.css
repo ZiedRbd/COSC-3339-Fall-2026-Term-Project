@@ -10,7 +10,10 @@
 
 }
 .incidents{
-    grid-area:incidents;}
+    grid-area: incidents;
+    display: flex;
+    flex-direction: column;
+}
 .profile-card{
     grid-area: profile;
 }
@@ -18,13 +21,15 @@
 /*Profile card */
 .profile-card{
     box-sizing: border-box;
-    padding: 28px;
-    background: #0d2f6e;
-    border: 1px solid rgba(212, 175, 55, 0.35);
+    height: 560px;
+    overflow-y: auto;
+    padding: 32px 28px;
+    background: #0c2d6b;
+    border: 1px solid rgba(255, 255, 255, 0.10);
     border-radius: 16px;
     color: #FFFFFF;
     text-align: center;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
 }
 
 .avatar{
@@ -100,33 +105,36 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 18px;
-    align-items: start;
+    align-items: stretch;
 }
 @media (max-width: 720px) {
     .incident-columns { grid-template-columns: 1fr; }
 }
 
 .incident-col{
-    padding: 18px;
-    background: #0d2f6e;
-    border: 1px solid rgba(212, 175, 55, 0.35);
-    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    height: 560px;
+    padding: 20px;
+    background: #0c2d6b;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 16px;
     color: #FFFFFF;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
 }
 .incident-col h3 {
-    margin: 0 0 14px;
-    padding-bottom: 12px;
-    border-bottom: 2px solid rgba(212, 175, 55, 0.5);
+    margin: 0 0 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
     color: var(--gold);
     font-size: 1.05rem;
     font-weight: 700;
     letter-spacing: 0.02em;
 }
 .incident-col ul {
-    max-height: 340px;
+    flex: 1;
     overflow-y: auto;
-    padding-right: 6px;
+    padding-right: 8px;
 }
 .incident-col ul::-webkit-scrollbar { width: 8px; }
 .incident-col ul::-webkit-scrollbar-thumb {
@@ -315,24 +323,26 @@ incident-col li span {
 .profile-incident {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 14px;
-    background: #123a86;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 10px;
-    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    gap: 12px;
+    padding: 18px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 .profile-incident:hover {
     transform: translateY(-2px);
-    border-color: var(--gold);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
 }
-.pi-title { color: var(--white); font-weight: 600; line-height: 1.3; }
-.pi-date { font-size: 12px; color: rgba(255, 255, 255, 0.6); }
-.pi-actions { display: flex; gap: 8px; margin-top: 2px; }
+.pi-title { color: #0c2d6b; font-weight: 700; line-height: 1.4; font-size: 1.05rem; }
+.pi-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pi-date { font-size: 13px; color: #6b7280; }
+.pi-meta .badge { margin-top: 0; }
+.pi-actions { display: flex; gap: 8px; }
 .pi-btn {
     display: inline-block;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     padding: 5px 14px;
     border-radius: 999px;
@@ -343,8 +353,8 @@ incident-col li span {
     transition: all 0.15s ease;
 }
 .pi-btn:hover { background: var(--gold-dark); border-color: var(--gold-dark); transform: translateY(-1px); }
-.pi-btn.edit { background: transparent; color: var(--gold); }
-.pi-btn.edit:hover { background: var(--gold); color: var(--navy-dark); }
+.pi-btn.edit { background: transparent; color: var(--navy); border-color: var(--navy); }
+.pi-btn.edit:hover { background: var(--navy); color: #ffffff; }
 
 /* empty-state list items (plain text, not cards) */
 .incident-col li:not(.profile-incident) {
