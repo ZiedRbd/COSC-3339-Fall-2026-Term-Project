@@ -233,7 +233,7 @@ incident-col li span {
 .action-buttons form { margin: 0; }
 .action-buttons .btn-gold { text-transform: capitalize; }
 
-.section-title {
+.incidents .section-title {
     color: var(--navy);
     font-size: 1.15rem;
     margin: 0 0 14px;
@@ -294,29 +294,46 @@ incident-col li span {
 .tl-edit::before       { background: var(--muted); }
 
 /* ---------- Profile incident rows ---------- */
+.incident-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
 .profile-incident {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.12);
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
-.profile-incident:last-child { border-bottom: none; }
-.pi-title { flex: 1 1 auto; color: var(--white); font-weight: 600; }
-.pi-date { font-size: 12px; color: rgba(255,255,255,0.65); }
-.pi-actions { display: flex; gap: 8px; }
+.profile-incident:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+.pi-title { color: var(--white); font-weight: 600; line-height: 1.3; }
+.pi-date { font-size: 12px; color: rgba(255, 255, 255, 0.6); }
+.pi-actions { display: flex; gap: 8px; margin-top: 2px; }
 .pi-btn {
     display: inline-block;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     padding: 5px 14px;
-    border-radius: 6px;
+    border-radius: 999px;
     text-decoration: none;
     background: var(--gold);
     color: var(--navy-dark);
-    transition: background 0.15s;
+    border: 1px solid var(--gold);
+    transition: all 0.15s ease;
 }
-.pi-btn:hover { background: var(--gold-dark); }
-.pi-btn.edit { background: transparent; color: var(--gold); border: 1px solid var(--gold); }
+.pi-btn:hover { background: var(--gold-dark); border-color: var(--gold-dark); transform: translateY(-1px); }
+.pi-btn.edit { background: transparent; color: var(--gold); }
 .pi-btn.edit:hover { background: var(--gold); color: var(--navy-dark); }
+
+/* empty-state list items (plain text, not cards) */
+.incident-col li:not(.profile-incident) {
+    list-style: none;
+    color: rgba(255, 255, 255, 0.55);
+    font-style: italic;
+    padding: 8px 0;
+}
