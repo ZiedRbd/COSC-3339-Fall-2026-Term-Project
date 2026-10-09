@@ -83,7 +83,7 @@ input:focus, textarea:focus, select:focus {
     animation: fadeIn 0.35s ease both;
 }
 
-/* Honor the OS reduce-motion setting */
+/* Turn off animations when the OS reduce-motion setting is on */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation: none !important;
