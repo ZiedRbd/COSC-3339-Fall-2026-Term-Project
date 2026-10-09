@@ -70,8 +70,6 @@
             <span class="badge {{ entry.new_status }}">{{ entry.new_status }}</span>
           {% elif entry.update_type == "created" %}
             <span class="tl-tag created">Created</span> {{ entry.body }}
-          {% elif entry.update_type == "assignment" %}
-            <span class="tl-tag assignment">Assignment</span> {{ entry.body }}
           {% elif entry.update_type == "severity" %}
             <span class="tl-tag severity">Severity</span> {{ entry.body }}
           {% elif entry.update_type == "edit" %}

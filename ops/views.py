@@ -233,6 +233,10 @@ def incident_delete(request, pk):
     row and its history are kept. Only responds to POST.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    # Solvers work tickets, they do not remove them. Only the reporter deletes.
+    if request.user.role == "solver":
+        messages.error(request, "Solvers cannot delete tickets")
+        return redirect("incident_detail", pk=incident.pk)
     if not _can_access_incident(request.user, incident):
         messages.error(request, "You do not have access to that ticket")
         return redirect("profile")

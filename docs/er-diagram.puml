@@ -18,21 +18,24 @@ skinparam class {
 entity "USER" as user {
   * id : int <<PK>>
   --
+  * username : varchar <<UK>>
   * email : varchar <<UK>>
   * password : varchar
   * first_name : varchar
   * last_name : varchar
-  * role : varchar
-    bio : text = 'user'
+  * role : varchar = 'reporter'
+    bio : text
   * is_active : bool
   * created_at : datetime
 }
 
 entity "TEAM_MEMBER" as tm {
-  * user_id : int <<PK,FK>>
-  * team_id : int <<PK,FK>>
+  * id : int <<PK>>
   --
+  * user_id : int <<FK>>
+  * team_id : int <<FK>>
   * joined_at : datetime
+  unique (user_id, team_id)
 }
 
 entity "TEAM" as team {
@@ -51,7 +54,7 @@ entity "SERVICE" as service {
   * name : varchar
     description : text
   * owning_team_id : int <<FK>>
-  * criticality : varchar
+  * criticality : varchar = 'medium'
   * is_active : bool
   * created_at : datetime
 }
@@ -70,7 +73,7 @@ entity "INCIDENT" as incident {
     assigned_to_id : int <<FK>>
     assigned_team_id : int <<FK>>
   * status : varchar = 'open'
-  * priority : varchar
+  * priority : varchar = 'medium'
   * escalation_level : int = 0
     escalated_at : datetime
     sla_due_at : datetime

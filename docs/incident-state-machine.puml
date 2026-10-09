@@ -53,9 +53,9 @@ note bottom of Closed
 end note
 
 note left of Resolved
-  Reopening returns the ticket to Open
-  and clears resolved_at. It must then
-  pass through every state again.
+  Reopening returns the ticket to Open.
+  It must then pass through every
+  state again in order.
 end note
 
 legend right
