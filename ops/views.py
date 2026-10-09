@@ -169,6 +169,10 @@ def incident_edit(request, pk):
     unknown or deleted incident.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    # Solvers change status, not ticket details. Only the reporter edits.
+    if request.user.role == "solver":
+        messages.error(request, "Solvers cannot edit ticket details")
+        return redirect("incident_detail", pk=incident.pk)
     if not _can_access_incident(request.user, incident):
         messages.error(request, "You do not have access to that ticket")
         return redirect("profile")
@@ -254,10 +258,17 @@ def profile(request):
         Q(reported_by=request.user) | Q(assigned_team_id__in=team_ids)
     ).distinct()
     filed = Incident.objects.filter(reported_by=request.user, is_deleted=False)
+    # Solvers see the teams they are on and who else is on each team.
+    my_teams = []
+    if request.user.role == "solver":
+        for team in Team.objects.filter(teammember__user=request.user):
+            team.members = [tm.user for tm in TeamMember.objects.filter(team=team).select_related("user")]
+            my_teams.append(team)
     return render(request, "profile.html", {
         "active_incidents": involving.exclude(status__in=["resolved", "closed"]),
         "closed_incidents": involving.filter(status__in=["resolved", "closed"]),
         "filed_incidents": filed,
+        "my_teams": my_teams,
     })
 
 
@@ -284,6 +295,9 @@ def incident_transition(request, pk):
     if not _can_access_incident(request.user, incident):
         messages.error(request, "You do not have access to that ticket")
         return redirect("incidents")
+
+    if request.method != "POST":
+        return redirect("incident_detail", pk=pk)
 
     #only solvers change state
     if request.user.role != "solver":

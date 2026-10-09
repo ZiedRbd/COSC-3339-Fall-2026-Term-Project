@@ -1,5 +1,9 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Ticket #{{ incident.pk }}{% endblock %}
+{% block extra_js %}
+  <script src="{% static 'js/transition.js' %}?v=1" defer></script>
+{% endblock %}
 
 {% block content %}
 <div class="card wide detail">
@@ -38,7 +42,7 @@
         {% for state in incident.next_states %}
           {% with label=state|cut:"_" %}
           <form method="post" action="{% url 'incident_transition' incident.pk %}"
-                onsubmit="return confirm('Move this ticket to {{ label }}?');">
+                class="transition-form" data-label="{{ label }}">
             {% csrf_token %}
             <input type="hidden" name="new_status" value="{{ state }}">
             <button type="submit" class="btn-gold">Move to {{ label }}</button>
@@ -92,5 +96,16 @@
   </form>
 
   <a href="{% url 'incidents' %}" class="back-link">&larr; Back to incidents</a>
+</div>
+
+<div id="transition-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2>Move this ticket?</h2>
+    <p id="transition-title" class="lead"></p>
+    <div class="actions">
+      <button type="button" id="transition-cancel" class="btn-small">Cancel</button>
+      <button type="button" id="transition-confirm" class="btn-small">Move</button>
+    </div>
+  </div>
 </div>
 {% endblock %}

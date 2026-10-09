@@ -92,6 +92,28 @@ Incidents are never physically deleted. Deleting sets `is_deleted` so the ticket
 
 Full ER diagram: [`docs/ER-DIAGRAM.md`](docs/ER-DIAGRAM.md)
 
+## Roles and Incident Lifecycle
+
+**Roles.** Every user is a *reporter* or a *solver* (the `role` field, default `reporter`).
+- **Reporters** file tickets and add comments, and manage their own tickets from their profile page. They cannot change a ticket's status.
+- **Solvers** work the tickets assigned to their team. They move tickets through the lifecycle and add notes. They see the full incident list, filtered to their team, and cannot file tickets.
+
+A reporter's comments and a solver's notes both appear on the ticket timeline, and neither side can edit the other's entries.
+
+**Severity.** Every ticket is filed with one of four severity levels, required at submission: Low, Medium, High, Critical. The level is shown on the incident list and can be filtered there.
+
+**Lifecycle.** A ticket moves through five states in order, with reopening allowed from the end:
+
+```
+Open -> Acknowledged -> In Progress -> Resolved -> Closed
+                                          |            |
+                                          +--- reopened back to Open ---+
+```
+
+Only legal moves are accepted; an illegal move (skipping a step, or going backward without reopening) is rejected with a message explaining why. The full diagram is in [`docs/incident-state-machine.puml`](docs/incident-state-machine.puml).
+
+**Timeline.** Each ticket keeps an automatic, non-editable timeline of everything that happens to it: creation, status changes (old to new), severity changes, detail edits (old to new value), comments, and notes. Every entry records who made the change and when. The timeline is reached by opening a ticket from the profile or incident list. It is stored in the `IncidentUpdate` table.
+
 ## Branching Strategy
 
 The diagram below is an illustrative example of the workflow. Actual branch names and commit order will vary as the project progresses.
