@@ -1,0 +1,92 @@
+/* ---------- Site-wide animations (presentation only) ---------- */
+/* Pure visual polish. No layout or behavior depends on any of this. */
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Cards and panels gently rise in on load */
+.card,
+.profile-card,
+.incident-col,
+.filter-sidebar {
+    animation: fadeInUp 0.45s ease both;
+}
+
+/* Stagger the two/three panels so they don't all move at once */
+.incident-col:nth-child(2) { animation-delay: 0.06s; }
+.incident-col:nth-child(3) { animation-delay: 0.12s; }
+.profile-card { animation-delay: 0.08s; }
+
+/* Table rows fade in */
+.incident-table tbody tr {
+    animation: fadeIn 0.4s ease both;
+}
+
+/* Timeline entries rise in */
+.timeline li {
+    animation: fadeInUp 0.4s ease both;
+}
+
+/* Nav buttons: smooth, subtle lift on hover */
+.nav-btn {
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.nav-btn:hover {
+    transform: translateY(-1px);
+}
+
+/* Any gold/link button gets a consistent press feel */
+.btn-gold,
+.btn-link,
+.btn-small,
+button[type="submit"] {
+    transition: background 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+}
+.btn-gold:active,
+.btn-link:active,
+.btn-small:active,
+button[type="submit"]:active {
+    transform: translateY(1px);
+}
+
+/* Badges settle in softly */
+.badge {
+    transition: transform 0.15s ease;
+}
+
+/* Form inputs get a smooth focus ring */
+input, textarea, select {
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+input:focus, textarea:focus, select:focus {
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18);
+}
+
+/* Service cards lift on hover */
+.service-wrapper {
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.service-wrapper:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+/* Flash/notice messages fade in */
+.notice, .error, .success {
+    animation: fadeIn 0.35s ease both;
+}
+
+/* Respect users who prefer no motion */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+}
