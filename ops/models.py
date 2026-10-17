@@ -16,10 +16,16 @@ class User(AbstractUser):
         return self.email
 
 
-# A group that handles tickets, such as Plumbing or IT Support
+# A group that handles tickets, such as Plumbing or IT Support.
+# The lead schedules the team's on-call shifts and can reassign its
+# tickets. Lead is a column here, not a role value, so a user may lead
+# any number of teams and finding a team's lead is one read of this row.
 class Team(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
+    lead = models.ForeignKey(
+        "User", on_delete=models.PROTECT, null=True, blank=True, related_name="led_teams"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -42,12 +48,13 @@ class TeamMember(models.Model):
 
 
 # Something the campus supports, such as Wi-Fi or restroom plumbing.
-# Each service is owned by one team. Criticality is reserved for
-# escalation rules in later sprints.
+# A service is usually owned by one team. It can have no team, in which
+# case tickets filed against it cannot be assigned to a responder.
+# Criticality is reserved for escalation rules in later sprints.
 class Service(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    owning_team = models.ForeignKey(Team, on_delete=models.PROTECT)
+    owning_team = models.ForeignKey(Team, on_delete=models.PROTECT, null=True, blank=True)
     criticality = models.CharField(max_length=20, default="medium")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -56,8 +63,9 @@ class Service(models.Model):
         return self.name
 
 
-# A ticket filed by a user about a service. The assignment, escalation,
-# and SLA fields exist for later sprints and stay empty in Sprint 1.
+# A ticket filed by a user about a service. On creation it is routed to
+# the team that owns the service and, when someone is on call, assigned
+# to that responder. Escalation and SLA fields are for later sprints.
 class Incident(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
@@ -70,6 +78,7 @@ class Incident(models.Model):
     assigned_team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True)
     STATUS_CHOICES = [
         ("open", "Open"),
+        ("assigned", "Assigned"),
         ("acknowledged", "Acknowledged"),
         ("in_progress", "In Progress"),
         ("resolved", "Resolved"),
@@ -90,7 +99,9 @@ class Incident(models.Model):
         return self.title
 
 
-# A note or progress report written on a ticket. Not used in Sprint 1.
+# One entry on a ticket's timeline: creation, a status change, an edit,
+# a comment, a note, or an assignment. Written by the system, never
+# edited. old/new pairs record both sides of a change.
 class IncidentUpdate(models.Model):
     incident = models.ForeignKey(Incident, on_delete=models.CASCADE)
     author = models.ForeignKey(User, on_delete=models.PROTECT)
@@ -99,6 +110,37 @@ class IncidentUpdate(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     old_status = models.CharField(max_length=20, blank=True)
     new_status = models.CharField(max_length=20, blank=True)
+    # Set on assignment and reassignment entries only
+    old_assignee = models.ForeignKey(
+        User, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    new_assignee = models.ForeignKey(
+        User, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
 
     def __str__(self):
         return f"Update on {self.incident}"
+
+
+# One on-call shift. Exactly one responder covers a team between
+# starts_at and ends_at. The interval is half open: the end instant
+# belongs to the next shift. Only the team lead creates these.
+class Shift(models.Model):
+    team = models.ForeignKey(Team, on_delete=models.PROTECT, related_name="shifts")
+    responder = models.ForeignKey(User, on_delete=models.PROTECT, related_name="shifts")
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="scheduled_shifts")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["team", "starts_at"])]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(ends_at__gt=models.F("starts_at")),
+                name="shift_ends_after_it_starts",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.responder} on call for {self.team}"
