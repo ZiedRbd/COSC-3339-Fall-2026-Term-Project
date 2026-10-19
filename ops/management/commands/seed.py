@@ -5,10 +5,10 @@ from ops.views import ALLOWED_TRANSITIONS, log_event
 
 
 # Loads demo data. Safe to run more than once, existing rows are reused.
-# Creates six reporters and five solvers, which meets the sprint requirement of four of each.
+# Creates six reporters and six solvers. Two of the solvers lead teams.
 # Run with: python manage.py seed
 class Command(BaseCommand):
-    help = "Load demo teams, services, users (6 reporters + 5 solvers), and incidents"
+    help = "Load demo teams, services, users (6 reporters + 6 solvers), and incidents"
 
     def handle(self, *args, **options):
         teams = {}
@@ -55,7 +55,7 @@ class Command(BaseCommand):
             make_user("drmichaelsreporter@campusdesk.edu", "Doctor", "Michaels", "reporter"),
         ]
 
-        # Four solvers, each on a team
+        # Five solvers on teams, plus one more below who leads IT Support
         solvers = {
             "Plumbing": make_user("pat.diaz@campusdesk.edu", "Pat", "Diaz", "solver", "Plumbing"),
             "Electrical": make_user("sam.okoro@campusdesk.edu", "Sam", "Okoro", "solver", "Electrical"),
@@ -63,6 +63,18 @@ class Command(BaseCommand):
             "IT Support 2": make_user("nina.park@campusdesk.edu", "Nina", "Park", "solver", "IT Support"),
             "Prof": make_user("drmichaelssolver@campusdesk.edu", "Doctor", "Michaels", "solver", "IT Support"),
         }
+
+        # Team leads. Pat leads Plumbing and Electrical and takes shifts on
+        # Plumbing. Maya leads IT Support and is on no team, so she takes no
+        # shifts. One lead on the rota and one off it is what the roster needs.
+        solvers["Lead IT"] = make_user("maya.ortiz@campusdesk.edu", "Maya", "Ortiz", "solver")
+        for team_name, lead in [
+            ("Plumbing", solvers["Plumbing"]),
+            ("Electrical", solvers["Plumbing"]),
+            ("IT Support", solvers["Lead IT"]),
+        ]:
+            teams[team_name].lead = lead
+            teams[team_name].save()
 
         # Ten incidents across the services, each routed to the owning team.
         # (reporter_index, title, service, severity, building, room, final_status)
