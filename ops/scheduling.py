@@ -1,7 +1,8 @@
-"""Who is on call. Read-only lookups over the Shift table."""
+"""Who is on call, and handing a new ticket to that person."""
 from django.utils import timezone
 
 from .models import Shift
+from .timeline import log_event
 
 
 def who_is_on_call(team, at=None):
@@ -50,3 +51,33 @@ def on_call_roster(team, window_start, window_end):
         .select_related("responder")
         .order_by("starts_at", "id")
     )
+
+
+def assign_on_creation(incident):
+    """
+    Hand a brand new ticket to whoever is on call for the team that owns
+    its service, and write what happened to the timeline either way. The
+    ticket stays Open and unassigned when the service has no team, when
+    nobody is on call, or when the person on call cannot take it.
+    """
+    # The reporter filing the ticket is what set this off, so they are
+    # recorded as the author of the entry
+    reporter = incident.reported_by
+    team = incident.service.owning_team
+    if team is None:
+        log_event(incident, reporter, "assignment_failed",
+                  "Service has no owning team, so nobody can be assigned")
+        return
+    incident.assigned_team = team
+    responder = who_is_on_call(team, incident.created_at)
+    if responder is None:
+        incident.save()
+        log_event(incident, reporter, "assignment_failed",
+                  f"No responder on call for {team.name}")
+        return
+    incident.assigned_to = responder
+    incident.status = "assigned"
+    incident.save()
+    log_event(incident, reporter, "assignment",
+              f"Assigned to {responder.first_name} {responder.last_name}, on call for {team.name}",
+              new_assignee=responder)
