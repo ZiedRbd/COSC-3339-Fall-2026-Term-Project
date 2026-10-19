@@ -691,9 +691,9 @@ class WhoIsOnCallTests(TestCase):
         self.at_8 = timezone.make_aware(datetime(2026, 10, 19, 8, 0))
         self.at_16 = timezone.make_aware(datetime(2026, 10, 19, 16, 0))
         self.at_22 = timezone.make_aware(datetime(2026, 10, 19, 22, 0))
-        Shift.objects.create(team=self.team, responder=self.tim, created_by=self.tim,
+        Shift.objects.create(team=self.team, solver=self.tim, created_by=self.tim,
                              starts_at=self.at_8, ends_at=self.at_16)
-        Shift.objects.create(team=self.team, responder=self.jane, created_by=self.tim,
+        Shift.objects.create(team=self.team, solver=self.jane, created_by=self.tim,
                              starts_at=self.at_16, ends_at=self.at_22)
 
     def test_responder_during_their_shift(self):
@@ -737,26 +737,26 @@ class WhoIsOnCallTests(TestCase):
         """Calling without an instant uses the current time."""
         now = timezone.now()
         TeamMember.objects.create(user=self.jane, team=self.other)
-        Shift.objects.create(team=self.other, responder=self.jane, created_by=self.jane,
+        Shift.objects.create(team=self.other, solver=self.jane, created_by=self.jane,
                              starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=1))
         self.assertEqual(who_is_on_call(self.other), self.jane)
 
     def test_roster_returns_shifts_by_start_time_not_creation_order(self):
         """A shift created last but starting earliest comes back first."""
-        Shift.objects.create(team=self.team, responder=self.jane, created_by=self.tim,
+        Shift.objects.create(team=self.team, solver=self.jane, created_by=self.tim,
                              starts_at=self.at_8 - timedelta(hours=2), ends_at=self.at_8)
         roster = list(on_call_roster(self.team, self.at_8 - timedelta(hours=2), self.at_22))
-        self.assertEqual([s.responder for s in roster], [self.jane, self.tim, self.jane])
+        self.assertEqual([s.solver for s in roster], [self.jane, self.tim, self.jane])
 
     def test_roster_window_ending_at_a_shift_start_excludes_that_shift(self):
         """A window ending at 16:00 does not include the shift that starts at 16:00."""
         roster = list(on_call_roster(self.team, self.at_8, self.at_16))
-        self.assertEqual([s.responder for s in roster], [self.tim])
+        self.assertEqual([s.solver for s in roster], [self.tim])
 
     def test_roster_leaves_out_other_teams(self):
         """A HVAC shift in the same window stays out of the Plumbing roster."""
         TeamMember.objects.create(user=self.jane, team=self.other)
-        Shift.objects.create(team=self.other, responder=self.jane, created_by=self.jane,
+        Shift.objects.create(team=self.other, solver=self.jane, created_by=self.jane,
                              starts_at=self.at_8, ends_at=self.at_16)
         roster = list(on_call_roster(self.team, self.at_8, self.at_22))
         self.assertEqual([s.team for s in roster], [self.team, self.team])
@@ -764,7 +764,7 @@ class WhoIsOnCallTests(TestCase):
     def test_roster_window_starting_at_a_shift_end_excludes_that_shift(self):
         """A window starting at 16:00 does not include the shift that ends at 16:00."""
         roster = list(on_call_roster(self.team, self.at_16, self.at_22))
-        self.assertEqual([s.responder for s in roster], [self.jane])
+        self.assertEqual([s.solver for s in roster], [self.jane])
 
     def test_roster_is_empty_outside_the_schedule(self):
         """A window after the last shift has nobody in it."""
@@ -776,7 +776,7 @@ class WhoIsOnCallTests(TestCase):
 
     def test_overlapping_shifts_resolve_to_the_earlier_start(self):
         """If two shifts somehow overlap, the one that started first is on call."""
-        Shift.objects.create(team=self.team, responder=self.jane, created_by=self.tim,
+        Shift.objects.create(team=self.team, solver=self.jane, created_by=self.tim,
                              starts_at=self.at_8 + timedelta(hours=1), ends_at=self.at_16)
         self.assertEqual(who_is_on_call(self.team, self.at_8 + timedelta(hours=2)), self.tim)
 
@@ -787,7 +787,7 @@ class WhoIsOnCallTests(TestCase):
 
 
 class SeedLeadsTests(TestCase):
-    """The seed sets up the leads and responders the sprint roster asks for."""
+    """The seed sets up the leads and solvers the sprint roster asks for."""
 
     def test_seed_assigns_leads_and_six_responders(self):
         """Pat leads two teams and is a Plumbing member. Maya leads one and is on no team."""
@@ -827,7 +827,7 @@ class AutoAssignmentTests(TestCase):
 
     def put_tim_on_call(self):
         now = timezone.now()
-        Shift.objects.create(team=self.team, responder=self.tim, created_by=self.tim,
+        Shift.objects.create(team=self.team, solver=self.tim, created_by=self.tim,
                              starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=1))
 
     def test_ticket_goes_to_the_on_call_responder(self):
@@ -853,7 +853,7 @@ class AutoAssignmentTests(TestCase):
         self.assertIsNone(inc.assigned_to)
         self.assertEqual(inc.status, "open")
         row = inc.incidentupdate_set.get(update_type="assignment_failed")
-        self.assertIn("No responder on call", row.body)
+        self.assertIn("No solver on call", row.body)
 
     def test_service_without_a_team_does_not_crash(self):
         """A ticket against a team-less service is created and left unassigned."""

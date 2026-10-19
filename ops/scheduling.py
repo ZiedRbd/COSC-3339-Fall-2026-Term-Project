@@ -21,17 +21,17 @@ def who_is_on_call(team, at=None):
             team=team,
             starts_at__lte=at,
             ends_at__gt=at,
-            responder__is_active=True,
-            responder__role="solver",
-            responder__teammember__team=team,
+            solver__is_active=True,
+            solver__role="solver",
+            solver__teammember__team=team,
         )
-        .select_related("responder")
+        .select_related("solver")
         .order_by("starts_at", "id")
         .first()
     )
     if shift is None:
         return None
-    return shift.responder
+    return shift.solver
 
 
 def on_call_roster(team, window_start, window_end):
@@ -48,7 +48,7 @@ def on_call_roster(team, window_start, window_end):
             starts_at__lt=window_end,
             ends_at__gt=window_start,
         )
-        .select_related("responder")
+        .select_related("solver")
         .order_by("starts_at", "id")
     )
 
@@ -69,15 +69,15 @@ def assign_on_creation(incident):
                   "Service has no owning team, so nobody can be assigned")
         return
     incident.assigned_team = team
-    responder = who_is_on_call(team, incident.created_at)
-    if responder is None:
+    solver = who_is_on_call(team, incident.created_at)
+    if solver is None:
         incident.save()
         log_event(incident, reporter, "assignment_failed",
-                  f"No responder on call for {team.name}")
+                  f"No solver on call for {team.name}")
         return
-    incident.assigned_to = responder
+    incident.assigned_to = solver
     incident.status = "assigned"
     incident.save()
     log_event(incident, reporter, "assignment",
-              f"Assigned to {responder.first_name} {responder.last_name}, on call for {team.name}",
-              new_assignee=responder)
+              f"Assigned to {solver.first_name} {solver.last_name}, on call for {team.name}",
+              new_assignee=solver)
