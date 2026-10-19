@@ -45,7 +45,7 @@ class Command(BaseCommand):
                 TeamMember.objects.get_or_create(user=user, team=teams[team])
             return user
 
-        # Four reporters (plus the demo account used for the submission login)
+        # Six reporters, including the demo account used for the submission login
         reporters = [
             make_user("demo@campusdesk.edu", "Demo", "User", "reporter"),
             make_user("maria.lopez@campusdesk.edu", "Maria", "Lopez", "reporter"),
