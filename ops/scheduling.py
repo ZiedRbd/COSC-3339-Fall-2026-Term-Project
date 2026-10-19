@@ -6,11 +6,12 @@ from .models import Shift
 
 def who_is_on_call(team, at=None):
     """
-    The responder covering team at the instant at, or None when nobody is.
-    A shift covers starts_at up to but not including ends_at, so the end
-    instant belongs to the next shift. Deactivated users, anyone who is
-    not a solver, and anyone no longer on the team are skipped even if a
-    shift names them.
+    The person on call for a team at a given moment, or None if nobody is.
+    A shift runs from starts_at up to ends_at, and the ends_at moment
+    itself already belongs to the next shift, so a ticket filed at
+    exactly 16:00 goes to whoever starts at 16:00. Anyone who is
+    deactivated, is not a solver, or is no longer on the team is skipped
+    even if a shift names them.
     """
     if at is None:
         at = timezone.now()
@@ -33,7 +34,13 @@ def who_is_on_call(team, at=None):
 
 
 def on_call_roster(team, window_start, window_end):
-    """Every shift for team that overlaps the window, earliest first."""
+    """
+    All shifts for a team that fall inside a time window, for example one
+    week of the calendar. A shift counts if any part of it is inside the
+    window, so a shift that starts before the window but ends inside it
+    is included. The list is sorted by start time, so the first item is
+    the shift that starts soonest.
+    """
     return (
         Shift.objects.filter(
             team=team,
