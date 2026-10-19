@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from ops.models import User, Team, TeamMember, Service, Incident, IncidentUpdate
-from ops.views import ALLOWED_TRANSITIONS, log_event
+from ops.timeline import log_event
 
 
 # Loads demo data. Safe to run more than once, existing rows are reused.

@@ -7,22 +7,17 @@ from django.views.decorators.cache import never_cache
 
 from .forms import IncidentForm, LoginForm, RegisterForm
 from .models import Incident, IncidentUpdate, Service, Team, TeamMember, User
+from .scheduling import assign_on_creation
+from .timeline import log_event
 
 ALLOWED_TRANSITIONS = {
     "open": ["acknowledged"],
+    "assigned": ["in_progress"],
     "acknowledged": ["in_progress"],
     "in_progress": ["resolved"],
     "resolved": ["closed", "open"],
     "closed": ["open"],
 }
-
-
-def log_event(incident, author, update_type, body, old_status="", new_status=""):
-    """Record one event on an incident's timeline."""
-    IncidentUpdate.objects.create(
-        incident=incident, author=author, update_type=update_type,
-        body=body, old_status=old_status, new_status=new_status,
-    )
 
 
 def home(request):
@@ -152,8 +147,11 @@ def incident_form(request):
                 # Route the ticket to the team that owns the service
                 assigned_team=service.owning_team,
             )
+            team = service.owning_team
             log_event(incident, request.user, "created",
-                      f"Ticket created and assigned to {service.owning_team.name}")
+                      f"Ticket created and routed to {team.name}" if team else "Ticket created")
+            # Hand the ticket to whoever is on call for that team right now
+            assign_on_creation(incident)
             messages.success(request, f"Ticket #{incident.pk} created")
             return redirect("incidents")
     else:
