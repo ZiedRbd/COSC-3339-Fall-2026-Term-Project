@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from django.core.management import call_command
 from django.utils import timezone
 import io
+from zoneinfo import ZoneInfo
 from django.test import TestCase
 
 from .models import Incident, Service, Team, TeamMember, User, Shift
@@ -740,10 +741,25 @@ class WhoIsOnCallTests(TestCase):
                              starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=1))
         self.assertEqual(who_is_on_call(self.other), self.jane)
 
-    def test_roster_returns_overlapping_shifts_in_order(self):
-        """A window from 10:00 to 18:00 touches both shifts, Tim first."""
-        roster = list(on_call_roster(self.team, self.at_8 + timedelta(hours=2), self.at_16 + timedelta(hours=2)))
-        self.assertEqual([s.responder for s in roster], [self.tim, self.jane])
+    def test_roster_returns_shifts_by_start_time_not_creation_order(self):
+        """A shift created last but starting earliest comes back first."""
+        Shift.objects.create(team=self.team, responder=self.jane, created_by=self.tim,
+                             starts_at=self.at_8 - timedelta(hours=2), ends_at=self.at_8)
+        roster = list(on_call_roster(self.team, self.at_8 - timedelta(hours=2), self.at_22))
+        self.assertEqual([s.responder for s in roster], [self.jane, self.tim, self.jane])
+
+    def test_roster_window_ending_at_a_shift_start_excludes_that_shift(self):
+        """A window ending at 16:00 does not include the shift that starts at 16:00."""
+        roster = list(on_call_roster(self.team, self.at_8, self.at_16))
+        self.assertEqual([s.responder for s in roster], [self.tim])
+
+    def test_roster_leaves_out_other_teams(self):
+        """A HVAC shift in the same window stays out of the Plumbing roster."""
+        TeamMember.objects.create(user=self.jane, team=self.other)
+        Shift.objects.create(team=self.other, responder=self.jane, created_by=self.jane,
+                             starts_at=self.at_8, ends_at=self.at_16)
+        roster = list(on_call_roster(self.team, self.at_8, self.at_22))
+        self.assertEqual([s.team for s in roster], [self.team, self.team])
 
     def test_roster_window_starting_at_a_shift_end_excludes_that_shift(self):
         """A window starting at 16:00 does not include the shift that ends at 16:00."""
@@ -754,13 +770,27 @@ class WhoIsOnCallTests(TestCase):
         """A window after the last shift has nobody in it."""
         start = self.at_22 + timedelta(hours=1)
         self.assertEqual(list(on_call_roster(self.team, start, start + timedelta(hours=2))), [])
+    def test_nobody_before_the_first_shift(self):
+        """07:00 is before Tim starts, so nobody is on call yet."""
+        self.assertIsNone(who_is_on_call(self.team, self.at_8 - timedelta(hours=1)))
+
+    def test_overlapping_shifts_resolve_to_the_earlier_start(self):
+        """If two shifts somehow overlap, the one that started first is on call."""
+        Shift.objects.create(team=self.team, responder=self.jane, created_by=self.tim,
+                             starts_at=self.at_8 + timedelta(hours=1), ends_at=self.at_16)
+        self.assertEqual(who_is_on_call(self.team, self.at_8 + timedelta(hours=2)), self.tim)
+
+    def test_same_instant_in_another_timezone_gives_the_same_answer(self):
+        """09:00 Chicago written as 14:00 UTC is the same instant, so the same person."""
+        at_utc = (self.at_8 + timedelta(hours=1)).astimezone(ZoneInfo("UTC"))
+        self.assertEqual(who_is_on_call(self.team, at_utc), self.tim)
 
 
 class SeedLeadsTests(TestCase):
-    """The seed sets up the roster the sprint asks for."""
+    """The seed sets up the leads and responders the sprint roster asks for."""
 
     def test_seed_assigns_leads_and_six_responders(self):
-        """Pat leads two teams and is on a rota. Maya leads one and is on none."""
+        """Pat leads two teams and is a Plumbing member. Maya leads one and is on no team."""
         call_command("seed", stdout=io.StringIO())
         pat = User.objects.get(email="pat.diaz@campusdesk.edu")
         maya = User.objects.get(email="maya.ortiz@campusdesk.edu")
@@ -770,3 +800,5 @@ class SeedLeadsTests(TestCase):
         self.assertTrue(TeamMember.objects.filter(user=pat, team__name="Plumbing").exists())
         self.assertFalse(TeamMember.objects.filter(user=maya).exists())
         self.assertEqual(User.objects.filter(role="solver").count(), 6)
+        self.assertFalse(Team.objects.filter(lead__isnull=True).exists())
+        self.assertEqual({pat.role, maya.role}, {"solver"})
