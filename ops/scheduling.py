@@ -8,8 +8,9 @@ def who_is_on_call(team, at=None):
     """
     The responder covering team at the instant at, or None when nobody is.
     A shift covers starts_at up to but not including ends_at, so the end
-    instant belongs to the next shift. Deactivated users and anyone who
-    is not a solver are skipped even if a shift names them.
+    instant belongs to the next shift. Deactivated users, anyone who is
+    not a solver, and anyone no longer on the team are skipped even if a
+    shift names them.
     """
     if at is None:
         at = timezone.now()
@@ -20,6 +21,7 @@ def who_is_on_call(team, at=None):
             ends_at__gt=at,
             responder__is_active=True,
             responder__role="solver",
+            responder__teammember__team=team,
         )
         .select_related("responder")
         .order_by("starts_at")

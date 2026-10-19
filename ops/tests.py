@@ -721,6 +721,11 @@ class WhoIsOnCallTests(TestCase):
         self.tim.save()
         self.assertIsNone(who_is_on_call(self.team, self.at_8 + timedelta(hours=1)))
 
+    def test_responder_removed_from_the_team_is_skipped(self):
+        """Taking Tim off the team takes him off call even though his shift row remains."""
+        TeamMember.objects.filter(user=self.tim, team=self.team).delete()
+        self.assertIsNone(who_is_on_call(self.team, self.at_8 + timedelta(hours=1)))
+
     def test_non_solver_is_skipped(self):
         """A shift that somehow names a reporter does not put them on call."""
         self.tim.role = "reporter"
@@ -730,6 +735,7 @@ class WhoIsOnCallTests(TestCase):
     def test_at_defaults_to_now(self):
         """Calling without an instant uses the current time."""
         now = timezone.now()
+        TeamMember.objects.create(user=self.jane, team=self.other)
         Shift.objects.create(team=self.other, responder=self.jane, created_by=self.jane,
                              starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=1))
         self.assertEqual(who_is_on_call(self.other), self.jane)
