@@ -24,7 +24,7 @@ def who_is_on_call(team, at=None):
             responder__teammember__team=team,
         )
         .select_related("responder")
-        .order_by("starts_at")
+        .order_by("starts_at", "id")
         .first()
     )
     if shift is None:
@@ -41,5 +41,5 @@ def on_call_roster(team, window_start, window_end):
             ends_at__gt=window_start,
         )
         .select_related("responder")
-        .order_by("starts_at")
+        .order_by("starts_at", "id")
     )
