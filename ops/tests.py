@@ -1,6 +1,11 @@
+from datetime import datetime, timedelta
+from django.core.management import call_command
+from django.utils import timezone
+import io
 from django.test import TestCase
 
-from .models import Incident, Service, Team, TeamMember, User
+from .models import Incident, Service, Team, TeamMember, User, Shift
+from .scheduling import on_call_roster, who_is_on_call
 
 
 # Run with: python manage.py test ops
@@ -667,3 +672,95 @@ class SolverProfileTests(TestCase):
         html = self.client.get("/profile/").content.decode()
         self.assertIn("/incidents/list", html)
         self.assertIn("View tickets assigned to Plumbing", html)
+
+
+class WhoIsOnCallTests(TestCase):
+    """who_is_on_call and on_call_roster, read straight off the Shift table."""
+
+    def setUp(self):
+        self.team = Team.objects.create(name="Plumbing")
+        self.other = Team.objects.create(name="HVAC")
+        self.tim = User.objects.create_user(
+            username="tim@x.com", email="tim@x.com", password=GOOD_PASSWORD, role="solver")
+        self.jane = User.objects.create_user(
+            username="jane@x.com", email="jane@x.com", password=GOOD_PASSWORD, role="solver")
+        TeamMember.objects.create(user=self.tim, team=self.team)
+        TeamMember.objects.create(user=self.jane, team=self.team)
+        # Tim 08:00 to 16:00, then Jane 16:00 to 22:00, Chicago time
+        self.at_8 = timezone.make_aware(datetime(2026, 10, 19, 8, 0))
+        self.at_16 = timezone.make_aware(datetime(2026, 10, 19, 16, 0))
+        self.at_22 = timezone.make_aware(datetime(2026, 10, 19, 22, 0))
+        Shift.objects.create(team=self.team, responder=self.tim, created_by=self.tim,
+                             starts_at=self.at_8, ends_at=self.at_16)
+        Shift.objects.create(team=self.team, responder=self.jane, created_by=self.tim,
+                             starts_at=self.at_16, ends_at=self.at_22)
+
+    def test_responder_during_their_shift(self):
+        """09:00 falls inside Tim's shift."""
+        self.assertEqual(who_is_on_call(self.team, self.at_8 + timedelta(hours=1)), self.tim)
+
+    def test_end_instant_belongs_to_the_next_shift(self):
+        """Exactly 16:00 is Jane's, because the interval is half open."""
+        self.assertEqual(who_is_on_call(self.team, self.at_16), self.jane)
+
+    def test_one_second_before_the_end_is_still_the_first_shift(self):
+        """15:59:59 is still Tim's."""
+        self.assertEqual(who_is_on_call(self.team, self.at_16 - timedelta(seconds=1)), self.tim)
+
+    def test_nobody_after_the_schedule_ends(self):
+        """23:00 is past the last shift, so nobody is on call."""
+        self.assertIsNone(who_is_on_call(self.team, self.at_22 + timedelta(hours=1)))
+
+    def test_nobody_for_a_team_with_no_shifts(self):
+        """HVAC has no schedule at all."""
+        self.assertIsNone(who_is_on_call(self.other, self.at_8 + timedelta(hours=1)))
+
+    def test_deactivated_responder_is_skipped(self):
+        """A deactivated user is not on call even though a shift names them."""
+        self.tim.is_active = False
+        self.tim.save()
+        self.assertIsNone(who_is_on_call(self.team, self.at_8 + timedelta(hours=1)))
+
+    def test_non_solver_is_skipped(self):
+        """A shift that somehow names a reporter does not put them on call."""
+        self.tim.role = "reporter"
+        self.tim.save()
+        self.assertIsNone(who_is_on_call(self.team, self.at_8 + timedelta(hours=1)))
+
+    def test_at_defaults_to_now(self):
+        """Calling without an instant uses the current time."""
+        now = timezone.now()
+        Shift.objects.create(team=self.other, responder=self.jane, created_by=self.jane,
+                             starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=1))
+        self.assertEqual(who_is_on_call(self.other), self.jane)
+
+    def test_roster_returns_overlapping_shifts_in_order(self):
+        """A window from 10:00 to 18:00 touches both shifts, Tim first."""
+        roster = list(on_call_roster(self.team, self.at_8 + timedelta(hours=2), self.at_16 + timedelta(hours=2)))
+        self.assertEqual([s.responder for s in roster], [self.tim, self.jane])
+
+    def test_roster_window_starting_at_a_shift_end_excludes_that_shift(self):
+        """A window starting at 16:00 does not include the shift that ends at 16:00."""
+        roster = list(on_call_roster(self.team, self.at_16, self.at_22))
+        self.assertEqual([s.responder for s in roster], [self.jane])
+
+    def test_roster_is_empty_outside_the_schedule(self):
+        """A window after the last shift has nobody in it."""
+        start = self.at_22 + timedelta(hours=1)
+        self.assertEqual(list(on_call_roster(self.team, start, start + timedelta(hours=2))), [])
+
+
+class SeedLeadsTests(TestCase):
+    """The seed sets up the roster the sprint asks for."""
+
+    def test_seed_assigns_leads_and_six_responders(self):
+        """Pat leads two teams and is on a rota. Maya leads one and is on none."""
+        call_command("seed", stdout=io.StringIO())
+        pat = User.objects.get(email="pat.diaz@campusdesk.edu")
+        maya = User.objects.get(email="maya.ortiz@campusdesk.edu")
+        self.assertEqual(Team.objects.get(name="Plumbing").lead, pat)
+        self.assertEqual(Team.objects.get(name="Electrical").lead, pat)
+        self.assertEqual(Team.objects.get(name="IT Support").lead, maya)
+        self.assertTrue(TeamMember.objects.filter(user=pat, team__name="Plumbing").exists())
+        self.assertFalse(TeamMember.objects.filter(user=maya).exists())
+        self.assertEqual(User.objects.filter(role="solver").count(), 6)
