@@ -4,6 +4,11 @@
 
 
 {% block content %}
+  {% if messages %}
+    {% for message in messages %}
+      <p class="notice">{{ message }}</p>
+    {% endfor %}
+  {% endif %}
     <div class =profile-layout>
     
     <!--Profile on the rigtht side-->

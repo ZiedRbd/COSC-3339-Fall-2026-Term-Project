@@ -329,12 +329,15 @@ def incident_transition(request, pk):
     return redirect("incident_detail", pk=pk)
 
 
+
 @login_required
+@never_cache
 def incident_detail(request, pk):
     """
     Show one incident with its full timeline. The timeline is every
     IncidentUpdate row for this ticket, oldest first.
     """
+    
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
     if not _can_access_incident(request.user, incident):
         messages.error(request, "You do not have access to that ticket")
