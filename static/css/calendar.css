@@ -83,3 +83,6 @@
 .modal.wide { max-width: 560px; text-align: left; }
 .modal.wide .shift-form input, .modal.wide .shift-form select { width: auto; min-width: 150px; }
 .modal.wide .actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px; }
+
+/* A slot that already ended is history: greyed out, nothing to edit */
+.slot.past { opacity: 0.45; }
