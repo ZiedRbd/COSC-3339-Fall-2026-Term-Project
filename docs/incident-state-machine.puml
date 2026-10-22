@@ -9,15 +9,15 @@ Open --> Assigned : on-call solver found\n(automatic on creation,\nor a lead rea
 Assigned --> InProgress : solver starts work
 InProgress --> Resolved : solver resolves
 Resolved --> Closed : solver closes
-Resolved --> Open : reopened
-Closed --> Open : reopened
+Resolved --> Open : reopened,\nassigned again automatically
+Closed --> Open : reopened,\nassigned again automatically
 
 note right of Open
   A ticket stays Open when the service has
-  no team, nobody is on call, or the solver
-  on call is deactivated. The timeline
-  records why, and a lead can assign it
-  by hand once someone is on call.
+  no team or nobody is on call. The timeline
+  records why. It is assigned automatically
+  as soon as someone is on call, or a lead
+  can hand it over.
 end note
 
 note right of Assigned
@@ -41,7 +41,7 @@ legend right
   |= Rule |= Effect |
   | Skip a state | Refused, message names both states |
   | Go backward | Refused unless reopening from Resolved or Closed |
-  | Reporter changes status | Refused, only solvers transition |
+  | Anyone but the assigned solver or the lead | Refused |
   | Solver off the team | Refused, no access |
   | Open moved by hand | Refused, only assignment leaves Open |
 endlegend

@@ -58,7 +58,7 @@
             <td>{{ incident.reported_by.first_name }} {{ incident.reported_by.last_name }}</td>
             <td>{{ incident.created_at|date:"M j, Y g:i A" }}</td>
             <td class="row-actions">
-              {% if user.role == "solver" %}
+              {% if incident.can_transition %}
                 {% for state in incident.next_states %}
                   <form method="post" action="{% url 'incident_transition' incident.pk %}" style="display:inline"
                         class="transition-form" data-label="{{ state|status_label }}">

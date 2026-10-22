@@ -1,7 +1,7 @@
 """Who is on call, checking a schedule, and handing tickets to people."""
 from django.utils import timezone
 
-from .models import Shift, TeamMember
+from .models import Incident, Shift, TeamMember
 from .timeline import log_event
 
 
@@ -53,34 +53,63 @@ def on_call_roster(team, window_start, window_end):
     )
 
 
-def assign_on_creation(incident):
+def assign_now(incident, by, at=None):
     """
-    Hand a brand new ticket to whoever is on call for the team that owns
-    its service, and write what happened to the timeline either way. The
-    ticket stays Open and unassigned when the service has no team, when
-    nobody is on call, or when the person on call cannot take it.
+    Hand an unassigned ticket to whoever is on call for the team that owns
+    its service, and write what happened to the timeline either way. Used
+    when a ticket is filed and when one is reopened. The ticket stays Open
+    and unassigned when the service has no team or nobody is on call.
+    Returns the solver it went to, or None.
     """
-    # The reporter filing the ticket is what set this off, so they are
-    # recorded as the author of the entry
-    reporter = incident.reported_by
     team = incident.service.owning_team
     if team is None:
-        log_event(incident, reporter, "assignment_failed",
+        log_event(incident, by, "assignment_failed",
                   f"Nobody is on call for {incident.service.name} right now, so this ticket is waiting to be assigned")
-        return
+        return None
     incident.assigned_team = team
-    solver = who_is_on_call(team, incident.created_at)
+    solver = who_is_on_call(team, at)
     if solver is None:
         incident.save()
-        log_event(incident, reporter, "assignment_failed",
+        log_event(incident, by, "assignment_failed",
                   f"Nobody is on call for {team.name} right now, so this ticket is waiting to be assigned")
-        return
+        return None
     incident.assigned_to = solver
     incident.status = "assigned"
     incident.save()
-    log_event(incident, reporter, "assignment",
-              f"Assigned to {solver.first_name} {solver.last_name}, on call for {team.name}",
+    log_event(incident, by, "assignment",
+              f"Assigned to {_full_name(solver)}, on call for {team.name}",
               new_assignee=solver)
+    return solver
+
+
+def assign_on_creation(incident):
+    """A brand new ticket. The reporter filing it is recorded as the author."""
+    return assign_now(incident, incident.reported_by, incident.created_at)
+
+
+def assign_waiting(team, by=None):
+    """
+    Every Open, unassigned ticket of this team gets another chance at the
+    solver on call right now. Runs when a schedule changes, when a solver
+    opens the list, when a ticket is opened, and when shifts are seeded, so
+    a ticket filed while nobody was on call is picked up as soon as someone
+    is. Quiet when nobody is on call: the ticket already says it is waiting.
+    Returns how many tickets were assigned.
+    """
+    solver = who_is_on_call(team)
+    if solver is None:
+        return 0
+    waiting = Incident.objects.filter(assigned_team=team, status="open", assigned_to__isnull=True, is_deleted=False)
+    count = 0
+    for incident in waiting:
+        incident.assigned_to = solver
+        incident.status = "assigned"
+        incident.save()
+        log_event(incident, by or solver, "assignment",
+                  f"Assigned to {_full_name(solver)}, on call for {team.name}",
+                  new_assignee=solver)
+        count += 1
+    return count
 
 
 def is_lead(user, team):

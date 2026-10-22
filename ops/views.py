@@ -10,7 +10,8 @@ from django.views.decorators.cache import never_cache
 
 from .forms import IncidentForm, LoginForm, RegisterForm, ShiftForm
 from .models import Incident, IncidentUpdate, Service, Shift, Team, TeamMember, User
-from .scheduling import assign_on_creation, is_lead, on_call_roster, reassign, validate_schedule, who_is_on_call
+from .scheduling import (assign_now, assign_on_creation, assign_waiting, is_lead, on_call_roster, reassign,
+                         validate_schedule, who_is_on_call)
 from .timeline import log_event
 
 # A ticket leaves Open only by being assigned, automatically on creation or
@@ -116,8 +117,11 @@ def incident_list(request):
     # tickets on their profile page instead.
     if request.user.role != "solver":
         return redirect("profile")
-    team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
-    led_ids = Team.objects.filter(lead=request.user).values_list("id", flat=True)
+    team_ids = set(TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True))
+    led_ids = set(Team.objects.filter(lead=request.user).values_list("id", flat=True))
+    # A ticket that was waiting for someone to come on call is picked up here
+    for team in Team.objects.filter(id__in=team_ids | led_ids):
+        assign_waiting(team, request.user)
     incidents = (
         Incident.objects.filter(is_deleted=False)
         .filter(Q(assigned_team_id__in=team_ids) | Q(assigned_team_id__in=led_ids))
@@ -126,6 +130,7 @@ def incident_list(request):
     )
     for i in incidents:
         i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
+        i.can_transition = _can_transition(request.user, i)
     return render(request, "incidents/list.html", {"incidents": incidents})
 
 @login_required
@@ -177,6 +182,15 @@ def _can_edit(user, incident):
     if user.id == incident.assigned_to_id:
         return True
     return user.id == incident.reported_by_id and incident.status in NOT_STARTED
+
+
+def _can_transition(user, incident):
+    """Only the solver the ticket is assigned to, or the lead of its team, moves it."""
+    if user.role != "solver":
+        return False
+    if user.id == incident.assigned_to_id:
+        return True
+    return incident.assigned_team_id is not None and incident.assigned_team.lead_id == user.id
 
 
 @login_required
@@ -326,9 +340,8 @@ def incident_transition(request, pk):
     if request.method != "POST":
         return redirect("incident_detail", pk=pk)
 
-    #only solvers change state
-    if request.user.role != "solver":
-        messages.error(request, "Only solvers can change a ticket's status")
+    if not _can_transition(request.user, incident):
+        messages.error(request, "Only the solver assigned to this ticket, or the team lead, can change its status")
         return redirect("incident_detail", pk=pk)
 
     new_status = request.POST.get("new_status")
@@ -341,12 +354,17 @@ def incident_transition(request, pk):
 
     # Apply the change and log it to the timeline
     incident.status = new_status
+    if new_status == "open":
+        # Reopened: the old solver lets go, and it is assigned again below
+        incident.assigned_to = None
     incident.save()
     log_event(
         incident, request.user, "status_change",
         f"Status changed from {STATUS_LABELS.get(old_status, old_status)} to {STATUS_LABELS.get(new_status, new_status)}",
         old_status=old_status, new_status=new_status,
     )
+    if new_status == "open":
+        assign_now(incident, request.user)
     messages.success(request, f"Ticket #{incident.pk} moved to {STATUS_LABELS.get(new_status, new_status)}")
     return redirect("incident_detail", pk=pk)
 
@@ -364,6 +382,9 @@ def incident_detail(request, pk):
     if not _can_access_incident(request.user, incident):
         messages.error(request, "You do not have access to that ticket")
         return redirect("incidents")
+    if incident.status == "open" and incident.assigned_to_id is None and incident.assigned_team_id:
+        if assign_waiting(incident.assigned_team, request.user):
+            incident.refresh_from_db()
     timeline = (
         IncidentUpdate.objects.filter(incident=incident)
         .select_related("author")
@@ -384,6 +405,7 @@ def incident_detail(request, pk):
         "on_call": on_call,
         "can_reassign": can_reassign,
         "can_edit": can_edit,
+        "can_transition": _can_transition(request.user, incident),
     })
 
 
@@ -433,6 +455,12 @@ def _future_shifts(team):
     return Shift.objects.filter(team=team, ends_at__gt=timezone.now()).select_related("solver").order_by("starts_at")
 
 
+def _report_pickups(request, count):
+    """Tell the lead when a schedule change handed out tickets that were waiting."""
+    if count:
+        messages.success(request, f"{count} waiting ticket{'s' if count != 1 else ''} assigned to the solver on call")
+
+
 def _lead_only(request, team):
     """The redirect to send a non-lead away with, or None when they lead the team."""
     if is_lead(request.user, team):
@@ -466,6 +494,7 @@ def schedule(request, team_id):
             else:
                 shift.save()
                 messages.success(request, "Shift added")
+                _report_pickups(request, assign_waiting(team, request.user))
                 return redirect("schedule", team_id=team.pk)
     else:
         form = ShiftForm(team)
@@ -495,6 +524,7 @@ def shift_edit(request, team_id, shift_id):
             else:
                 changed.save()
                 messages.success(request, "Shift updated")
+                _report_pickups(request, assign_waiting(team, request.user))
                 return redirect("schedule", team_id=team.pk)
     else:
         form = ShiftForm(team, instance=shift)

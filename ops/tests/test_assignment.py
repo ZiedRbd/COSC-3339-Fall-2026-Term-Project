@@ -4,7 +4,7 @@ from datetime import timedelta
 from django.test import TestCase
 from django.utils import timezone
 
-from ops.models import Incident, Service, Shift, Team, TeamMember, User
+from ops.models import Incident, IncidentUpdate, Service, Shift, Team, TeamMember, User
 from ops.tests.helpers import GOOD_PASSWORD
 
 
@@ -220,3 +220,120 @@ class AssigneeEditsTests(TestCase):
         self.inc.status = "in_progress"
         self.inc.save()
         self.assertNotIn("Edit details", self.client.get(f"/incidents/{self.inc.pk}/").content.decode())
+
+
+class ReopenAndWaitingTests(TestCase):
+    """Reopening assigns again; a ticket that waited is picked up once someone is on call."""
+
+    def setUp(self):
+        self.team = Team.objects.create(name="Plumbing")
+        self.svc = Service.objects.create(name="Pipes", owning_team=self.team)
+        self.reporter = User.objects.create_user(username="r@x.com", email="r@x.com", password=GOOD_PASSWORD,
+                                                 first_name="Rae", last_name="Lee", role="reporter")
+        self.tim = User.objects.create_user(username="tim@x.com", email="tim@x.com", password=GOOD_PASSWORD,
+                                            first_name="Tim", last_name="Diaz", role="solver")
+        self.jane = User.objects.create_user(username="jane@x.com", email="jane@x.com", password=GOOD_PASSWORD,
+                                             first_name="Jane", last_name="Okoro", role="solver")
+        self.lead = User.objects.create_user(username="lead@x.com", email="lead@x.com", password=GOOD_PASSWORD,
+                                             first_name="Pat", last_name="Lee", role="solver")
+        for u in (self.tim, self.jane, self.lead):
+            TeamMember.objects.create(user=u, team=self.team)
+        self.team.lead = self.lead
+        self.team.save()
+
+    def put_on_call(self, solver):
+        now = timezone.now()
+        Shift.objects.create(team=self.team, solver=solver, created_by=self.lead,
+                             starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=7))
+
+    def ticket(self, **extra):
+        data = dict(title="Leak", description="d", service=self.svc, reported_by=self.reporter,
+                    assigned_team=self.team, priority="low")
+        data.update(extra)
+        return Incident.objects.create(**data)
+
+    def test_reopen_hands_the_ticket_to_whoever_is_on_call_now(self):
+        inc = self.ticket(assigned_to=self.tim, status="resolved")
+        self.put_on_call(self.jane)
+        self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
+        self.client.post(f"/incidents/{inc.pk}/transition/", {"new_status": "open"})
+        inc.refresh_from_db()
+        self.assertEqual(inc.status, "assigned")
+        self.assertEqual(inc.assigned_to, self.jane)
+        self.assertTrue(IncidentUpdate.objects.filter(incident=inc, update_type="assignment", new_assignee=self.jane).exists())
+
+    def test_reopen_with_nobody_on_call_waits_without_a_solver(self):
+        inc = self.ticket(assigned_to=self.tim, status="closed")
+        self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
+        self.client.post(f"/incidents/{inc.pk}/transition/", {"new_status": "open"})
+        inc.refresh_from_db()
+        self.assertEqual(inc.status, "open")
+        self.assertIsNone(inc.assigned_to)
+
+    def test_waiting_ticket_is_picked_up_when_a_solver_opens_the_list(self):
+        inc = self.ticket(status="open")
+        self.put_on_call(self.jane)
+        self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
+        self.client.get("/incidents/list")
+        inc.refresh_from_db()
+        self.assertEqual((inc.status, inc.assigned_to), ("assigned", self.jane))
+
+    def test_waiting_ticket_is_picked_up_when_the_schedule_changes(self):
+        inc = self.ticket(status="open")
+        self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
+        now = timezone.localtime(timezone.now()).replace(minute=0, second=0, microsecond=0)
+        resp = self.client.post(f"/schedule/{self.team.pk}/", {
+            "solver": self.jane.pk,
+            "starts_at_0": now.strftime("%Y-%m-%d"), "starts_at_1": now.strftime("%H:%M"),
+            "ends_at_0": (now + timedelta(hours=8)).strftime("%Y-%m-%d"),
+            "ends_at_1": (now + timedelta(hours=8)).strftime("%H:%M")}, follow=True)
+        self.assertIn("1 waiting ticket assigned", resp.content.decode())
+        inc.refresh_from_db()
+        self.assertEqual(inc.assigned_to, self.jane)
+
+    def test_nothing_happens_while_nobody_is_on_call(self):
+        inc = self.ticket(status="open")
+        self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
+        self.client.get("/incidents/list")
+        inc.refresh_from_db()
+        self.assertEqual((inc.status, inc.assigned_to), ("open", None))
+
+
+class TransitionPermissionTests(TestCase):
+    """Only the assigned solver or the team lead moves a ticket; teammates only look."""
+
+    def setUp(self):
+        self.team = Team.objects.create(name="Plumbing")
+        svc = Service.objects.create(name="Pipes", owning_team=self.team)
+        reporter = User.objects.create_user(username="r@x.com", email="r@x.com", password=GOOD_PASSWORD, role="reporter")
+        self.tim = User.objects.create_user(username="tim@x.com", email="tim@x.com", password=GOOD_PASSWORD, role="solver")
+        self.jane = User.objects.create_user(username="jane@x.com", email="jane@x.com", password=GOOD_PASSWORD, role="solver")
+        self.lead = User.objects.create_user(username="lead@x.com", email="lead@x.com", password=GOOD_PASSWORD, role="solver")
+        for u in (self.tim, self.jane):
+            TeamMember.objects.create(user=u, team=self.team)
+        self.team.lead = self.lead
+        self.team.save()
+        self.inc = Incident.objects.create(title="Leak", description="d", service=svc, reported_by=reporter,
+                                           assigned_team=self.team, assigned_to=self.tim, status="assigned", priority="low")
+
+    def move_as(self, email):
+        self.client.login(username=email, password=GOOD_PASSWORD)
+        self.client.post(f"/incidents/{self.inc.pk}/transition/", {"new_status": "in_progress"})
+        self.inc.refresh_from_db()
+        return self.inc.status
+
+    def test_teammate_cannot_move_it(self):
+        self.assertEqual(self.move_as("jane@x.com"), "assigned")
+
+    def test_assigned_solver_can(self):
+        self.assertEqual(self.move_as("tim@x.com"), "in_progress")
+
+    def test_lead_can(self):
+        self.assertEqual(self.move_as("lead@x.com"), "in_progress")
+
+    def test_buttons_follow_the_rule(self):
+        self.client.login(username="jane@x.com", password=GOOD_PASSWORD)
+        self.assertNotIn("Move to In Progress", self.client.get(f"/incidents/{self.inc.pk}/").content.decode())
+        self.assertNotIn(">In Progress</button>", self.client.get("/incidents/list").content.decode())
+        self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
+        self.assertIn("Move to In Progress", self.client.get(f"/incidents/{self.inc.pk}/").content.decode())

@@ -38,7 +38,7 @@
       <span class="field-value">{{ incident.description }}</span></div>
   </div>
 
-  {% if user.role == "solver" and incident.next_states %}
+  {% if can_transition and incident.next_states %}
     <div class="action-bar">
       <span class="field-label">Next step</span>
       <div class="action-buttons">
