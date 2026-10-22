@@ -63,3 +63,11 @@
 @media (max-width: 900px) {
     .calendar-table { display: block; overflow-x: auto; }
 }
+
+/* Tighter cells: one line for the hours, one for the name */
+.calendar-table thead th { padding: 10px 6px; }
+.calendar-table td { padding: 6px; }
+.slot { margin-bottom: 4px; padding: 5px 7px; }
+.slot-when { display: block; }
+.slot-who { display: block; }
+.calendar-nav .btn-small { font-size: 12px; }
