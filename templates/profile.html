@@ -64,7 +64,7 @@
                 </div>
                 <div class="pi-actions">
                   <a href="{% url 'incident_detail' incident.pk %}" class="pi-btn">Details</a>
-                  {% if not incident.assigned_to_id %}
+                  {% if incident.status == "open" or incident.status == "assigned" %}
                     <a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a>
                     <form method="post" action="{% url 'incident_delete' incident.pk %}" class="delete-form" style="display:inline">
                       {% csrf_token %}
@@ -92,7 +92,7 @@
                 </div>
                 <div class="pi-actions">
                   <a href="{% url 'incident_detail' incident.pk %}" class="pi-btn">Details</a>
-                  {% if not incident.assigned_to_id %}
+                  {% if incident.status == "open" or incident.status == "assigned" %}
                     <a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a>
                     <form method="post" action="{% url 'incident_delete' incident.pk %}" class="delete-form" style="display:inline">
                       {% csrf_token %}
