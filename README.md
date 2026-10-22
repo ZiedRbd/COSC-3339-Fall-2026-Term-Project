@@ -20,7 +20,7 @@ python manage.py seed
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000. The `seed` command loads three teams, seven services, sixteen users (six reporters and ten solvers), and ten incidents. `python manage.py seed_shifts` adds a week of on-call shifts.
+Open http://127.0.0.1:8000. The `seed` command loads three teams, seven services, sixteen users (six reporters and ten solvers), and twenty-four incidents. `python manage.py seed_shifts` adds a week of on-call shifts.
 
 Local development uses SQLite. No `.env` file is needed; production settings are read from environment variables only when they are present.
 
