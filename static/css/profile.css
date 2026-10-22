@@ -432,3 +432,15 @@ incident-col li span {
 /* Delete, next to Edit on the reporter's own open tickets */
 .pi-btn.danger { background: transparent; color: #c62828; border-color: #c62828; }
 .pi-btn.danger:hover { background: #c62828; color: #ffffff; border-color: #c62828; }
+
+/* Ticket cards on the profile: room between the text and the card edge */
+.incident-col li.profile-incident {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.incident-col li.profile-incident .pi-actions { padding-top: 4px; }
