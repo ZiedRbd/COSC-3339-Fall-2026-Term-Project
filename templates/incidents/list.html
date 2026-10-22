@@ -25,7 +25,7 @@
   
   {% if messages %}
     {% for message in messages %}
-      <p class="notice">{{ message }}</p>
+      <p class="notice {{ message.tags }}">{{ message }}</p>
     {% endfor %}
   {% endif %}
 
@@ -49,8 +49,8 @@
         {% for incident in incidents %}
           <tr class="incident-list-item">
             <td class="ticket-id">{{ incident.pk }}</td>
-            <td><a href="{% url 'incident_detail' incident.pk %}">{{ incident.title }}</a></td>
-            <td>{% if incident.building or incident.room %}{{ incident.building }}{% if incident.building and incident.room %}, {% endif %}{{ incident.room }}{% else %}<span class="muted">Not given</span>{% endif %}</td>
+            <td><a href="{% url 'incident_detail' incident.pk %}">{{ incident.title|truncatechars:70 }}</a></td>
+            <td>{% if incident.building or incident.room %}{{ incident.building|truncatechars:40 }}{% if incident.building and incident.room %}, {% endif %}{{ incident.room|truncatechars:24 }}{% else %}<span class="muted">Not given</span>{% endif %}</td>
             <td>{{ incident.service.name }}</td>
             <td><span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></td>
             <td><span class="badge {{ incident.status }}">{{ incident.status|title }}</span></td>
