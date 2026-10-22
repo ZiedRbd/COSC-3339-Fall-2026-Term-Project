@@ -66,14 +66,14 @@ def assign_on_creation(incident):
     team = incident.service.owning_team
     if team is None:
         log_event(incident, reporter, "assignment_failed",
-                  "Service has no owning team, so nobody can be assigned")
+                  f"Nobody is on call for {incident.service.name} right now, so this ticket is waiting to be assigned")
         return
     incident.assigned_team = team
     solver = who_is_on_call(team, incident.created_at)
     if solver is None:
         incident.save()
         log_event(incident, reporter, "assignment_failed",
-                  f"No solver on call for {team.name}")
+                  f"Nobody is on call for {team.name} right now, so this ticket is waiting to be assigned")
         return
     incident.assigned_to = solver
     incident.status = "assigned"
@@ -178,7 +178,7 @@ def reassign(incident, new_solver, by):
     """
     team = incident.assigned_team
     if team is None:
-        return "This ticket has no team, so nobody can be assigned"
+        return "No team handles this ticket's service, so nobody can be assigned"
     if not is_lead(by, team):
         return f"Only the lead of {team.name} can reassign its tickets"
     if incident.status in ("resolved", "closed"):

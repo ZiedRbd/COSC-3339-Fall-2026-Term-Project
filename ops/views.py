@@ -216,7 +216,7 @@ def incident_edit(request, pk):
             # Severity change is its own timeline tag
             if old_severity != incident.priority:
                 log_event(incident, request.user, "severity",
-                          f"Severity changed from {old_severity} to {incident.priority}")
+                          f"Severity changed from {old_severity.title()} to {incident.priority.title()}")
             # One timeline entry per changed detail field, showing old to new
             new = {
                 "Title": incident.title,
@@ -328,7 +328,7 @@ def incident_transition(request, pk):
 
     #only solvers change state
     if request.user.role != "solver":
-        messages.error(request, "Only solvers can change incident status")
+        messages.error(request, "Only solvers can change a ticket's status")
         return redirect("incident_detail", pk=pk)
 
     new_status = request.POST.get("new_status")
@@ -344,7 +344,7 @@ def incident_transition(request, pk):
     incident.save()
     log_event(
         incident, request.user, "status_change",
-        f"Status changed from {old_status} to {new_status}",
+        f"Status changed from {STATUS_LABELS.get(old_status, old_status)} to {STATUS_LABELS.get(new_status, new_status)}",
         old_status=old_status, new_status=new_status,
     )
     messages.success(request, f"Ticket #{incident.pk} moved to {STATUS_LABELS.get(new_status, new_status)}")
