@@ -80,20 +80,20 @@ class Command(BaseCommand):
         # (reporter_index, title, service, severity, building, room, final_status)
         tickets = [
             (0, "Sink leaking in Moody 2nd floor restroom", "Restroom Plumbing", "high", "Moody", "214", "open"),
-            (1, "Water fountain not working", "Water Fountains", "low", "Trustee", "1st floor", "acknowledged"),
+            (1, "Water fountain not working", "Water Fountains", "low", "Trustee", "1st floor", "assigned"),
             (1, "Lights flickering in room 114", "Classroom Lighting", "medium", "Fleck", "114", "in_progress"),
             (2, "Hallway lights out", "Classroom Lighting", "high", "Doyle", "East wing", "resolved"),
             (2, "Outlet sparked in dorm lounge", "Power Outlets", "high", "Teresa Hall", "Lounge", "closed"),
             (3, "Dead outlets along back wall", "Power Outlets", "medium", "Fleck", "203", "open"),
             (3, "No Wi-Fi in the library basement", "Campus Wi-Fi", "critical", "Library", "Basement", "in_progress"),
-            (0, "Wi-Fi drops every few minutes", "Campus Wi-Fi", "high", "Moody", "301", "acknowledged"),
+            (0, "Wi-Fi drops every few minutes", "Campus Wi-Fi", "high", "Moody", "301", "assigned"),
             (1, "Printer jammed in lab 3", "Printing", "low", "Library", "Lab 3", "resolved"),
             (2, "Printer out of toner", "Printing", "low", "Trustee", "Copy room", "open"),
         ]
 
         def path_to(target):
             """The ordered list of statuses to reach target from open."""
-            order = ["open", "acknowledged", "in_progress", "resolved", "closed"]
+            order = ["open", "assigned", "in_progress", "resolved", "closed"]
             return order[1:order.index(target) + 1]
 
         for idx, title, service_name, severity, building, room, final in tickets:
@@ -119,6 +119,7 @@ class Command(BaseCommand):
             for status in path_to(final):
                 prev = incident.status
                 incident.status = status
+                incident.assigned_to = solver
                 incident.save()
                 log_event(incident, solver, "status_change",
                           f"Status changed from {prev} to {status}",

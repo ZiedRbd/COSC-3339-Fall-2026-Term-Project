@@ -42,10 +42,12 @@ class IncidentAccessTests(TestCase):
 
     def test_other_team_solver_cannot_transition(self):
         """A solver off the team cannot change the ticket's status."""
+        self.incident.status = "assigned"
+        self.incident.save()
         self.client.login(username="sb@x.com", password=GOOD_PASSWORD)
-        self.client.post(f"/incidents/{self.incident.pk}/transition/", {"new_status": "acknowledged"})
+        self.client.post(f"/incidents/{self.incident.pk}/transition/", {"new_status": "in_progress"})
         self.incident.refresh_from_db()
-        self.assertEqual(self.incident.status, "open")
+        self.assertEqual(self.incident.status, "assigned")
 
 
 class RoleUIRulesTests(TestCase):

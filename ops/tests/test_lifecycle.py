@@ -31,8 +31,8 @@ class LifecycleEdgeTests(TestCase):
         self.inc.save()
 
     def test_full_legal_path(self):
-        """A ticket walks open to closed one step at a time."""
-        self.assertEqual(self.move("acknowledged"), "acknowledged")
+        """An assigned ticket walks to closed one step at a time."""
+        self.set_status("assigned")
         self.assertEqual(self.move("in_progress"), "in_progress")
         self.assertEqual(self.move("resolved"), "resolved")
         self.assertEqual(self.move("closed"), "closed")
@@ -60,10 +60,19 @@ class LifecycleEdgeTests(TestCase):
         self.set_status("in_progress")
         self.assertEqual(self.move("open"), "in_progress")
 
-    def test_illegal_backward_acknowledged_to_open(self):
-        """Acknowledged cannot go back to open."""
-        self.set_status("acknowledged")
-        self.assertEqual(self.move("open"), "acknowledged")
+    def test_illegal_backward_assigned_to_open(self):
+        """Assigned cannot go back to open."""
+        self.set_status("assigned")
+        self.assertEqual(self.move("open"), "assigned")
+
+    def test_illegal_assigned_to_resolved(self):
+        """Assigned cannot skip in progress."""
+        self.set_status("assigned")
+        self.assertEqual(self.move("resolved"), "assigned")
+
+    def test_open_has_no_manual_move(self):
+        """A solver cannot move an unassigned open ticket anywhere by hand."""
+        self.assertEqual(self.move("assigned"), "open")
 
     def test_garbage_status_rejected(self):
         """An unknown status value is rejected."""
@@ -79,13 +88,15 @@ class LifecycleEdgeTests(TestCase):
         """A reporter cannot change status even with a direct POST."""
         self.client.logout()
         self.client.login(username="r@x.com", password=GOOD_PASSWORD)
-        self.assertEqual(self.move("acknowledged"), "open")
+        self.set_status("assigned")
+        self.assertEqual(self.move("in_progress"), "assigned")
 
     def test_transition_records_author_and_time(self):
         """A successful transition logs who made it and when."""
-        self.move("acknowledged")
+        self.set_status("assigned")
+        self.move("in_progress")
         row = self.inc.incidentupdate_set.get(update_type="status_change")
         self.assertEqual(row.author, self.solver)
         self.assertIsNotNone(row.created_at)
-        self.assertEqual(row.old_status, "open")
-        self.assertEqual(row.new_status, "acknowledged")
+        self.assertEqual(row.old_status, "assigned")
+        self.assertEqual(row.new_status, "in_progress")

@@ -10,10 +10,11 @@ from .models import Incident, IncidentUpdate, Service, Team, TeamMember, User
 from .scheduling import assign_on_creation
 from .timeline import log_event
 
+# A ticket leaves Open only by being assigned, automatically on creation or
+# by a team lead. Solvers move it along from there.
 ALLOWED_TRANSITIONS = {
-    "open": ["acknowledged"],
+    "open": [],
     "assigned": ["in_progress"],
-    "acknowledged": ["in_progress"],
     "in_progress": ["resolved"],
     "resolved": ["closed", "open"],
     "closed": ["open"],

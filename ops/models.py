@@ -79,7 +79,6 @@ class Incident(models.Model):
     STATUS_CHOICES = [
         ("open", "Open"),
         ("assigned", "Assigned"),
-        ("acknowledged", "Acknowledged"),
         ("in_progress", "In Progress"),
         ("resolved", "Resolved"),
         ("closed", "Closed"),

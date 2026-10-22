@@ -88,7 +88,6 @@
 .badge.high,       .criticality-badge.high       { background: #ffebee; color: var(--red); }
 .badge.critical,   .criticality-badge.critical   { background: var(--red); color: var(--white); }
 .badge.open         { background: #e3f2fd; color: var(--navy); }
-.badge.acknowledged { background: #ede7f6; color: #5e35b1; }
 .badge.assigned     { background: #e8f5e9; color: var(--green); }
 .badge.in_progress  { background: #fff8e1; color: var(--amber); }
 .badge.resolved     { background: #e8f5e9; color: var(--green); }
