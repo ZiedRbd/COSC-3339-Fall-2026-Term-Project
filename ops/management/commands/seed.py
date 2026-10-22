@@ -5,10 +5,10 @@ from ops.timeline import log_event
 
 
 # Loads demo data. Safe to run more than once, existing rows are reused.
-# Creates six reporters and six solvers. Two of the solvers lead teams.
+# Creates six reporters and ten solvers, three per team. Two of the solvers lead teams.
 # Run with: python manage.py seed
 class Command(BaseCommand):
-    help = "Load demo teams, services, users (6 reporters + 6 solvers), and incidents"
+    help = "Load demo teams, services, users (6 reporters + 10 solvers), and incidents"
 
     def handle(self, *args, **options):
         teams = {}
@@ -59,10 +59,14 @@ class Command(BaseCommand):
             make_user("drmichaelsreporter@campusdesk.edu", "Doctor", "Michaels", "reporter"),
         ]
 
-        # Five solvers on teams, plus one more below who leads IT Support
+        # Three solvers on each team, plus one more below who leads IT Support
         solvers = {
             "Plumbing": make_user("pat.diaz@campusdesk.edu", "Pat", "Diaz", "solver", "Plumbing"),
+            "Plumbing 2": make_user("emma.walsh@campusdesk.edu", "Emma", "Walsh", "solver", "Plumbing"),
+            "Plumbing 3": make_user("ben.carter@campusdesk.edu", "Ben", "Carter", "solver", "Plumbing"),
             "Electrical": make_user("sam.okoro@campusdesk.edu", "Sam", "Okoro", "solver", "Electrical"),
+            "Electrical 2": make_user("omar.haddad@campusdesk.edu", "Omar", "Haddad", "solver", "Electrical"),
+            "Electrical 3": make_user("jack.miller@campusdesk.edu", "Jack", "Miller", "solver", "Electrical"),
             "IT Support": make_user("lee.nguyen@campusdesk.edu", "Lee", "Nguyen", "solver", "IT Support"),
             "IT Support 2": make_user("nina.park@campusdesk.edu", "Nina", "Park", "solver", "IT Support"),
             "Prof": make_user("drmichaelssolver@campusdesk.edu", "Doctor", "Michaels", "solver", "IT Support"),

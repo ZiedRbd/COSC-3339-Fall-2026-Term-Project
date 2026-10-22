@@ -1,4 +1,5 @@
 from django import forms
+from django.utils import timezone
 
 from .models import Service, Shift, User
 
@@ -117,24 +118,48 @@ class IncidentForm(forms.Form):
     )
 
 
+class DateAndHourWidget(forms.MultiWidget):
+    """
+    A date picker next to a 24-hour clock dropdown (00:00 to 23:00), so a
+    shift time reads 16:00 and never 4:00 PM. Posts as name_0 and name_1.
+    """
+    def __init__(self, attrs=None):
+        hours = [(f"{h:02d}:00", f"{h:02d}:00") for h in range(24)]
+        super().__init__([forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+                          forms.Select(choices=hours)], attrs)
+
+    def decompress(self, value):
+        """Split a stored instant into the local date and HH:MM the two inputs show."""
+        if value:
+            local = timezone.localtime(value)
+            return [local.date(), local.strftime("%H:%M")]
+        return [None, None]
+
+
 class ShiftForm(forms.ModelForm):
     """
     One on-call shift for a team. The solver list only offers active
-    solvers who are on that team. Times come from datetime-local inputs.
+    solvers who are on that team. A shift must end after it starts and
+    cannot already be over.
     """
+    starts_at = forms.SplitDateTimeField(label="Starts", widget=DateAndHourWidget)
+    ends_at = forms.SplitDateTimeField(label="Ends", widget=DateAndHourWidget)
+
     class Meta:
         model = Shift
         fields = ["solver", "starts_at", "ends_at"]
-        labels = {"starts_at": "Starts", "ends_at": "Ends"}
-        widgets = {
-            "starts_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
-            "ends_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
-        }
 
     def __init__(self, team, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["solver"].queryset = User.objects.filter(
             teammember__team=team, role="solver", is_active=True).order_by("first_name", "last_name")
         self.fields["solver"].label_from_instance = lambda u: f"{u.first_name} {u.last_name}"
-        for name in ("starts_at", "ends_at"):
-            self.fields[name].input_formats = ["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M"]
+
+    def clean(self):
+        data = super().clean()
+        starts_at, ends_at = data.get("starts_at"), data.get("ends_at")
+        if starts_at and ends_at and ends_at <= starts_at:
+            self.add_error("ends_at", "The shift ends before it starts")
+        elif ends_at and ends_at <= timezone.now():
+            self.add_error("ends_at", "That shift is already over. Shifts can only be added for the future.")
+        return data
