@@ -1,24 +1,11 @@
-@startuml Solver Begins Work
-skinparam shadowing false
-skinparam sequenceMessageAlign center
-skinparam sequence {
-  ArrowColor #555555
-  LifeLineBorderColor #999999
-  ParticipantBackgroundColor #FAFAFA
-  ParticipantBorderColor #444444
-  ActorBackgroundColor #FAFAFA
-  FontName Helvetica
-}
-skinparam noteBackgroundColor #FFF8E1
-skinparam noteBorderColor #D4AF37
-
-title Solver Begins Resolving an Assigned Incident
+@startuml
+title Solver Begins Work on an Assigned Incident
 
 actor Solver
 participant "Browser\n(incident page)" as Browser
 participant "nginx" as Nginx
 participant "Django view\nincident_transition" as View
-participant "Transition rules" as Rules
+participant "ALLOWED_TRANSITIONS" as Rules
 database "PostgreSQL" as DB
 
 == Open the incident ==
@@ -26,47 +13,44 @@ Solver -> Browser : Click incident from list
 Browser -> Nginx : GET /incidents/12/
 Nginx -> View : forward request
 View -> DB : SELECT incident 12
-DB --> View : incident row
-View -> View : Verify user is a solver\nand incident is assigned to\none of their teams
+DB --> View : incident row (status = assigned)
+View -> View : _can_access_incident:\nreporter, team member, or lead
 View -> DB : SELECT updates for incident 12
 DB --> View : timeline rows
-View --> Browser : Render incident page\nwith allowed next actions
-Browser --> Solver : Show ticket, timeline,\nand "Acknowledge" button
+View --> Browser : Render page with allowed next actions
+Browser --> Solver : Show ticket, timeline,\nand "Move to in progress" button
 
-== Acknowledge ==
-Solver -> Browser : Click "Acknowledge"
-Browser -> Nginx : POST /incidents/12/transition/\nnew_status=acknowledged
+== Start work ==
+Solver -> Browser : Click "Move to in progress"
+Browser -> Nginx : POST /incidents/12/transition/\nnew_status=in_progress
 Nginx -> View : forward request
 View -> DB : SELECT incident 12
-DB --> View : incident row (status = open)
-View -> View : Verify solver role and\nteam assignment again
-View -> Rules : is_allowed(open -> acknowledged)
+DB --> View : incident row (status = assigned)
+View -> View : Verify solver role and\nteam access again
+View -> Rules : is "in_progress" allowed from "assigned"?
 Rules --> View : allowed
-
-View -> DB : UPDATE incident\nSET status = acknowledged
-View -> DB : INSERT IncidentUpdate\n(incident, author, type = status_change,\nold = open, new = acknowledged, timestamp)
+View -> DB : UPDATE incident\nSET status = in_progress
+View -> DB : INSERT IncidentUpdate\n(incident, author, type = status_change,\nold = assigned, new = in_progress, timestamp)
 DB --> View : committed
-
 View --> Browser : 302 redirect to /incidents/12/\nwith success message
 Browser -> Nginx : GET /incidents/12/
 Nginx -> View : forward request
 View -> DB : SELECT incident and updates
 DB --> View : rows
 View --> Browser : Render page
-Browser --> Solver : "Ticket #12 moved to acknowledged"\ntimeline shows the change\nnext action is "Move to in progress"
+Browser --> Solver : "Ticket #12 moved to in_progress"\ntimeline shows the change\nnext action is "Move to resolved"
 
 == Rejected transition ==
-Solver -> Browser : Attempt "Resolve" from Acknowledged
+Solver -> Browser : Attempt "Resolve" from Assigned
 Browser -> Nginx : POST /incidents/12/transition/\nnew_status=resolved
 Nginx -> View : forward request
-View -> Rules : is_allowed(acknowledged -> resolved)
-Rules --> View : rejected: must be In Progress first
+View -> Rules : is "resolved" allowed from "assigned"?
+Rules --> View : rejected
 View --> Browser : 302 redirect with error message
-Browser --> Solver : "Cannot move from acknowledged\nto resolved"
+Browser --> Solver : "Cannot move from assigned\nto resolved"
 
 note over View, DB
   The timeline row is written only after a transition is
   accepted, so the timeline never shows a refused move.
 end note
-
 @enduml

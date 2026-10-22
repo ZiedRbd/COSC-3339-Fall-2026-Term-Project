@@ -43,6 +43,7 @@ entity "TEAM" as team {
   --
   * name : varchar <<UK>>
     description : text
+    lead_id : int <<FK>>
   * created_at : datetime
 }
 
@@ -53,7 +54,7 @@ entity "SERVICE" as service {
   --
   * name : varchar
     description : text
-  * owning_team_id : int <<FK>>
+    owning_team_id : int <<FK>>
   * criticality : varchar = 'medium'
   * is_active : bool
   * created_at : datetime
@@ -92,6 +93,8 @@ entity "INCIDENT_UPDATE" as upd {
   * body : text
     old_status : varchar
     new_status : varchar
+    old_assignee_id : int <<FK>>
+    new_assignee_id : int <<FK>>
   * created_at : datetime
 }
 
@@ -114,5 +117,22 @@ user     |o--o{ incident : assigned to
 team     |o--o{ incident : assigned team
 incident ||--o{ upd      : has
 user     ||--o{ upd      : writes
+
+
+entity "SHIFT" as shift {
+  * id : int <<PK>>
+  --
+  * team_id : int <<FK>>
+  * solver_id : int <<FK>>
+  * starts_at : datetime
+  * ends_at : datetime
+  * created_by_id : int <<FK>>
+  * created_at : datetime
+}
+
+team ||--o{ shift : "has"
+user ||--o{ shift : "covers"
+user |o--o{ team : "leads"
+user |o--o{ shift : "scheduled by"
 
 @enduml

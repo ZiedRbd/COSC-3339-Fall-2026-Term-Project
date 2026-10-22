@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Service, User
+from .models import Service, Shift, User
 
 
 class RegisterForm(forms.Form):
@@ -115,3 +115,26 @@ class IncidentForm(forms.Form):
             ("critical", "Critical - safety hazard or full outage"),
         ],
     )
+
+
+class ShiftForm(forms.ModelForm):
+    """
+    One on-call shift for a team. The solver list only offers active
+    solvers who are on that team. Times come from datetime-local inputs.
+    """
+    class Meta:
+        model = Shift
+        fields = ["solver", "starts_at", "ends_at"]
+        labels = {"starts_at": "Starts", "ends_at": "Ends"}
+        widgets = {
+            "starts_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+            "ends_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+        }
+
+    def __init__(self, team, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["solver"].queryset = User.objects.filter(
+            teammember__team=team, role="solver", is_active=True).order_by("first_name", "last_name")
+        self.fields["solver"].label_from_instance = lambda u: f"{u.first_name} {u.last_name}"
+        for name in ("starts_at", "ends_at"):
+            self.fields[name].input_formats = ["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M"]
