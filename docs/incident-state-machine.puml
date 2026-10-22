@@ -25,7 +25,8 @@ note right of Assigned
   the ticket here. From In Progress on,
   only the assigned solver edits it.
   A team lead may hand it to any other
-  solver on the team.
+  solver on the team, here or while
+  it is In Progress.
 end note
 
 note bottom of Closed
