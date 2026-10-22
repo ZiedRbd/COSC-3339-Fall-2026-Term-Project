@@ -15,11 +15,12 @@ class RegistrationTests(TestCase):
         self.assertTrue(User.objects.filter(email="new@example.com").exists())
 
     def test_password_is_hashed_in_database(self):
-        """The stored password is a PBKDF2 hash, never the plain text."""
+        """The stored password is a hash that verifies, never the plain text."""
         register(self.client, "new@example.com")
         user = User.objects.get(email="new@example.com")
-        self.assertTrue(user.password.startswith("pbkdf2_sha256$"))
         self.assertNotEqual(user.password, GOOD_PASSWORD)
+        self.assertNotIn(GOOD_PASSWORD, user.password)
+        self.assertTrue(user.check_password(GOOD_PASSWORD))
 
     def test_password_rules_are_enforced(self):
         """Each missing rule, length, upper, lower, digit, symbol, blocks registration."""

@@ -78,3 +78,22 @@ class CalendarTests(TestCase):
         self.assertIn(">Calendar<", self.page_as("tim@x.com").content.decode())
         self.client.login(username="rae@x.com", password=GOOD_PASSWORD)
         self.assertNotIn(">Calendar<", self.client.get("/profile/").content.decode())
+
+
+class PastSlotTests(TestCase):
+    """A shift that already ended is drawn greyed out; a running one is not."""
+
+    def test_ended_shift_is_marked_past(self):
+        team = Team.objects.create(name="Plumbing")
+        tim = User.objects.create_user(username="tim@x.com", email="tim@x.com", password=GOOD_PASSWORD,
+                                       first_name="Tim", last_name="Diaz", role="solver")
+        TeamMember.objects.create(user=tim, team=team)
+        now = timezone.now()
+        Shift.objects.create(team=team, solver=tim, created_by=tim,
+                             starts_at=now - timedelta(hours=3), ends_at=now - timedelta(hours=2))
+        Shift.objects.create(team=team, solver=tim, created_by=tim,
+                             starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=1))
+        self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
+        html = self.client.get("/calendar/").content.decode()
+        self.assertIn('class="slot past"', html)
+        self.assertIn('class="slot"', html)

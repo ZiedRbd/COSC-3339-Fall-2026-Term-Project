@@ -55,8 +55,13 @@ class ShiftSeederTests(TestCase):
         for name in ["Plumbing", "IT Support"]:
             self.assertGreaterEqual(self.shifts_for(name)[-1].ends_at, self.now + timedelta(days=6), name)
 
-    def test_short_team_runs_out_tonight(self):
-        """Electrical stops at midnight tonight, so tomorrow nobody is on call for it."""
+    def test_every_team_reaches_a_week_ahead(self):
+        for name in ["Plumbing", "Electrical", "IT Support"]:
+            self.assertGreaterEqual(self.shifts_for(name)[-1].ends_at, self.now + timedelta(days=6), name)
+
+    def test_short_team_flag_ends_that_team_tonight(self):
+        """With --short-team Electrical, tomorrow nobody is on call for it."""
+        call_command("seed_shifts", "--short-team", "Electrical", stdout=io.StringIO())
         last = self.shifts_for("Electrical")[-1]
         self.assertLessEqual(last.ends_at, self.now + timedelta(days=1))
         self.assertIsNone(who_is_on_call(Team.objects.get(name="Electrical"), self.now + timedelta(days=2)))
@@ -106,8 +111,8 @@ class ShiftSeederRotationTests(TestCase):
             start, end = timezone.localtime(shift.starts_at), timezone.localtime(shift.ends_at)
             self.assertLessEqual(end, start.replace(hour=0, minute=0) + timedelta(days=1), shift)
 
-    def test_every_full_week_rota_rotates_at_least_two_people(self):
-        for name in ["Plumbing", "IT Support"]:
+    def test_every_rota_rotates_at_least_two_people(self):
+        for name in ["Plumbing", "Electrical", "IT Support"]:
             people = set(Shift.objects.filter(team__name=name).values_list("solver_id", flat=True))
             self.assertGreaterEqual(len(people), 2, name)
 
