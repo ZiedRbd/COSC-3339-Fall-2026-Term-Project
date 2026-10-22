@@ -1,69 +1,46 @@
-@startuml Incident State Machine
-skinparam nodesep 60
-skinparam ranksep 70
-skinparam shadowing false
-skinparam state {
-  BackgroundColor #FAFAFA
-  BorderColor #444444
-  FontName Helvetica
-  ArrowColor #555555
-}
-skinparam noteBackgroundColor #FFF8E1
-skinparam noteBorderColor #D4AF37
+@startuml
+title Incident lifecycle
 
-title Incident Lifecycle
+[*] --> Open : ticket filed
 
-[*] --> Open : Reporter submits ticket
+state "In Progress" as InProgress
 
-Open --> Acknowledged : Solver acknowledges
-Acknowledged --> InProgress : Solver starts work
-InProgress --> Resolved : Solver marks resolved
-Resolved --> Closed : Solver closes
-Resolved --> Open : Reopened
-Closed --> Open : Reopened
-
-Closed --> [*]
-
-state Open {
-  Open : Ticket filed and waiting for a team member
-}
-state Acknowledged {
-  Acknowledged : A solver has seen the ticket and taken ownership
-}
-state "In Progress" as InProgress {
-  InProgress : Solver is actively working on it
-}
-state Resolved {
-  Resolved : Fix applied, awaiting confirmation
-}
-state Closed {
-  Closed : Confirmed fixed, no further action
-}
+Open --> Assigned : on-call solver found\n(automatic on creation,\nor a lead reassigns)
+Assigned --> InProgress : solver starts work
+InProgress --> Resolved : solver resolves
+Resolved --> Closed : solver closes
+Resolved --> Open : reopened
+Closed --> Open : reopened
 
 note right of Open
-  Only solvers can change state.
-  Reporters may edit details and
-  add comments in any state.
+  A ticket stays Open when the service has
+  no team, nobody is on call, or the solver
+  on call is deactivated. The timeline
+  records why, and a lead can assign it
+  by hand once someone is on call.
+end note
+
+note right of Assigned
+  Only the assigned solver may edit the
+  ticket. A team lead may hand it to
+  whoever is on call for the team now.
 end note
 
 note bottom of Closed
   Every successful transition writes an
-  IncidentUpdate row recording the user,
-  the old state, the new state, and the time.
-end note
-
-note left of Resolved
+  IncidentUpdate row with the user, the
+  old state, the new state, and the time.
   Reopening returns the ticket to Open.
-  It must then pass through every
-  state again in order.
+  It must then pass through every state
+  again in order.
 end note
 
 legend right
   |= Rule |= Effect |
-  | States must be visited in order | Open to Resolved is rejected |
-  | No backward moves except Reopen | In Progress to Open is rejected |
-  | Reopen only from Resolved or Closed | Acknowledged to Open is rejected |
-  | Same-state transition | Rejected as no change |
+  | Skip a state | Refused, message names both states |
+  | Go backward | Refused unless reopening from Resolved or Closed |
+  | Reporter changes status | Refused, only solvers transition |
+  | Solver off the team | Refused, no access |
+  | Open moved by hand | Refused, only assignment leaves Open |
 endlegend
-
 @enduml

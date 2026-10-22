@@ -27,9 +27,13 @@ class Command(BaseCommand):
             ("Power Outlets", "Dead or damaged outlets", "Electrical", "medium"),
             ("Campus Wi-Fi", "Wireless connectivity in all buildings", "IT Support", "critical"),
             ("Printing", "Lab and library printers", "IT Support", "medium"),
+            # No owning team on purpose: a ticket against it cannot be assigned
+            ("Lost and Found", "Items turned in around campus", None, "low"),
         ]:
             services[name], _ = Service.objects.get_or_create(
-                name=name, defaults={"description": desc, "owning_team": teams[team], "criticality": crit}
+                name=name, defaults={
+                    "description": desc, "owning_team": teams[team] if team else None, "criticality": crit,
+                }
             )
 
         def make_user(email, first, last, role, team=None):
