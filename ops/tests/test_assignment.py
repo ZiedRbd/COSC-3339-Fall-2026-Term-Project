@@ -57,7 +57,7 @@ class AutoAssignmentTests(TestCase):
         self.assertIsNone(inc.assigned_to)
         self.assertEqual(inc.status, "open")
         row = inc.incidentupdate_set.get(update_type="assignment_failed")
-        self.assertIn("No solver on call", row.body)
+        self.assertIn("Nobody is on call for Plumbing right now", row.body)
 
     def test_service_without_a_team_does_not_crash(self):
         """A ticket against a team-less service is created and left unassigned."""
@@ -67,7 +67,7 @@ class AutoAssignmentTests(TestCase):
         self.assertIsNone(inc.assigned_to)
         self.assertEqual(inc.status, "open")
         row = inc.incidentupdate_set.get(update_type="assignment_failed")
-        self.assertIn("no owning team", row.body)
+        self.assertIn("Nobody is on call for Lost and Found right now", row.body)
 
     def test_deactivated_on_call_solver_is_not_assigned(self):
         """Tim is on the rota but deactivated, so the ticket stays open."""
