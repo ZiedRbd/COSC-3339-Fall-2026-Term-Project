@@ -71,3 +71,8 @@
 .slot-when { display: block; }
 .slot-who { display: block; }
 .calendar-nav .btn-small { font-size: 12px; }
+
+/* Shift form: label on its own line, date picker and hour dropdown side by side */
+.shift-form label { display: block; margin-bottom: 4px; font-weight: 600; }
+.shift-form p { margin: 0 0 14px; }
+.shift-form input, .shift-form select { width: auto; min-width: 150px; margin-right: 8px; }

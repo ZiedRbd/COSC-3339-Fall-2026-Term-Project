@@ -8,9 +8,10 @@ from ops.models import Shift, Team, TeamMember, User
 from ops.tests.helpers import GOOD_PASSWORD
 
 
-def local(dt):
-    """The value a datetime-local input would send for this instant."""
-    return timezone.localtime(dt).strftime("%Y-%m-%dT%H:%M")
+def parts(name, dt):
+    """What the date picker and the 24-hour dropdown send for this instant."""
+    local = timezone.localtime(dt)
+    return {f"{name}_0": local.strftime("%Y-%m-%d"), f"{name}_1": local.strftime("%H:%M")}
 
 
 class SchedulePageTests(TestCase):
@@ -37,7 +38,7 @@ class SchedulePageTests(TestCase):
 
     def add_as(self, email, solver, start, end):
         self.client.login(username=email, password=GOOD_PASSWORD)
-        return self.client.post(self.url, {"solver": solver.pk, "starts_at": local(start), "ends_at": local(end)},
+        return self.client.post(self.url, {"solver": solver.pk, **parts("starts_at", start), **parts("ends_at", end)},
                                 follow=True)
 
     def test_non_lead_is_sent_away(self):
@@ -85,7 +86,7 @@ class SchedulePageTests(TestCase):
     def test_editing_swaps_the_solver(self):
         self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
         self.client.post(f"/schedule/{self.team.pk}/{self.running.pk}/edit/", {
-            "solver": self.jane.pk, "starts_at": local(self.running.starts_at), "ends_at": local(self.running.ends_at)})
+            "solver": self.jane.pk, **parts("starts_at", self.running.starts_at), **parts("ends_at", self.running.ends_at)})
         self.running.refresh_from_db()
         self.assertEqual(self.running.solver, self.jane)
 
@@ -96,3 +97,38 @@ class SchedulePageTests(TestCase):
         html = self.client.get(self.url).content.decode()
         self.assertIn("Jane Okoro", html)
         self.assertNotIn("Out Sider", html)
+
+
+class ShiftFormTests(SchedulePageTests):
+    """The form uses a 24-hour clock, refuses shifts that are over or inverted, and asks before saving."""
+
+    def test_times_are_picked_from_a_24_hour_dropdown(self):
+        self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
+        html = self.client.get(self.url).content.decode()
+        self.assertIn('type="date"', html)
+        self.assertIn('<option value="16:00">16:00</option>', html)
+        self.assertNotIn("datetime-local", html)
+
+    def test_shift_that_is_already_over_is_refused(self):
+        resp = self.add_as("lead@x.com", self.jane, self.base - timedelta(hours=10), self.base - timedelta(hours=2))
+        self.assertEqual(Shift.objects.count(), 1)
+        self.assertIn("already over", resp.content.decode())
+
+    def test_shift_that_ends_before_it_starts_is_refused(self):
+        resp = self.add_as("lead@x.com", self.jane, self.base + timedelta(hours=15), self.base + timedelta(hours=7))
+        self.assertEqual(Shift.objects.count(), 1)
+        self.assertIn("ends before it starts", resp.content.decode())
+        self.assertNotIn("Constraint", resp.content.decode())
+
+    def test_first_shift_that_starts_later_names_the_gap_from_now(self):
+        """With nothing scheduled, a shift starting later leaves now uncovered, and the message says now."""
+        Shift.objects.all().delete()
+        resp = self.add_as("lead@x.com", self.jane, self.base + timedelta(hours=12), self.base + timedelta(hours=20))
+        self.assertEqual(Shift.objects.count(), 0)
+        self.assertIn("missing coverage from now (", resp.content.decode().lower())
+
+    def test_confirm_modal_is_on_the_page(self):
+        self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
+        html = self.client.get(self.url).content.decode()
+        self.assertIn("shift-modal", html)
+        self.assertIn("schedule.js", html)

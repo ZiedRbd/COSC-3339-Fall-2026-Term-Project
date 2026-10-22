@@ -13,7 +13,7 @@ from ops.scheduling import assign_on_creation, who_is_on_call
 class SeedLeadsTests(TestCase):
     """The seed sets up the leads and solvers the sprint roster asks for."""
 
-    def test_seed_assigns_leads_and_six_solvers(self):
+    def test_seed_assigns_leads_and_three_solvers_per_team(self):
         """Pat leads two teams and is a Plumbing member. Maya leads one and is on no team."""
         call_command("seed", stdout=io.StringIO())
         pat = User.objects.get(email="pat.diaz@campusdesk.edu")
@@ -23,7 +23,9 @@ class SeedLeadsTests(TestCase):
         self.assertEqual(Team.objects.get(name="IT Support").lead, maya)
         self.assertTrue(TeamMember.objects.filter(user=pat, team__name="Plumbing").exists())
         self.assertFalse(TeamMember.objects.filter(user=maya).exists())
-        self.assertEqual(User.objects.filter(role="solver").count(), 6)
+        self.assertEqual(User.objects.filter(role="solver").count(), 10)
+        for team in Team.objects.all():
+            self.assertEqual(TeamMember.objects.filter(team=team, user__role="solver").count(), 3, team)
         self.assertFalse(Team.objects.filter(lead__isnull=True).exists())
         self.assertEqual({pat.role, maya.role}, {"solver"})
 
@@ -85,3 +87,32 @@ class ShiftSeederTests(TestCase):
         self.assertNotEqual(who_is_on_call(it), owner)
         incident.refresh_from_db()
         self.assertEqual(incident.assigned_to, owner)
+
+
+class ShiftSeederRotationTests(TestCase):
+    """Blocks sit on the clock, every rota has more than one name, nobody covers two teams at once."""
+
+    def setUp(self):
+        call_command("seed", stdout=io.StringIO())
+        call_command("seed_shifts", stdout=io.StringIO())
+
+    def test_blocks_start_at_midnight_eight_or_sixteen(self):
+        for shift in Shift.objects.all():
+            local = timezone.localtime(shift.starts_at)
+            self.assertEqual((local.hour % 8, local.minute), (0, 0), shift)
+
+    def test_no_shift_crosses_midnight(self):
+        for shift in Shift.objects.all():
+            start, end = timezone.localtime(shift.starts_at), timezone.localtime(shift.ends_at)
+            self.assertLessEqual(end, start.replace(hour=0, minute=0) + timedelta(days=1), shift)
+
+    def test_every_full_week_rota_rotates_at_least_two_people(self):
+        for name in ["Plumbing", "IT Support"]:
+            people = set(Shift.objects.filter(team__name=name).values_list("solver_id", flat=True))
+            self.assertGreaterEqual(len(people), 2, name)
+
+    def test_nobody_is_on_call_for_two_teams_at_once(self):
+        for shift in Shift.objects.all():
+            clash = Shift.objects.filter(solver=shift.solver, starts_at__lt=shift.ends_at,
+                                         ends_at__gt=shift.starts_at).exclude(team=shift.team)
+            self.assertFalse(clash.exists(), f"{shift} clashes with {clash.first()}")

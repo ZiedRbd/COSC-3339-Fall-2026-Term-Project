@@ -190,3 +190,6 @@ input:focus, textarea:focus, select:focus {
 .btn-small:hover { background: var(--navy); color: #ffffff; }
 .btn-small.danger { border-color: #c62828; color: #c62828; }
 .btn-small.danger:hover { background: #c62828; color: #ffffff; }
+
+/* Field errors printed by Django above the field */
+.errorlist { list-style: none; margin: 0 0 6px; padding: 0; color: #c62828; font-size: 14px; }
