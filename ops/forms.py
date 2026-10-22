@@ -79,7 +79,7 @@ class LoginForm(forms.Form):
 class IncidentForm(forms.Form):
     """Fields for creating or editing a ticket. Used by both views."""
     title = forms.CharField(
-        max_length=200,
+        max_length=80,
         widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Brief title'})
     )
     description = forms.CharField(
@@ -88,12 +88,12 @@ class IncidentForm(forms.Form):
 
     # Optional location details
     building = forms.CharField(
-        max_length=100,
+        max_length=40,
         required=False,
         widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Building (optional)'})
     )
     room = forms.CharField(
-        max_length=50,
+        max_length=20,
         required=False,
         widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Room (optional)'})
     )
