@@ -166,3 +166,9 @@ input:focus, textarea:focus, select:focus {
     text-align: center;
     padding: 24px 0;
 }
+
+/* Message colour follows its level: Django tags each message error,
+   success, or info */
+.notice.error   { background: #fdecea; border-color: #c62828; color: #8e1c1c; }
+.notice.success { background: #e8f5e9; border-color: var(--green); color: #1b5e20; }
+.notice.info    { background: #e3f2fd; border-color: var(--navy); color: var(--navy); }
