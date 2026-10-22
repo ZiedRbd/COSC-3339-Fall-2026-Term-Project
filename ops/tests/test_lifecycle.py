@@ -18,7 +18,7 @@ class LifecycleEdgeTests(TestCase):
         TeamMember.objects.create(user=self.solver, team=self.team)
         self.inc = Incident.objects.create(
             title="T", description="d", service=self.svc,
-            reported_by=self.reporter, assigned_team=self.team, status="open")
+            reported_by=self.reporter, assigned_team=self.team, status="open", assigned_to=self.solver)
         self.client.login(username="s@x.com", password=GOOD_PASSWORD)
 
     def move(self, to):

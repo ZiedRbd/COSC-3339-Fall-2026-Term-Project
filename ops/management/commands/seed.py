@@ -99,6 +99,8 @@ class Command(BaseCommand):
             (2, "Printer out of toner", "Printing", "low", "Trustee", "Copy room", "open"),
         ]
 
+        labels = dict(Incident.STATUS_CHOICES)
+
         def path_to(target):
             """The ordered list of statuses to reach target from open."""
             order = ["open", "assigned", "in_progress", "resolved", "closed"]
@@ -121,7 +123,7 @@ class Command(BaseCommand):
             if not created:
                 continue
             log_event(incident, reporters[idx], "created",
-                      f"Ticket created and assigned to {service.owning_team.name}")
+                      f"Ticket created and routed to {service.owning_team.name}")
             # Walk the ticket up to its final status, logging each move as a solver
             solver = TeamMember.objects.filter(team=service.owning_team).first().user
             for status in path_to(final):
@@ -130,7 +132,7 @@ class Command(BaseCommand):
                 incident.assigned_to = solver
                 incident.save()
                 log_event(incident, solver, "status_change",
-                          f"Status changed from {prev} to {status}",
+                          f"Status changed from {labels[prev]} to {labels[status]}",
                           old_status=prev, new_status=status)
 
         self.stdout.write(self.style.SUCCESS(

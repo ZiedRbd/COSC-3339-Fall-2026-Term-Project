@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from ops.models import Shift, Team, TeamMember
+from ops.scheduling import assign_waiting
 
 
 # Fills every team's on-call schedule from now until a week ahead, 24 hours a
@@ -58,4 +59,5 @@ class Command(BaseCommand):
                 total += 1
             self.stdout.write(f"{team.name}: covered until {timezone.localtime(end):%a %b %d %H:%M}")
 
-        self.stdout.write(self.style.SUCCESS(f"Seeded {total} shifts"))
+        picked = sum(assign_waiting(team) for team in Team.objects.all())
+        self.stdout.write(self.style.SUCCESS(f"Seeded {total} shifts, {picked} waiting tickets assigned"))
