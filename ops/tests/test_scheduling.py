@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from ops.models import Shift, Team, TeamMember, User
-from ops.scheduling import on_call_roster, who_is_on_call
+from ops.scheduling import on_call_roster, validate_schedule, who_is_on_call
 from ops.tests.helpers import GOOD_PASSWORD
 
 
@@ -119,3 +119,91 @@ class WhoIsOnCallTests(TestCase):
         """09:00 Chicago written as 14:00 UTC is the same instant, so the same person."""
         at_utc = (self.at_8 + timedelta(hours=1)).astimezone(ZoneInfo("UTC"))
         self.assertEqual(who_is_on_call(self.team, at_utc), self.tim)
+
+
+class ValidateScheduleTests(TestCase):
+    """validate_schedule refuses gaps, overlaps, wrong people, and names the window."""
+
+    def setUp(self):
+        self.team = Team.objects.create(name="Plumbing")
+        self.other = Team.objects.create(name="HVAC")
+        self.tim = User.objects.create_user(username="tim@x.com", email="tim@x.com", password=GOOD_PASSWORD,
+                                            first_name="Tim", last_name="Diaz", role="solver")
+        self.jane = User.objects.create_user(username="jane@x.com", email="jane@x.com", password=GOOD_PASSWORD,
+                                             first_name="Jane", last_name="Okoro", role="solver")
+        self.pat = User.objects.create_user(username="pat@x.com", email="pat@x.com", password=GOOD_PASSWORD,
+                                            first_name="Pat", last_name="Lee", role="solver")
+        self.rae = User.objects.create_user(username="rae@x.com", email="rae@x.com", password=GOOD_PASSWORD,
+                                            first_name="Rae", last_name="Kim", role="reporter")
+        TeamMember.objects.create(user=self.tim, team=self.team)
+        TeamMember.objects.create(user=self.jane, team=self.team)
+        TeamMember.objects.create(user=self.pat, team=self.other)
+        # Monday 2026-10-19, Chicago time. "now" is 08:00 that morning.
+        self.base = timezone.make_aware(datetime(2026, 10, 19, 0, 0))
+        self.now = self.base + timedelta(hours=8)
+
+    def at(self, hours):
+        return self.base + timedelta(hours=hours)
+
+    def shift(self, solver, start_h, end_h, team=None):
+        """An unsaved shift from start_h to end_h, hours after Monday midnight."""
+        return Shift(team=team or self.team, solver=solver, created_by=solver,
+                     starts_at=self.at(start_h), ends_at=self.at(end_h))
+
+    def test_contiguous_cover_is_accepted(self):
+        """Tim 8 to 16 then Jane 16 to 24 has no gap and no overlap."""
+        errors = validate_schedule(self.team, [self.shift(self.tim, 8, 16), self.shift(self.jane, 16, 24)], self.now)
+        self.assertEqual(errors, [])
+
+    def test_gap_names_the_day_and_window(self):
+        """An hour nobody covers is reported the way the spec wants."""
+        errors = validate_schedule(self.team, [self.shift(self.tim, 8, 12), self.shift(self.jane, 13, 18)], self.now)
+        self.assertIn("Monday is missing coverage from 12:00 to 13:00", errors)
+
+    def test_cover_must_start_now(self):
+        """A schedule whose first shift starts after now leaves now uncovered."""
+        errors = validate_schedule(self.team, [self.shift(self.tim, 9, 17)], self.now)
+        self.assertIn("Monday is missing coverage from 8:00 to 9:00", errors)
+
+    def test_overlap_is_double_booked(self):
+        """Two Plumbing shifts covering the same hours are refused."""
+        errors = validate_schedule(self.team, [self.shift(self.tim, 8, 16), self.shift(self.jane, 14, 22)], self.now)
+        self.assertIn("Monday is double booked from 14:00 to 16:00", errors)
+
+    def test_gap_across_midnight_names_both_days(self):
+        """A hole that spans midnight names both days."""
+        errors = validate_schedule(self.team, [self.shift(self.tim, 8, 22), self.shift(self.jane, 30, 38)], self.now)
+        self.assertIn("Missing coverage from Monday 22:00 to Tuesday 6:00", errors)
+
+    def test_shift_running_right_now_is_fine(self):
+        """A shift that began before now is not a clash with now."""
+        errors = validate_schedule(self.team, [self.shift(self.tim, 6, 14), self.shift(self.jane, 14, 22)], self.now)
+        self.assertEqual(errors, [])
+
+    def test_finished_shifts_are_ignored(self):
+        """A shift that ended before now is history, not part of the check."""
+        errors = validate_schedule(self.team, [self.shift(self.tim, -8, 0), self.shift(self.jane, 8, 16)], self.now)
+        self.assertEqual(errors, [])
+
+    def test_inverted_shift_is_refused(self):
+        """An end before its start is called out."""
+        errors = validate_schedule(self.team, [self.shift(self.tim, 16, 8)], self.now)
+        self.assertIn("Shift on Monday ends before it starts", errors)
+
+    def test_reporter_cannot_take_a_shift(self):
+        """Rae is a reporter."""
+        errors = validate_schedule(self.team, [self.shift(self.rae, 8, 16)], self.now)
+        self.assertIn("Rae Kim is a reporter and cannot take a shift", errors)
+
+    def test_non_member_cannot_take_a_shift(self):
+        """Pat is on HVAC, not Plumbing."""
+        errors = validate_schedule(self.team, [self.shift(self.pat, 8, 16)], self.now)
+        self.assertIn("Pat Lee is not on Plumbing", errors)
+
+    def test_one_person_one_team_at_a_time(self):
+        """Pat already covers HVAC 10 to 16, so Plumbing 14 to 20 is refused."""
+        TeamMember.objects.create(user=self.pat, team=self.team)
+        Shift.objects.create(team=self.other, solver=self.pat, created_by=self.pat,
+                             starts_at=self.at(10), ends_at=self.at(16))
+        errors = validate_schedule(self.team, [self.shift(self.tim, 8, 14), self.shift(self.pat, 14, 20)], self.now)
+        self.assertIn("Pat Lee is already on call for HVAC Monday from 10:00 to 16:00", errors)

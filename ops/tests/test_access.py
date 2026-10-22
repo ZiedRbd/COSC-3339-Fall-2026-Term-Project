@@ -140,3 +140,26 @@ class SolverCannotCreateTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         incident.refresh_from_db()
         self.assertEqual(incident.title, "Keep me")
+
+
+class LeadAccessTests(TestCase):
+    """A team lead who is not a member can still open and list the team's tickets."""
+
+    def setUp(self):
+        self.team = Team.objects.create(name="Plumbing")
+        self.svc = Service.objects.create(name="Pipes", owning_team=self.team)
+        self.lead = User.objects.create_user(username="lead@x.com", email="lead@x.com", password=GOOD_PASSWORD,
+                                             first_name="Pat", last_name="Lee", role="solver")
+        self.team.lead = self.lead
+        self.team.save()
+        reporter = User.objects.create_user(username="r@x.com", email="r@x.com", password=GOOD_PASSWORD,
+                                            role="reporter")
+        self.inc = Incident.objects.create(title="Leak", description="d", service=self.svc,
+                                           reported_by=reporter, assigned_team=self.team, priority="low")
+        self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
+
+    def test_lead_can_open_the_ticket(self):
+        self.assertEqual(self.client.get(f"/incidents/{self.inc.pk}/").status_code, 200)
+
+    def test_lead_sees_the_ticket_in_the_list(self):
+        self.assertIn("Leak", self.client.get("/incidents/list").content.decode())

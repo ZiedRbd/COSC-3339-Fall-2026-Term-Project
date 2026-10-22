@@ -1,7 +1,7 @@
-"""Who is on call, and handing a new ticket to that person."""
+"""Who is on call, checking a schedule, and handing tickets to people."""
 from django.utils import timezone
 
-from .models import Shift
+from .models import Shift, TeamMember
 from .timeline import log_event
 
 
@@ -81,3 +81,115 @@ def assign_on_creation(incident):
     log_event(incident, reporter, "assignment",
               f"Assigned to {solver.first_name} {solver.last_name}, on call for {team.name}",
               new_assignee=solver)
+
+
+def is_lead(user, team):
+    """True when this user leads this team. One comparison, no query."""
+    return team.lead_id == user.id
+
+
+def _full_name(user):
+    return f"{user.first_name} {user.last_name}".strip() or user.email
+
+
+def _clock(t):
+    t = timezone.localtime(t)
+    return f"{t.hour}:{t.minute:02d}"
+
+
+def _window(a, b):
+    """A stretch of time in words, Chicago time: "Monday from 9:00 to 10:30"."""
+    a_local, b_local = timezone.localtime(a), timezone.localtime(b)
+    if a_local.date() == b_local.date():
+        return f"{a_local:%A} from {_clock(a)} to {_clock(b)}"
+    return f"{a_local:%A} {_clock(a)} to {b_local:%A} {_clock(b)}"
+
+
+def _problem(what, a, b):
+    """
+    An error naming the day and the window, the way the spec asks:
+    "Wednesday is missing coverage from 9:00 to 10:30", or across midnight
+    "Missing coverage from Wednesday 22:00 to Thursday 6:00".
+    """
+    a_local, b_local = timezone.localtime(a), timezone.localtime(b)
+    if a_local.date() == b_local.date():
+        return f"{a_local:%A} is {what} from {_clock(a)} to {_clock(b)}"
+    return f"{what.capitalize()} from {a_local:%A} {_clock(a)} to {b_local:%A} {_clock(b)}"
+
+
+def validate_schedule(team, proposed, now=None):
+    """
+    Check a team's whole future schedule and return the list of problems,
+    empty when it is fine. Shifts that already ended are ignored. Cover
+    must run from now to the last shift with no gap and no overlap, one
+    person may not cover two teams at once, and only solvers who are on
+    the team may take a shift.
+    """
+    if now is None:
+        now = timezone.now()
+    errors = []
+    for shift in proposed:
+        if shift.ends_at <= shift.starts_at:
+            errors.append(f"Shift on {timezone.localtime(shift.starts_at):%A} ends before it starts")
+    # Inverted shifts are reported above and kept out of the other checks.
+    # Shifts that already ended are history and kept out too.
+    shifts = sorted([s for s in proposed if s.ends_at > s.starts_at and s.ends_at > now],
+                    key=lambda s: s.starts_at)
+
+    for shift in shifts:
+        if shift.solver.role != "solver":
+            errors.append(f"{_full_name(shift.solver)} is a reporter and cannot take a shift")
+        if not TeamMember.objects.filter(user=shift.solver, team=team).exists():
+            errors.append(f"{_full_name(shift.solver)} is not on {team.name}")
+        clash = (
+            Shift.objects.filter(solver=shift.solver, starts_at__lt=shift.ends_at, ends_at__gt=shift.starts_at)
+            .exclude(team=team)
+            .exclude(id=shift.id)
+            .select_related("team")
+            .first()
+        )
+        if clash:
+            errors.append(f"{_full_name(shift.solver)} is already on call for {clash.team.name} "
+                          f"{_window(clash.starts_at, clash.ends_at)}")
+
+    # Walk forward from now. Each shift should start exactly where the
+    # cursor stands: later is a gap, earlier is a double booking. A shift
+    # that is running right now started before now, which is fine.
+    cursor = now
+    for shift in shifts:
+        start = max(shift.starts_at, now)
+        if start > cursor:
+            errors.append(_problem("missing coverage", cursor, start))
+        elif start < cursor:
+            errors.append(_problem("double booked", start, min(cursor, shift.ends_at)))
+        cursor = max(cursor, shift.ends_at)
+    return errors
+
+
+def reassign(incident, new_solver, by):
+    """
+    A team lead hands an active ticket to the solver on call for its team
+    right now. Returns the reason it was refused, or None when it worked.
+    Writes a reassignment entry naming the old and the new solver.
+    """
+    team = incident.assigned_team
+    if team is None:
+        return "This ticket has no team, so nobody can be assigned"
+    if not is_lead(by, team):
+        return f"Only the lead of {team.name} can reassign its tickets"
+    if incident.status in ("resolved", "closed"):
+        return "Only active tickets can be reassigned"
+    if new_solver is None or who_is_on_call(team) != new_solver:
+        who = _full_name(new_solver) if new_solver else "Nobody"
+        return f"{who} is not on call for {team.name} right now"
+    old = incident.assigned_to
+    if old == new_solver:
+        return f"{_full_name(new_solver)} already has this ticket"
+    incident.assigned_to = new_solver
+    if incident.status == "open":
+        incident.status = "assigned"
+    incident.save()
+    log_event(incident, by, "reassignment",
+              f"Reassigned from {_full_name(old) if old else 'nobody'} to {_full_name(new_solver)}",
+              old_assignee=old, new_assignee=new_solver)
+    return None

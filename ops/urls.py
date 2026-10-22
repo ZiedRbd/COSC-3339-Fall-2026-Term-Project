@@ -18,4 +18,5 @@ urlpatterns = [
     path("incidents/<int:pk>/transition/", views.incident_transition, name="incident_transition"),
     path("incidents/<int:pk>/", views.incident_detail, name="incident_detail"),
     path("incidents/<int:pk>/comment/", views.incident_comment, name="incident_comment"),
+    path("incidents/<int:pk>/reassign/", views.incident_reassign, name="incident_reassign"),
 ]

@@ -31,6 +31,8 @@
       <span class="field-value">{% if incident.building or incident.room %}{{ incident.building }} {{ incident.room }}{% else %}<span class="muted">Not given</span>{% endif %}</span></div>
     <div class="field"><span class="field-label">Reported by</span>
       <span class="field-value">{{ incident.reported_by.first_name }} {{ incident.reported_by.last_name }}</span></div>
+    <div class="field"><span class="field-label">Assigned to</span>
+      <span class="field-value">{% if incident.assigned_to %}{{ incident.assigned_to.first_name }} {{ incident.assigned_to.last_name }}{% else %}<span class="muted">Nobody yet</span>{% endif %}</span></div>
     <div class="field field-wide"><span class="field-label">Description</span>
       <span class="field-value">{{ incident.description }}</span></div>
   </div>
@@ -49,6 +51,23 @@
           </form>
           {% endwith %}
         {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if can_edit or can_reassign %}
+    <div class="action-bar">
+      <span class="field-label">Ticket</span>
+      <div class="action-buttons">
+        {% if can_edit %}
+          <a href="{% url 'incident_edit' incident.pk %}" class="btn-gold">Edit details</a>
+        {% endif %}
+        {% if can_reassign %}
+          <form method="post" action="{% url 'incident_reassign' incident.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-gold">Reassign to {{ on_call.first_name }} {{ on_call.last_name }}</button>
+          </form>
+        {% endif %}
       </div>
     </div>
   {% endif %}
@@ -74,6 +93,8 @@
             <span class="tl-tag assignment">Assigned</span> {{ entry.body }}
           {% elif entry.update_type == "assignment_failed" %}
             <span class="tl-tag assignment">Unassigned</span> {{ entry.body }}
+          {% elif entry.update_type == "reassignment" %}
+            <span class="tl-tag assignment">Reassigned</span> {{ entry.body }}
           {% elif entry.update_type == "severity" %}
             <span class="tl-tag severity">Severity</span> {{ entry.body }}
           {% elif entry.update_type == "edit" %}

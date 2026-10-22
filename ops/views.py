@@ -7,7 +7,7 @@ from django.views.decorators.cache import never_cache
 
 from .forms import IncidentForm, LoginForm, RegisterForm
 from .models import Incident, IncidentUpdate, Service, Team, TeamMember, User
-from .scheduling import assign_on_creation
+from .scheduling import assign_on_creation, is_lead, reassign, who_is_on_call
 from .timeline import log_event
 
 # A ticket leaves Open only by being assigned, automatically on creation or
@@ -104,17 +104,18 @@ def landing(request):
 @login_required
 def incident_list(request):
     """
-    Active incidents, newest first. Solvers see tickets assigned to any of
-    their teams; reporters see the tickets they filed.
+    Active incidents, newest first. Solvers see tickets assigned to any
+    team they are on or lead. Reporters see their own on their profile.
     """
     # The full incident list is for solvers only. Reporters see their own
     # tickets on their profile page instead.
     if request.user.role != "solver":
         return redirect("profile")
     team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
+    led_ids = Team.objects.filter(lead=request.user).values_list("id", flat=True)
     incidents = (
         Incident.objects.filter(is_deleted=False)
-        .filter(Q(assigned_team_id__in=team_ids) | Q(reported_by=request.user))
+        .filter(Q(assigned_team_id__in=team_ids) | Q(assigned_team_id__in=led_ids))
         .select_related("service", "reported_by")
         .order_by("-created_at")
     )
@@ -168,13 +169,15 @@ def incident_edit(request, pk):
     unknown or deleted incident.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
-    # Solvers change status, not ticket details. Only the reporter edits.
-    if request.user.role == "solver":
-        messages.error(request, "Solvers cannot edit ticket details")
+    # While a ticket is assigned, only the assigned solver may edit it.
+    # Before that, only the reporter who filed it may.
+    if incident.assigned_to_id:
+        if request.user.id != incident.assigned_to_id:
+            messages.error(request, "Only the assigned solver can edit this ticket")
+            return redirect("incident_detail", pk=incident.pk)
+    elif request.user.id != incident.reported_by_id:
+        messages.error(request, "Only the reporter can edit a ticket nobody is assigned to")
         return redirect("incident_detail", pk=incident.pk)
-    if not _can_access_incident(request.user, incident):
-        messages.error(request, "You do not have access to that ticket")
-        return redirect("profile")
     if request.method == "POST":
         # The service cannot be changed on edit; force the existing one.
         data = request.POST.copy()
@@ -279,12 +282,14 @@ def profile(request):
 def _can_access_incident(user, incident):
     """
     A user may access an incident if they reported it, or they are a solver
-    on the team the incident is assigned to.
+    on the team it is assigned to, or they lead that team.
     """
     if incident.reported_by_id == user.id:
         return True
     if user.role == "solver" and incident.assigned_team_id:
-        return TeamMember.objects.filter(user=user, team_id=incident.assigned_team_id).exists()
+        if TeamMember.objects.filter(user=user, team_id=incident.assigned_team_id).exists():
+            return True
+        return Team.objects.filter(id=incident.assigned_team_id, lead=user).exists()
     return False
 
 
@@ -344,9 +349,23 @@ def incident_detail(request, pk):
         .order_by("created_at")
     )
     incident.next_states = ALLOWED_TRANSITIONS.get(incident.status, [])
+    team = incident.assigned_team
+    on_call = who_is_on_call(team) if team else None
+    can_reassign = (
+        team is not None and is_lead(request.user, team)
+        and incident.status not in ("resolved", "closed")
+        and on_call is not None and on_call != incident.assigned_to
+    )
+    can_edit = (
+        incident.assigned_to_id == request.user.id
+        or (incident.assigned_to_id is None and incident.reported_by_id == request.user.id)
+    )
     return render(request, "incidents/detail.html", {
         "incident": incident,
         "timeline": timeline,
+        "on_call": on_call,
+        "can_reassign": can_reassign,
+        "can_edit": can_edit,
     })
 
 
@@ -370,4 +389,22 @@ def incident_comment(request, pk):
             update_type = "solver_note" if request.user.role == "solver" else "comment"
             log_event(incident, request.user, update_type, body)
             messages.success(request, "Comment added")
+    return redirect("incident_detail", pk=pk)
+
+
+@login_required
+def incident_reassign(request, pk):
+    """
+    A team lead hands the ticket to whoever is on call for its team right
+    now. POST only. The rules live in scheduling.reassign.
+    """
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if request.method == "POST":
+        on_call = who_is_on_call(incident.assigned_team) if incident.assigned_team_id else None
+        problem = reassign(incident, on_call, request.user)
+        if problem:
+            messages.error(request, problem)
+        else:
+            messages.success(request, f"Ticket #{incident.pk} reassigned to "
+                                      f"{on_call.first_name} {on_call.last_name}")
     return redirect("incident_detail", pk=pk)
