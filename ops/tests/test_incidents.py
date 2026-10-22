@@ -149,7 +149,7 @@ class ShortFieldLimitTests(TestCase):
 
 
 class ReporterDeleteTests(TestCase):
-    """A reporter can delete their own ticket until a solver has it."""
+    """A reporter can delete their own ticket until a solver starts work on it."""
 
     def setUp(self):
         self.reporter = User.objects.create_user(username="r@x.com", email="r@x.com", password=GOOD_PASSWORD,
@@ -162,21 +162,30 @@ class ReporterDeleteTests(TestCase):
                                             reported_by=self.reporter, assigned_team=team, priority="low")
         self.taken = Incident.objects.create(title="Clog", description="d", service=service,
                                              reported_by=self.reporter, assigned_team=team, priority="low",
-                                             assigned_to=self.solver, status="assigned")
+                                             assigned_to=self.solver, status="in_progress")
+        self.assigned = Incident.objects.create(title="Drip", description="d", service=service,
+                                                reported_by=self.reporter, assigned_team=team, priority="low",
+                                                assigned_to=self.solver, status="assigned")
         self.client.login(username="r@x.com", password=GOOD_PASSWORD)
 
-    def test_profile_offers_delete_only_for_the_unassigned_ticket(self):
+    def test_profile_offers_delete_until_work_starts(self):
         html = self.client.get("/profile/").content.decode()
         self.assertIn(f"/incidents/{self.open.pk}/delete/", html)
+        self.assertIn(f"/incidents/{self.assigned.pk}/delete/", html)
         self.assertNotIn(f"/incidents/{self.taken.pk}/delete/", html)
         self.assertIn('id="confirm-modal"', html)
+
+    def test_assigned_but_not_started_ticket_can_be_deleted(self):
+        self.client.post(f"/incidents/{self.assigned.pk}/delete/")
+        self.assigned.refresh_from_db()
+        self.assertTrue(self.assigned.is_deleted)
 
     def test_unassigned_ticket_can_be_deleted(self):
         self.client.post(f"/incidents/{self.open.pk}/delete/")
         self.open.refresh_from_db()
         self.assertTrue(self.open.is_deleted)
 
-    def test_assigned_ticket_cannot_be_deleted(self):
+    def test_ticket_being_worked_on_cannot_be_deleted(self):
         resp = self.client.post(f"/incidents/{self.taken.pk}/delete/", follow=True)
         self.taken.refresh_from_db()
         self.assertFalse(self.taken.is_deleted)

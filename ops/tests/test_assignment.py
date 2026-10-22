@@ -166,7 +166,7 @@ class ReassignmentTests(TestCase):
 
 
 class AssigneeEditsTests(TestCase):
-    """Once a ticket is assigned, the assigned solver is the only one who can edit it."""
+    """The assigned solver can always edit. The reporter can until work starts."""
 
     def setUp(self):
         self.team = Team.objects.create(name="Plumbing")
@@ -194,7 +194,13 @@ class AssigneeEditsTests(TestCase):
     def test_assigned_solver_can_edit(self):
         self.assertEqual(self.edit_as("tim@x.com", "Fixed title"), "Fixed title")
 
-    def test_reporter_cannot_edit_once_assigned(self):
+    def test_reporter_can_still_edit_while_only_assigned(self):
+        """Assignment is automatic, so it does not take the ticket away from the reporter."""
+        self.assertEqual(self.edit_as("r@x.com", "Reporter edit"), "Reporter edit")
+
+    def test_reporter_cannot_edit_once_work_starts(self):
+        self.inc.status = "in_progress"
+        self.inc.save()
         self.assertEqual(self.edit_as("r@x.com", "Nope"), "Leak")
 
     def test_another_solver_cannot_edit(self):
@@ -206,8 +212,11 @@ class AssigneeEditsTests(TestCase):
         self.inc.save()
         self.assertEqual(self.edit_as("r@x.com", "Reporter edit"), "Reporter edit")
 
-    def test_assigned_solver_sees_edit_button_and_reporter_does_not(self):
+    def test_edit_button_follows_the_rule(self):
         self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
         self.assertIn("Edit details", self.client.get(f"/incidents/{self.inc.pk}/").content.decode())
         self.client.login(username="r@x.com", password=GOOD_PASSWORD)
+        self.assertIn("Edit details", self.client.get(f"/incidents/{self.inc.pk}/").content.decode())
+        self.inc.status = "in_progress"
+        self.inc.save()
         self.assertNotIn("Edit details", self.client.get(f"/incidents/{self.inc.pk}/").content.decode())
