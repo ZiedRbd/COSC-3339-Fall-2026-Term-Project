@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Incidents{% endblock %}
 {% load static %}
+{% load status %}
 {% block extra_js %}
   <script src="{% static 'js/incidents.js' %}?v=2" defer></script>
   <script src="{% static 'js/filter.js' %}?v=1" defer></script>
@@ -31,7 +32,7 @@
 
   
   {% if incidents %}
-    <table class="incident-table">
+    <table class="incident-table incident-list">
       <thead>
         <tr>
           <th>#</th>
@@ -42,7 +43,7 @@
           <th>Status</th>
           <th>Reported by</th>
           <th>Created</th>
-          <th></th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -53,17 +54,17 @@
             <td>{% if incident.building or incident.room %}{{ incident.building|truncatechars:40 }}{% if incident.building and incident.room %}, {% endif %}{{ incident.room|truncatechars:24 }}{% else %}<span class="muted">Not given</span>{% endif %}</td>
             <td>{{ incident.service.name }}</td>
             <td><span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></td>
-            <td><span class="badge {{ incident.status }}">{{ incident.status|title }}</span></td>
+            <td><span class="badge {{ incident.status }}">{{ incident.get_status_display }}</span></td>
             <td>{{ incident.reported_by.first_name }} {{ incident.reported_by.last_name }}</td>
             <td>{{ incident.created_at|date:"M j, Y g:i A" }}</td>
             <td class="row-actions">
               {% if user.role == "solver" %}
                 {% for state in incident.next_states %}
                   <form method="post" action="{% url 'incident_transition' incident.pk %}" style="display:inline"
-                        class="transition-form" data-label="{{ state }}">
+                        class="transition-form" data-label="{{ state|status_label }}">
                     {% csrf_token %}
                     <input type="hidden" name="new_status" value="{{ state }}">
-                    <button type="submit" class="btn-small">{{ state }}</button>
+                    <button type="submit" class="btn-small">{{ state|status_label }}</button>
                   </form>
                 {% endfor %}
               {% endif %}
