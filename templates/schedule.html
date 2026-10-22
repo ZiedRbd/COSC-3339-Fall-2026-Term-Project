@@ -1,5 +1,9 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ team.name }} schedule{% endblock %}
+{% block extra_js %}
+  <script src="{% static 'js/schedule.js' %}?v=1" defer></script>
+{% endblock %}
 
 {% block content %}
 <div class="card wide">
@@ -47,5 +51,16 @@
   </form>
 
   <a href="{% url 'calendar' %}" class="back-link">&larr; Back to calendar</a>
+</div>
+
+<div id="shift-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2>{% if editing %}Save this shift?{% else %}Add this shift?{% endif %}</h2>
+    <p id="shift-modal-text" class="lead"></p>
+    <div class="actions">
+      <button type="button" id="shift-cancel" class="btn-small">Cancel</button>
+      <button type="button" id="shift-confirm" class="btn-small">Confirm</button>
+    </div>
+  </div>
 </div>
 {% endblock %}

@@ -7,10 +7,11 @@ from ops.models import Shift, Team, TeamMember
 
 
 # Fills every team's on-call schedule from now until a week ahead, 24 hours a
-# day in eight hour blocks, rotating through the team's solvers. One team's
-# schedule stops at the end of today so the "schedule ran out" case can be
-# shown. Safe to run again: it replaces current and future shifts only, never
-# past ones, and never touches which ticket belongs to whom.
+# day in three blocks (00:00, 08:00, 16:00), rotating through the team's
+# solvers so each day shows a different name per block. One team's schedule
+# stops at the end of today so the "schedule ran out" case can be shown.
+# Safe to run again: it replaces current and future shifts only, never past
+# ones, and never touches which ticket belongs to whom.
 # Run with: python manage.py seed_shifts
 class Command(BaseCommand):
     help = "Seed a week of 24/7 on-call shifts for every team"
@@ -24,10 +25,15 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         now = timezone.now()
         local_now = timezone.localtime(now)
-        start = local_now.replace(minute=0, second=0, microsecond=0)
+        # The first block is the one running right now, so coverage starts
+        # before now and no shift ever crosses midnight.
+        start = local_now.replace(hour=(local_now.hour // 8) * 8, minute=0, second=0, microsecond=0)
         block = timedelta(hours=8)
         week_end = start + timedelta(days=7)
         tonight = (local_now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Replace everything still running or yet to come
+        Shift.objects.filter(ends_at__gt=now).delete()
 
         total = 0
         for team in Team.objects.order_by("name"):
@@ -41,17 +47,13 @@ class Command(BaseCommand):
             scheduler = team.lead or solvers[0]
             end = tonight if team.name == options["short_team"] else week_end
 
-            # Replace anything still running or yet to come. Finished shifts stay.
-            Shift.objects.filter(team=team, ends_at__gt=now).delete()
-
             cursor = start
             i = options["offset"]
             while cursor < end:
-                Shift.objects.create(
-                    team=team, solver=solvers[i % len(solvers)], created_by=scheduler,
-                    starts_at=cursor, ends_at=min(cursor + block, end),
-                )
-                cursor += block
+                block_end = min(cursor + block, end)
+                Shift.objects.create(team=team, solver=solvers[i % len(solvers)], created_by=scheduler,
+                                     starts_at=cursor, ends_at=block_end)
+                cursor = block_end
                 i += 1
                 total += 1
             self.stdout.write(f"{team.name}: covered until {timezone.localtime(end):%a %b %d %H:%M}")

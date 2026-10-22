@@ -104,6 +104,5 @@ h1, h2 {
 .card, .profile-card, .incident-col, .profile-incident, .team-panel,
 .field-value, .detail-title, .tl-body, .pi-title, .notice, .calendar-table td {
     overflow-wrap: anywhere;
-    word-break: break-word;
     min-width: 0;
 }

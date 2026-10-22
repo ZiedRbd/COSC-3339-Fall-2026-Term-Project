@@ -163,7 +163,7 @@ class ValidateScheduleTests(TestCase):
     def test_cover_must_start_now(self):
         """A schedule whose first shift starts after now leaves now uncovered."""
         errors = validate_schedule(self.team, [self.shift(self.tim, 9, 17)], self.now)
-        self.assertIn("Monday is missing coverage from 8:00 to 9:00", errors)
+        self.assertIn("Monday is missing coverage from now (8:00) to 9:00", errors)
 
     def test_overlap_is_double_booked(self):
         """Two Plumbing shifts covering the same hours are refused."""

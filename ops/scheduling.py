@@ -105,16 +105,20 @@ def _window(a, b):
     return f"{a_local:%A} {_clock(a)} to {b_local:%A} {_clock(b)}"
 
 
-def _problem(what, a, b):
+def _problem(what, a, b, from_now=False):
     """
     An error naming the day and the window, the way the spec asks:
     "Wednesday is missing coverage from 9:00 to 10:30", or across midnight
-    "Missing coverage from Wednesday 22:00 to Thursday 6:00".
+    "Missing coverage from Wednesday 22:00 to Thursday 6:00". A window that
+    opens at this very moment says "from now (22:11)" so nobody thinks the
+    check looked into the past.
     """
     a_local, b_local = timezone.localtime(a), timezone.localtime(b)
     if a_local.date() == b_local.date():
-        return f"{a_local:%A} is {what} from {_clock(a)} to {_clock(b)}"
-    return f"{what.capitalize()} from {a_local:%A} {_clock(a)} to {b_local:%A} {_clock(b)}"
+        opens = f"now ({_clock(a)})" if from_now else _clock(a)
+        return f"{a_local:%A} is {what} from {opens} to {_clock(b)}"
+    opens = f"now ({a_local:%A} {_clock(a)})" if from_now else f"{a_local:%A} {_clock(a)}"
+    return f"{what.capitalize()} from {opens} to {b_local:%A} {_clock(b)}"
 
 
 def validate_schedule(team, proposed, now=None):
@@ -159,7 +163,7 @@ def validate_schedule(team, proposed, now=None):
     for shift in shifts:
         start = max(shift.starts_at, now)
         if start > cursor:
-            errors.append(_problem("missing coverage", cursor, start))
+            errors.append(_problem("missing coverage", cursor, start, from_now=cursor == now))
         elif start < cursor:
             errors.append(_problem("double booked", start, min(cursor, shift.ends_at)))
         cursor = max(cursor, shift.ends_at)
