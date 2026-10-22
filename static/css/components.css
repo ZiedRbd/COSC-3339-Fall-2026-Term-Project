@@ -172,3 +172,21 @@ input:focus, textarea:focus, select:focus {
 .notice.error   { background: #fdecea; border-color: #c62828; color: #8e1c1c; }
 .notice.success { background: #e8f5e9; border-color: var(--green); color: #1b5e20; }
 .notice.info    { background: #e3f2fd; border-color: var(--navy); color: var(--navy); }
+
+/* Small buttons used outside the ticket table: calendar week links,
+   schedule row actions, cancel links */
+.btn-small {
+    display: inline-block;
+    padding: 6px 14px;
+    border: 1px solid var(--navy);
+    border-radius: 999px;
+    background: #ffffff;
+    color: var(--navy);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+.btn-small:hover { background: var(--navy); color: #ffffff; }
+.btn-small.danger { border-color: #c62828; color: #c62828; }
+.btn-small.danger:hover { background: #c62828; color: #ffffff; }
