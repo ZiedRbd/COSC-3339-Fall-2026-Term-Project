@@ -1,0 +1,65 @@
+/* ---------- On-call calendar ---------- */
+.calendar-card { max-width: 1200px; }
+.calendar-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.calendar-nav { display: flex; gap: 8px; }
+
+.calendar-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+.calendar-table th,
+.calendar-table td {
+    border: 1px solid var(--line);
+    padding: 8px;
+    vertical-align: top;
+    font-size: 13px;
+}
+.calendar-table thead th {
+    background: #f5f8ff;
+    color: var(--navy);
+    text-align: center;
+}
+.calendar-table thead th.today { background: var(--gold); color: var(--navy-dark); }
+.cal-date { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
+.calendar-table thead th.today .cal-date { color: var(--navy-dark); }
+
+.team-cell {
+    width: 130px;
+    text-align: left;
+    color: var(--navy);
+    font-weight: 700;
+    background: #f5f8ff;
+}
+.cal-edit {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--navy);
+}
+
+.slot {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    background: #e8f5e9;
+    border-left: 3px solid var(--green);
+    border-radius: 6px;
+}
+.slot-when { font-size: 11px; color: var(--muted); }
+.slot-who { font-weight: 600; color: var(--ink); }
+.slot-none { color: var(--muted); font-style: italic; font-size: 12px; }
+
+@media (max-width: 900px) {
+    .calendar-table { display: block; overflow-x: auto; }
+}

@@ -1,3 +1,5 @@
+from datetime import date, datetime, time, timedelta
+
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -8,7 +10,7 @@ from django.views.decorators.cache import never_cache
 
 from .forms import IncidentForm, LoginForm, RegisterForm, ShiftForm
 from .models import Incident, IncidentUpdate, Service, Shift, Team, TeamMember, User
-from .scheduling import assign_on_creation, is_lead, reassign, validate_schedule, who_is_on_call
+from .scheduling import assign_on_creation, is_lead, on_call_roster, reassign, validate_schedule, who_is_on_call
 from .timeline import log_event
 
 # A ticket leaves Open only by being assigned, automatically on creation or
@@ -503,3 +505,51 @@ def shift_delete(request, team_id, shift_id):
             shift.delete()
             messages.success(request, "Shift removed")
     return redirect("schedule", team_id=team.pk)
+
+
+@login_required
+def calendar(request):
+    """
+    One week of on-call cover: a row per team, a column per day, and in
+    each cell who covers which hours. Solvers see every team they are on
+    or lead, and a lead gets a link to edit the schedule of the teams they
+    lead. Reporters have no schedule to look at and are sent to their
+    profile. The week starts on Monday; ?start=YYYY-MM-DD picks another.
+    """
+    if request.user.role != "solver":
+        messages.error(request, "The calendar is for solvers")
+        return redirect("profile")
+    today = timezone.localdate()
+    try:
+        first_day = date.fromisoformat(request.GET.get("start", ""))
+    except ValueError:
+        first_day = today - timedelta(days=today.weekday())
+    days = [first_day + timedelta(days=i) for i in range(7)]
+    week_start = timezone.make_aware(datetime.combine(first_day, time.min))
+    week_end = week_start + timedelta(days=7)
+
+    teams = (Team.objects.filter(Q(teammember__user=request.user) | Q(lead=request.user))
+             .distinct().order_by("name"))
+    rows = []
+    for team in teams:
+        cells = [[] for _ in days]
+        for shift in on_call_roster(team, week_start, week_end):
+            # A shift can cross midnight, so clip it to each day it touches
+            for i, day in enumerate(days):
+                day_start = timezone.make_aware(datetime.combine(day, time.min))
+                day_end = day_start + timedelta(days=1)
+                if shift.starts_at < day_end and shift.ends_at > day_start:
+                    begins = max(shift.starts_at, day_start)
+                    ends = min(shift.ends_at, day_end)
+                    end_label = "24:00" if ends == day_end else f"{timezone.localtime(ends):%H:%M}"
+                    cells[i].append({
+                        "when": f"{timezone.localtime(begins):%H:%M} to {end_label}",
+                        "who": f"{shift.solver.first_name} {shift.solver.last_name}",
+                    })
+        rows.append({"team": team, "cells": cells, "can_edit": is_lead(request.user, team)})
+
+    return render(request, "calendar.html", {
+        "days": days, "rows": rows, "today": today,
+        "prev": (first_day - timedelta(days=7)).isoformat(),
+        "next": (first_day + timedelta(days=7)).isoformat(),
+    })
