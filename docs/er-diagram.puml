@@ -110,7 +110,7 @@ incident -[hidden]down-   upd
 
 user     ||--o{ tm       : belongs to
 team     ||--o{ tm       : has
-team     ||--o{ service  : owns
+team     |o--o{ service  : owns
 service  ||--o{ incident : has
 user     ||--o{ incident : reports
 user     |o--o{ incident : assigned to
