@@ -428,3 +428,7 @@ incident-col li span {
     font-style: italic;
     padding: 8px 0;
 }
+
+/* Delete, next to Edit on the reporter's own open tickets */
+.pi-btn.danger { background: transparent; color: #c62828; border-color: #c62828; }
+.pi-btn.danger:hover { background: #c62828; color: #ffffff; border-color: #c62828; }

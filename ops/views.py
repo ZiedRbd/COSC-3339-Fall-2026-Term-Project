@@ -245,6 +245,9 @@ def incident_delete(request, pk):
     if not _can_access_incident(request.user, incident):
         messages.error(request, "You do not have access to that ticket")
         return redirect("profile")
+    if incident.assigned_to_id:
+        messages.error(request, "A ticket a solver is working on cannot be deleted")
+        return redirect("incident_detail", pk=incident.pk)
     if request.method == "POST":
         incident.is_deleted = True
         incident.save()
