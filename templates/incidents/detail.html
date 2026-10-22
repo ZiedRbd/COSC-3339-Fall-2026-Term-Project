@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load status %}
 {% block title %}Ticket #{{ incident.pk }}{% endblock %}
 {% block extra_js %}
   <script src="{% static 'js/transition.js' %}?v=1" defer></script>
@@ -42,14 +43,12 @@
       <span class="field-label">Next step</span>
       <div class="action-buttons">
         {% for state in incident.next_states %}
-          {% with label=state|cut:"_" %}
           <form method="post" action="{% url 'incident_transition' incident.pk %}"
-                class="transition-form" data-label="{{ label }}">
+                class="transition-form" data-label="{{ state|status_label }}">
             {% csrf_token %}
             <input type="hidden" name="new_status" value="{{ state }}">
-            <button type="submit" class="btn-gold">Move to {{ label }}</button>
+            <button type="submit" class="btn-gold">Move to {{ state|status_label }}</button>
           </form>
-          {% endwith %}
         {% endfor %}
       </div>
     </div>
@@ -84,9 +83,9 @@
         <div class="tl-body">
           {% if entry.update_type == "status_change" %}
             Changed status
-            <span class="badge {{ entry.old_status }}">{{ entry.old_status }}</span>
+            <span class="badge {{ entry.old_status }}">{{ entry.old_status|status_label }}</span>
             &rarr;
-            <span class="badge {{ entry.new_status }}">{{ entry.new_status }}</span>
+            <span class="badge {{ entry.new_status }}">{{ entry.new_status|status_label }}</span>
           {% elif entry.update_type == "created" %}
             <span class="tl-tag created">Created</span> {{ entry.body }}
           {% elif entry.update_type == "assignment" %}
@@ -100,9 +99,9 @@
           {% elif entry.update_type == "edit" %}
             <span class="tl-tag edit">Edit</span> {{ entry.body }}
           {% elif entry.update_type == "solver_note" %}
-            <span class="tl-tag note">Note</span> {{ entry.body }}
+            <span class="tl-tag note">Note</span> {{ entry.body|linebreaksbr }}
           {% else %}
-            <span class="tl-tag comment">Comment</span> {{ entry.body }}
+            <span class="tl-tag comment">Comment</span> {{ entry.body|linebreaksbr }}
           {% endif %}
         </div>
       </li>

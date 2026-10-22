@@ -283,14 +283,31 @@
 .incident-table { table-layout: fixed; width: 100%; }
 .incident-table th,
 .incident-table td { overflow-wrap: anywhere; }
-.incident-table th:nth-child(1) { width: 4%; }
-.incident-table th:nth-child(2) { width: 21%; }
-.incident-table th:nth-child(3) { width: 14%; }
-.incident-table th:nth-child(4) { width: 12%; }
-.incident-table th:nth-child(5) { width: 8%; }
-.incident-table th:nth-child(6) { width: 10%; }
-.incident-table th:nth-child(7) { width: 12%; }
-.incident-table th:nth-child(8) { width: 10%; }
-.incident-table th:nth-child(9) { width: 9%; }
+.incident-list th:nth-child(1) { width: 4%; }
+.incident-list th:nth-child(2) { width: 18%; }
+.incident-list th:nth-child(3) { width: 14%; }
+.incident-list th:nth-child(4) { width: 12%; }
+.incident-list th:nth-child(5) { width: 8%; }
+.incident-list th:nth-child(6) { width: 10%; }
+.incident-list th:nth-child(7) { width: 12%; }
+.incident-list th:nth-child(8) { width: 10%; }
+.incident-list th:nth-child(9) { width: 12%; }
 .incident-table td.row-actions { white-space: normal; }
+
+/* Team schedule: four columns, dates on one line */
+.schedule-table th:nth-child(1), .schedule-table th:nth-child(2) { width: 24%; }
+.schedule-table th:nth-child(3) { width: 30%; }
+.schedule-table th:nth-child(4) { width: 22%; }
+.schedule-table td:nth-child(1), .schedule-table td:nth-child(2) { white-space: nowrap; }
+
+/* Every button in the actions column is the same size: one per line,
+   as wide as the column, whatever its text */
+.incident-table .row-actions form { display: block; }
+.incident-table .row-actions .btn-small {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0 0 4px;
+    text-align: center;
+}
 .incident-table .row-actions .btn-small { margin: 2px 0; }

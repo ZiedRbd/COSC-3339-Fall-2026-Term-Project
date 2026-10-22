@@ -112,3 +112,37 @@ class IncidentTests(TestCase):
         self.client.post(f"/incidents/{ticket.pk}/delete/")
         response = self.client.get(f"/incidents/{ticket.pk}/edit/")
         self.assertEqual(response.status_code, 404)
+
+
+from ops.models import Incident, Service, Team, User
+from ops.tests.helpers import GOOD_PASSWORD
+
+
+class ShortFieldLimitTests(TestCase):
+    """Title, building and room are capped so the list and the detail page stay readable."""
+
+    def setUp(self):
+        self.reporter = User.objects.create_user(username="r@x.com", email="r@x.com", password=GOOD_PASSWORD,
+                                                 first_name="Rae", last_name="Lee", role="reporter")
+        self.service = Service.objects.create(name="Sinks", owning_team=Team.objects.create(name="Plumbing"))
+        self.client.login(username="r@x.com", password=GOOD_PASSWORD)
+
+    def post(self, **changes):
+        data = {"title": "Leak", "description": "d", "building": "Moody", "room": "214",
+                "service": self.service.pk, "priority": "low"}
+        data.update(changes)
+        return self.client.post("/incidents/form", data)
+
+    def test_limits_are_enforced(self):
+        self.post(title="x" * 81)
+        self.post(building="x" * 41)
+        self.post(room="x" * 21)
+        self.assertEqual(Incident.objects.count(), 0)
+        self.post(title="x" * 80, building="x" * 40, room="x" * 20)
+        self.assertEqual(Incident.objects.count(), 1)
+
+    def test_inputs_carry_the_limit(self):
+        html = self.client.get("/incidents/form").content.decode()
+        self.assertIn('maxlength="80"', html)
+        self.assertIn('maxlength="40"', html)
+        self.assertIn('maxlength="20"', html)

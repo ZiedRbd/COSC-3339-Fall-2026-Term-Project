@@ -100,3 +100,35 @@ class LifecycleEdgeTests(TestCase):
         self.assertIsNotNone(row.created_at)
         self.assertEqual(row.old_status, "assigned")
         self.assertEqual(row.new_status, "in_progress")
+
+
+class StatusLabelTests(TestCase):
+    """The list, the buttons and the timeline all show the same label for a status."""
+
+    def setUp(self):
+        self.team = Team.objects.create(name="Plumbing")
+        self.solver = User.objects.create_user(username="s@x.com", email="s@x.com", password=GOOD_PASSWORD,
+                                               first_name="Sam", last_name="Okoro", role="solver")
+        TeamMember.objects.create(user=self.solver, team=self.team)
+        self.reporter = User.objects.create_user(username="r@x.com", email="r@x.com", password=GOOD_PASSWORD,
+                                                 first_name="Rae", last_name="Lee", role="reporter")
+        service = Service.objects.create(name="Sinks", owning_team=self.team)
+        self.incident = Incident.objects.create(title="Leak", description="d", service=service,
+                                                reported_by=self.reporter, assigned_team=self.team,
+                                                assigned_to=self.solver, status="assigned", priority="low")
+        self.client.login(username="s@x.com", password=GOOD_PASSWORD)
+
+    def test_list_button_and_badge_use_the_label(self):
+        html = self.client.get("/incidents/list").content.decode()
+        self.assertIn('class="btn-small">In Progress</button>', html)
+        self.assertIn("<th>Actions</th>", html)
+        self.assertNotIn(">in_progress<", html)
+        self.assertNotIn("In_Progress", html)
+
+    def test_detail_button_and_timeline_use_the_label(self):
+        self.client.post(f"/incidents/{self.incident.pk}/transition/", {"new_status": "in_progress"})
+        html = self.client.get(f"/incidents/{self.incident.pk}/").content.decode()
+        self.assertIn("Move to Resolved", html)
+        self.assertIn(">In Progress</span>", html)
+        self.assertNotIn("Inprogress", html)
+        self.assertNotIn(">in_progress<", html)
