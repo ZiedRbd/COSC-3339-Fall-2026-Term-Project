@@ -8,8 +8,8 @@ from ops.models import Shift, Team, TeamMember
 
 # Fills every team's on-call schedule from now until a week ahead, 24 hours a
 # day in three blocks (00:00, 08:00, 16:00), rotating through the team's
-# solvers so each day shows a different name per block. One team's schedule
-# stops at the end of today so the "schedule ran out" case can be shown.
+# solvers so each day shows a different name per block. Pass --short-team to
+# stop one team at the end of today, to show the "schedule ran out" case.
 # Safe to run again: it replaces current and future shifts only, never past
 # ones, and never touches which ticket belongs to whom.
 # Run with: python manage.py seed_shifts
@@ -17,8 +17,8 @@ class Command(BaseCommand):
     help = "Seed a week of 24/7 on-call shifts for every team"
 
     def add_arguments(self, parser):
-        parser.add_argument("--short-team", default="Electrical",
-                            help="Team whose schedule ends at midnight tonight")
+        parser.add_argument("--short-team", default="",
+                            help="Optional team whose schedule ends at midnight tonight")
         parser.add_argument("--offset", type=int, default=0,
                             help="Start the rotation this many people in, to change who owns a slot on a rerun")
 

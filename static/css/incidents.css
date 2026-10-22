@@ -284,10 +284,10 @@
 .incident-table th,
 .incident-table td { overflow-wrap: anywhere; }
 .incident-list th:nth-child(1) { width: 4%; }
-.incident-list th:nth-child(2) { width: 18%; }
+.incident-list th:nth-child(2) { width: 16%; }
 .incident-list th:nth-child(3) { width: 14%; }
 .incident-list th:nth-child(4) { width: 12%; }
-.incident-list th:nth-child(5) { width: 8%; }
+.incident-list th:nth-child(5) { width: 10%; }
 .incident-list th:nth-child(6) { width: 10%; }
 .incident-list th:nth-child(7) { width: 12%; }
 .incident-list th:nth-child(8) { width: 10%; }

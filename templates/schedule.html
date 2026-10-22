@@ -2,24 +2,27 @@
 {% load static %}
 {% block title %}{{ team.name }} schedule{% endblock %}
 {% block extra_js %}
-  <script src="{% static 'js/schedule.js' %}?v=1" defer></script>
+  <script src="{% static 'js/schedule.js' %}?v=2" defer></script>
 {% endblock %}
 
 {% block content %}
 <div class="card wide">
   <h1 class="form-header">{{ team.name }}: on-call schedule</h1>
 
-  {% if messages %}
+  {% if messages and not open_form %}
     {% for message in messages %}
       <p class="notice {{ message.tags }}">{{ message }}</p>
     {% endfor %}
   {% endif %}
 
-  <h2 class="section-title">Upcoming shifts</h2>
+  <div class="section-head">
+    <h2 class="section-title">Upcoming shifts</h2>
+    <button type="button" id="add-shift" class="btn-gold">Add shift</button>
+  </div>
   {% if shifts %}
     <table class="incident-table schedule-table">
       <thead>
-        <tr><th>Starts</th><th>Ends</th><th>Solver</th><th></th></tr>
+        <tr><th>Starts</th><th>Ends</th><th>Solver</th><th>Actions</th></tr>
       </thead>
       <tbody>
         {% for shift in shifts %}
@@ -28,7 +31,10 @@
             <td>{{ shift.ends_at|date:"D M j, H:i" }}</td>
             <td>{{ shift.solver.first_name }} {{ shift.solver.last_name }}</td>
             <td class="row-actions">
-              <a href="{% url 'shift_edit' team.pk shift.pk %}" class="btn-small">Edit</a>
+              <a href="{% url 'shift_edit' team.pk shift.pk %}" class="btn-small shift-edit"
+                 data-solver="{{ shift.solver_id }}"
+                 data-start-date="{{ shift.starts_at|date:'Y-m-d' }}" data-start-hour="{{ shift.starts_at|date:'H:i' }}"
+                 data-end-date="{{ shift.ends_at|date:'Y-m-d' }}" data-end-hour="{{ shift.ends_at|date:'H:i' }}">Edit</a>
               <form method="post" action="{% url 'shift_delete' team.pk shift.pk %}" style="display:inline">
                 {% csrf_token %}
                 <button type="submit" class="btn-small danger">Delete</button>
@@ -42,20 +48,31 @@
     <p class="empty">No upcoming shifts. Nobody is on call for {{ team.name }}.</p>
   {% endif %}
 
-  <h2 class="section-title">{% if editing %}Edit shift{% else %}Add a shift{% endif %}</h2>
-  <form method="post" class="shift-form">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn-gold">{% if editing %}Save changes{% else %}Add shift{% endif %}</button>
-    {% if editing %}<a href="{% url 'schedule' team.pk %}" class="btn-small">Cancel</a>{% endif %}
-  </form>
-
   <a href="{% url 'calendar' %}" class="back-link">&larr; Back to calendar</a>
+</div>
+
+<div id="shift-form-modal" class="modal-overlay" data-add-url="{% url 'schedule' team.pk %}"{% if not open_form %} hidden{% endif %}>
+  <div class="modal wide">
+    <h2 id="shift-form-title">{% if editing %}Edit shift{% else %}Add a shift{% endif %}</h2>
+    {% if open_form %}
+      {% for message in messages %}
+        <p class="notice {{ message.tags }}">{{ message }}</p>
+      {% endfor %}
+    {% endif %}
+    <form method="post" action="{% if editing %}{% url 'shift_edit' team.pk editing.pk %}{% else %}{% url 'schedule' team.pk %}{% endif %}" class="shift-form">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <div class="actions">
+        <button type="button" id="shift-form-cancel" class="btn-small">Cancel</button>
+        <button type="submit" id="shift-form-submit" class="btn-gold">{% if editing %}Save changes{% else %}Add shift{% endif %}</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <div id="shift-modal" class="modal-overlay" hidden>
   <div class="modal">
-    <h2>{% if editing %}Save this shift?{% else %}Add this shift?{% endif %}</h2>
+    <h2>Save this shift?</h2>
     <p id="shift-modal-text" class="lead"></p>
     <div class="actions">
       <button type="button" id="shift-cancel" class="btn-small">Cancel</button>

@@ -459,6 +459,7 @@ def schedule(request, team_id):
         form = ShiftForm(team)
     return render(request, "schedule.html", {
         "team": team, "form": form, "shifts": _future_shifts(team), "editing": None,
+        "open_form": request.method == "POST",
     })
 
 
@@ -487,6 +488,7 @@ def shift_edit(request, team_id, shift_id):
         form = ShiftForm(team, instance=shift)
     return render(request, "schedule.html", {
         "team": team, "form": form, "shifts": _future_shifts(team), "editing": shift,
+        "open_form": True,
     })
 
 
@@ -530,6 +532,7 @@ def calendar(request):
     days = [first_day + timedelta(days=i) for i in range(7)]
     week_start = timezone.make_aware(datetime.combine(first_day, time.min))
     week_end = week_start + timedelta(days=7)
+    now = timezone.now()
 
     teams = (Team.objects.filter(Q(teammember__user=request.user) | Q(lead=request.user))
              .distinct().order_by("name"))
@@ -548,6 +551,8 @@ def calendar(request):
                     cells[i].append({
                         "when": f"{timezone.localtime(begins):%H:%M} to {end_label}",
                         "who": f"{shift.solver.first_name} {shift.solver.last_name}",
+                        # Already over: shown greyed out, and not on the schedule page
+                        "past": ends <= now,
                     })
         rows.append({"team": team, "cells": cells, "can_edit": is_lead(request.user, team)})
 

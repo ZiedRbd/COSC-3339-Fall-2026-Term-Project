@@ -146,7 +146,7 @@ Only legal moves are accepted; an illegal move (skipping a step, or going backwa
 
 **Reassignment.** A team lead can hand an active ticket to whoever is on call for the team right now. The timeline records the time, who did it, and the previous and new solver. Assignment and status changes are recorded with timestamps in the `IncidentUpdate` table.
 
-**Seeding.** `python manage.py seed_shifts` fills every team's schedule from now until a week ahead, around the clock, rotating the team's solvers. It replaces current and future shifts only and never changes which ticket belongs to whom. One team's schedule stops at midnight tonight so the no-cover case can be shown.
+**Seeding.** `python manage.py seed_shifts` fills every team's schedule from now until a week ahead, around the clock, rotating the team's solvers. It replaces current and future shifts only and never changes which ticket belongs to whom. Pass `--short-team Electrical` to stop one team at midnight tonight so the no-cover case can be shown.
 
 ## Branching Strategy
 

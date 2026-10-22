@@ -38,7 +38,7 @@
             {% for cell in row.cells %}
               <td>
                 {% for slot in cell %}
-                  <div class="slot"><span class="slot-when">{{ slot.when }}</span><span class="slot-who">{{ slot.who }}</span></div>
+                  <div class="slot{% if slot.past %} past{% endif %}"><span class="slot-when">{{ slot.when }}</span><span class="slot-who">{{ slot.who }}</span></div>
                 {% empty %}
                   <span class="slot-none">Nobody</span>
                 {% endfor %}
