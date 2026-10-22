@@ -19,4 +19,7 @@ urlpatterns = [
     path("incidents/<int:pk>/", views.incident_detail, name="incident_detail"),
     path("incidents/<int:pk>/comment/", views.incident_comment, name="incident_comment"),
     path("incidents/<int:pk>/reassign/", views.incident_reassign, name="incident_reassign"),
+    path("schedule/<int:team_id>/", views.schedule, name="schedule"),
+    path("schedule/<int:team_id>/<int:shift_id>/edit/", views.shift_edit, name="shift_edit"),
+    path("schedule/<int:team_id>/<int:shift_id>/delete/", views.shift_delete, name="shift_delete"),
 ]

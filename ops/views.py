@@ -2,12 +2,13 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch, Q
+from django.utils import timezone
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
-from .forms import IncidentForm, LoginForm, RegisterForm
-from .models import Incident, IncidentUpdate, Service, Team, TeamMember, User
-from .scheduling import assign_on_creation, is_lead, reassign, who_is_on_call
+from .forms import IncidentForm, LoginForm, RegisterForm, ShiftForm
+from .models import Incident, IncidentUpdate, Service, Shift, Team, TeamMember, User
+from .scheduling import assign_on_creation, is_lead, reassign, validate_schedule, who_is_on_call
 from .timeline import log_event
 
 # A ticket leaves Open only by being assigned, automatically on creation or
@@ -408,3 +409,97 @@ def incident_reassign(request, pk):
             messages.success(request, f"Ticket #{incident.pk} reassigned to "
                                       f"{on_call.first_name} {on_call.last_name}")
     return redirect("incident_detail", pk=pk)
+
+
+def _future_shifts(team):
+    """Shifts still running or yet to come, earliest first."""
+    return Shift.objects.filter(team=team, ends_at__gt=timezone.now()).select_related("solver").order_by("starts_at")
+
+
+def _lead_only(request, team):
+    """The redirect to send a non-lead away with, or None when they lead the team."""
+    if is_lead(request.user, team):
+        return None
+    messages.error(request, f"Only the lead of {team.name} can edit its schedule")
+    return redirect("profile")
+
+
+@login_required
+def schedule(request, team_id):
+    """
+    One team's on-call schedule: the upcoming shifts and a form to add one.
+    Only the team's lead gets in. A new shift is checked together with the
+    rest of the future schedule, so a gap or an overlap is refused with a
+    message naming the day and the window.
+    """
+    team = get_object_or_404(Team, pk=team_id)
+    denied = _lead_only(request, team)
+    if denied:
+        return denied
+    if request.method == "POST":
+        form = ShiftForm(team, request.POST)
+        if form.is_valid():
+            shift = form.save(commit=False)
+            shift.team = team
+            shift.created_by = request.user
+            problems = validate_schedule(team, list(_future_shifts(team)) + [shift])
+            if problems:
+                for problem in problems:
+                    messages.error(request, problem)
+            else:
+                shift.save()
+                messages.success(request, "Shift added")
+                return redirect("schedule", team_id=team.pk)
+    else:
+        form = ShiftForm(team)
+    return render(request, "schedule.html", {
+        "team": team, "form": form, "shifts": _future_shifts(team), "editing": None,
+    })
+
+
+@login_required
+def shift_edit(request, team_id, shift_id):
+    """Change one upcoming shift. Same checks as adding one."""
+    team = get_object_or_404(Team, pk=team_id)
+    shift = get_object_or_404(Shift, pk=shift_id, team=team)
+    denied = _lead_only(request, team)
+    if denied:
+        return denied
+    if request.method == "POST":
+        form = ShiftForm(team, request.POST, instance=shift)
+        if form.is_valid():
+            changed = form.save(commit=False)
+            others = [s for s in _future_shifts(team) if s.pk != shift.pk]
+            problems = validate_schedule(team, others + [changed])
+            if problems:
+                for problem in problems:
+                    messages.error(request, problem)
+            else:
+                changed.save()
+                messages.success(request, "Shift updated")
+                return redirect("schedule", team_id=team.pk)
+    else:
+        form = ShiftForm(team, instance=shift)
+    return render(request, "schedule.html", {
+        "team": team, "form": form, "shifts": _future_shifts(team), "editing": shift,
+    })
+
+
+@login_required
+def shift_delete(request, team_id, shift_id):
+    """Remove one upcoming shift, unless that would leave a hole in the cover."""
+    team = get_object_or_404(Team, pk=team_id)
+    shift = get_object_or_404(Shift, pk=shift_id, team=team)
+    denied = _lead_only(request, team)
+    if denied:
+        return denied
+    if request.method == "POST":
+        others = [s for s in _future_shifts(team) if s.pk != shift.pk]
+        problems = validate_schedule(team, others)
+        if problems:
+            for problem in problems:
+                messages.error(request, problem)
+        else:
+            shift.delete()
+            messages.success(request, "Shift removed")
+    return redirect("schedule", team_id=team.pk)
