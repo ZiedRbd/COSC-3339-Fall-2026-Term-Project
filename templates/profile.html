@@ -61,7 +61,7 @@
                 </div>
                 <div class="pi-actions">
                   <a href="{% url 'incident_detail' incident.pk %}" class="pi-btn">Details</a>
-                  <a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a>
+                  {% if not incident.assigned_to_id %}<a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a>{% endif %}
                 </div>
               </li>
             {% empty %}
@@ -83,7 +83,7 @@
                 </div>
                 <div class="pi-actions">
                   <a href="{% url 'incident_detail' incident.pk %}" class="pi-btn">Details</a>
-                  <a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a>
+                  {% if not incident.assigned_to_id %}<a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a>{% endif %}
                 </div>
               </li>
         {% empty %}

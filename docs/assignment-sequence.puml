@@ -1,0 +1,49 @@
+@startuml
+title A Filed Ticket Is Assigned to the Solver on Call
+
+actor Reporter
+participant "Browser\n(ticket form)" as Browser
+participant "Django view\nincident_form" as View
+participant "IncidentForm" as Form
+participant "scheduling\nassign_on_creation" as Assign
+participant "scheduling\nwho_is_on_call" as OnCall
+participant "timeline\nlog_event" as Log
+database "PostgreSQL" as DB
+
+Reporter -> Browser : Submit ticket form
+Browser -> View : POST /incidents/form
+View -> Form : IncidentForm(request.POST).is_valid()
+Form --> View : cleaned data
+View -> DB : Incident.objects.create(\nservice, reported_by, priority, ...\nassigned_team = service.owning_team)
+DB --> View : incident (status = open)
+View -> Log : log_event(incident, reporter, "created", ...)
+Log -> DB : INSERT IncidentUpdate
+View -> Assign : assign_on_creation(incident)
+
+Assign -> Assign : team = incident.service.owning_team
+alt service has no owning team
+  Assign -> Log : log_event(..., "assignment_failed",\n"Service has no owning team")
+  Log -> DB : INSERT IncidentUpdate
+  Assign --> View : return (ticket stays Open)
+else team found
+  Assign -> OnCall : who_is_on_call(team, incident.created_at)
+  OnCall -> DB : SELECT Shift WHERE team = team\nAND starts_at <= at AND ends_at > at\nAND solver.is_active AND solver.role = "solver"\nAND solver is a TeamMember\nORDER BY starts_at, id LIMIT 1
+  DB --> OnCall : shift row, or none
+  alt nobody on call
+    OnCall --> Assign : None
+    Assign -> DB : incident.save() (assigned_team set)
+    Assign -> Log : log_event(..., "assignment_failed",\n"No solver on call for <team>")
+    Log -> DB : INSERT IncidentUpdate
+    Assign --> View : return (ticket stays Open)
+  else solver on call
+    OnCall --> Assign : shift.solver
+    Assign -> DB : incident.assigned_to = solver\nincident.status = "assigned"\nincident.save()
+    Assign -> Log : log_event(..., "assignment",\n"Assigned to <solver>, on call for <team>",\nnew_assignee = solver)
+    Log -> DB : INSERT IncidentUpdate (timestamp)
+    Assign --> View : return
+  end
+end
+
+View --> Browser : 302 redirect to the incident list
+Browser --> Reporter : "Ticket #41 created"
+@enduml

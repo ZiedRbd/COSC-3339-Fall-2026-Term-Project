@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Calendar{% endblock %}
+
+{% block content %}
+<div class="card wide calendar-card">
+  <div class="calendar-head">
+    <h1 class="form-header">On-call calendar</h1>
+    <nav class="calendar-nav">
+      <a href="?start={{ prev }}" class="btn-small">&larr; Previous week</a>
+      <a href="{% url 'calendar' %}" class="btn-small">This week</a>
+      <a href="?start={{ next }}" class="btn-small">Next week &rarr;</a>
+    </nav>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <p class="notice">{{ message }}</p>
+    {% endfor %}
+  {% endif %}
+
+  {% if rows %}
+    <table class="calendar-table">
+      <thead>
+        <tr>
+          <th>Team</th>
+          {% for day in days %}
+            <th{% if day == today %} class="today"{% endif %}>{{ day|date:"D" }}<span class="cal-date">{{ day|date:"M j" }}</span></th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <th class="team-cell">
+              {{ row.team.name }}
+              {% if row.can_edit %}<a href="{% url 'schedule' row.team.pk %}" class="cal-edit">Edit schedule</a>{% endif %}
+            </th>
+            {% for cell in row.cells %}
+              <td>
+                {% for slot in cell %}
+                  <div class="slot"><span class="slot-when">{{ slot.when }}</span><span class="slot-who">{{ slot.who }}</span></div>
+                {% empty %}
+                  <span class="slot-none">Nobody</span>
+                {% endfor %}
+              </td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">You are not on any team yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

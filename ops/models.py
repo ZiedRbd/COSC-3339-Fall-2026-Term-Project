@@ -49,7 +49,7 @@ class TeamMember(models.Model):
 
 # Something the campus supports, such as Wi-Fi or restroom plumbing.
 # A service is usually owned by one team. It can have no team, in which
-# case tickets filed against it cannot be assigned to a responder.
+# case tickets filed against it cannot be assigned to a solver.
 # Criticality is reserved for escalation rules in later sprints.
 class Service(models.Model):
     name = models.CharField(max_length=100)
@@ -65,7 +65,7 @@ class Service(models.Model):
 
 # A ticket filed by a user about a service. On creation it is routed to
 # the team that owns the service and, when someone is on call, assigned
-# to that responder. Escalation and SLA fields are for later sprints.
+# to that solver. Escalation and SLA fields are for later sprints.
 class Incident(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
@@ -79,7 +79,6 @@ class Incident(models.Model):
     STATUS_CHOICES = [
         ("open", "Open"),
         ("assigned", "Assigned"),
-        ("acknowledged", "Acknowledged"),
         ("in_progress", "In Progress"),
         ("resolved", "Resolved"),
         ("closed", "Closed"),
@@ -122,12 +121,12 @@ class IncidentUpdate(models.Model):
         return f"Update on {self.incident}"
 
 
-# One on-call shift. Exactly one responder covers a team between
+# One on-call shift. Exactly one solver covers a team between
 # starts_at and ends_at. The interval is half open: the end instant
 # belongs to the next shift. Only the team lead creates these.
 class Shift(models.Model):
     team = models.ForeignKey(Team, on_delete=models.PROTECT, related_name="shifts")
-    responder = models.ForeignKey(User, on_delete=models.PROTECT, related_name="shifts")
+    solver = models.ForeignKey(User, on_delete=models.PROTECT, related_name="shifts")
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField()
     created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="scheduled_shifts")
@@ -143,4 +142,4 @@ class Shift(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.responder} on call for {self.team}"
+        return f"{self.solver} on call for {self.team}"

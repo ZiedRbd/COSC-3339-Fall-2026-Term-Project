@@ -20,7 +20,7 @@ python manage.py seed
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000. The `seed` command loads three teams, six services, eleven users, and ten incidents.
+Open http://127.0.0.1:8000. The `seed` command loads three teams, seven services, eleven users, and ten incidents.
 
 Local development uses SQLite. No `.env` file is needed; production settings are read from environment variables only when they are present.
 
@@ -42,11 +42,14 @@ COSC-3339-Fall-2026-Term-Project/
 │   ├── views.py                Request handlers
 │   ├── forms.py                Form fields and validation
 │   ├── urls.py                 Application URL routing
-│   ├── tests.py                Automated tests
+│   ├── scheduling.py           Who is on call, schedule validation, assignment
+│   ├── timeline.py             Writes entries to a ticket's timeline
+│   ├── tests/                  Automated tests, one file per purpose
 │   ├── admin.py                Django admin registration
 │   ├── migrations/             Database schema history
 │   └── management/commands/
-│       └── seed.py             Loads demo data
+│       ├── seed.py             Loads demo data
+│       └── seed_shifts.py      Seeds a week of 24/7 on-call shifts
 ├── templates/                  HTML pages
 │   ├── base.html               Shared layout and navigation
 │   ├── home.html
@@ -54,6 +57,8 @@ COSC-3339-Fall-2026-Term-Project/
 │   ├── login.html
 │   ├── register.html
 │   ├── profile.html            Profile, bio, and the user's incidents
+│   ├── calendar.html           Weekly on-call calendar
+│   ├── schedule.html           A team lead's shift editor
 │   └── incidents/
 │       ├── landing.html        Links to file a ticket or view the list
 │       ├── list.html           Active incidents table with the severity filter
@@ -65,7 +70,8 @@ COSC-3339-Fall-2026-Term-Project/
 │   │   ├── components.css      Buttons, badges, forms, and navigation
 │   │   ├── incidents.css       Incident list, detail page, and modals
 │   │   ├── profile.css         Profile page and incident columns
-│   │   └── animations.css      Transitions and entry animations
+│   │   ├── animations.css      Transitions and entry animations
+│   │   └── calendar.css        On-call calendar grid
 │   ├── js/
 │   │   ├── password.js         Show/hide password and live rule checklist
 │   │   ├── incidents.js        Delete confirmation dialog
@@ -117,7 +123,7 @@ A reporter's comments and a solver's notes both appear on the ticket timeline, a
 **Lifecycle.** A ticket moves through five states in order, with reopening allowed from the end:
 
 ```
-Open -> Acknowledged -> In Progress -> Resolved -> Closed
+Open -> Assigned -> In Progress -> Resolved -> Closed
                                           |            |
                                           +--- reopened back to Open ---+
 ```
@@ -125,6 +131,20 @@ Open -> Acknowledged -> In Progress -> Resolved -> Closed
 Only legal moves are accepted; an illegal move (skipping a step, or going backward without reopening) is rejected with a message explaining why. The full diagram is in [`docs/incident-state-machine.puml`](docs/incident-state-machine.puml).
 
 **Timeline.** Each ticket keeps an automatic, non-editable timeline of everything that happens to it: creation, status changes (old to new), severity changes, detail edits (old to new value), comments, and notes. Every entry records who made the change and when. The timeline is reached by opening a ticket from the profile or incident list. It is stored in the `IncidentUpdate` table.
+
+## On-Call Scheduling and Assignment
+
+**Team leads.** Each team has a `lead`, a column on the Team table pointing at a user. It is not a role value: a solver may lead any number of teams, finding a team's lead is one row read, and a lead does not have to be a member of the team. Only the lead can edit a team's schedule or reassign its tickets.
+
+**Shifts.** A shift is one solver covering one team between two instants. The interval is half open: a shift covers `starts_at` up to, but not including, `ends_at`, so the end instant belongs to the next shift. Shifts are edited on the team's schedule page, and every change is checked against the whole future schedule before it is saved. A save is refused, with a message naming the day and the window, when it would leave a gap between now and the last shift, double book a team, put one person on two teams at once, or put a reporter or a non-member on a shift.
+
+**Calendar.** Solvers see a week of cover for every team they are on or lead, one row per team and one column per day. Leads get a link to edit the schedules they own. Reporters and signed-out visitors cannot open it.
+
+**Automatic assignment.** When a ticket is filed, the system looks up who is on call for the team that owns the service at that instant and assigns the ticket to them, moving it from Open to Assigned and recording the assignment on the timeline. When the service has no team, nobody is on call, or the person on call is deactivated, the ticket is still created, stays Open, and the timeline records why.
+
+**Reassignment.** A team lead can hand an active ticket to whoever is on call for the team right now. The timeline records the time, who did it, and the previous and new solver. Assignment and status changes are recorded with timestamps in the `IncidentUpdate` table.
+
+**Seeding.** `python manage.py seed_shifts` fills every team's schedule from now until a week ahead, around the clock, rotating the team's solvers. It replaces current and future shifts only and never changes which ticket belongs to whom. One team's schedule stops at midnight tonight so the no-cover case can be shown.
 
 ## Branching Strategy
 

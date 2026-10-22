@@ -1,7 +1,21 @@
 # ER Diagram — Campus IT Help Desk
 
+    TEAM ||--o{ SHIFT : "has"
+    USER ||--o{ SHIFT : "covers"
+    USER |o--o{ TEAM : "leads"
+
 ```mermaid
 erDiagram
+    SHIFT {
+        int id PK
+        int team_id FK
+        int solver_id FK
+        datetime starts_at
+        datetime ends_at "exclusive, belongs to the next shift"
+        int created_by_id FK
+        datetime created_at
+    }
+
     USER ||--o{ TEAM_MEMBER : "belongs to"
     TEAM ||--o{ TEAM_MEMBER : "has"
     TEAM ||--o{ SERVICE : "owns"
@@ -28,6 +42,7 @@ erDiagram
         int id PK
         string name UK
         string description
+        int lead_id FK \"the team lead, a solver\"
         datetime created_at
     }
 
@@ -57,7 +72,7 @@ erDiagram
         int reported_by_id FK
         int assigned_to_id FK "nullable"
         int assigned_team_id FK "nullable"
-        string status "open, acknowledged, in_progress, resolved, closed"
+        string status "open, assigned, in_progress, resolved, closed"
         string priority
         int escalation_level
         datetime escalated_at "nullable"
@@ -72,10 +87,12 @@ erDiagram
         int id PK
         int incident_id FK
         int author_id FK
-        string update_type "status_change, comment, solver_note, created, edit, severity"
+        string update_type "created, status_change, severity, edit, comment, solver_note, assignment, reassignment, assignment_failed"
         string body
         string old_status "status changes only"
         string new_status "status changes only"
+        int old_assignee_id FK "assignment changes only"
+        int new_assignee_id FK "assignment changes only"
         datetime created_at
     }
 ```
