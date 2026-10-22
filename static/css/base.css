@@ -98,3 +98,12 @@ h1, h2 {
     background: var(--gold);
     color: var(--navy-dark);
 }
+
+/* User-typed text can be one long unbroken string. Wrap it wherever it
+   is shown so it never widens the page. */
+.card, .profile-card, .incident-col, .profile-incident, .team-panel,
+.field-value, .detail-title, .tl-body, .pi-title, .notice, .calendar-table td {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    min-width: 0;
+}

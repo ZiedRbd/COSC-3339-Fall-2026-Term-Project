@@ -276,3 +276,17 @@
     font-variant-numeric: tabular-nums;
     width: 1%;
 }
+
+/* Long unbroken text (a pasted string of digits, a URL) wraps inside its
+   cell instead of stretching the table past the card */
+.incident-table { table-layout: fixed; }
+.incident-table th,
+.incident-table td { overflow-wrap: anywhere; word-break: break-word; }
+.incident-table th:nth-child(1) { width: 44px; }
+.incident-table th:nth-child(2) { width: 20%; }
+.incident-table th:nth-child(3) { width: 16%; }
+.incident-table th:nth-child(5) { width: 86px; }
+.incident-table th:nth-child(6) { width: 96px; }
+.incident-table th:nth-child(8) { width: 110px; }
+.incident-table th:nth-child(9) { width: 150px; }
+.incident-table td.row-actions { white-space: normal; }
