@@ -146,3 +146,38 @@ class ShortFieldLimitTests(TestCase):
         self.assertIn('maxlength="80"', html)
         self.assertIn('maxlength="40"', html)
         self.assertIn('maxlength="20"', html)
+
+
+class ReporterDeleteTests(TestCase):
+    """A reporter can delete their own ticket until a solver has it."""
+
+    def setUp(self):
+        self.reporter = User.objects.create_user(username="r@x.com", email="r@x.com", password=GOOD_PASSWORD,
+                                                 first_name="Rae", last_name="Lee", role="reporter")
+        self.solver = User.objects.create_user(username="s@x.com", email="s@x.com", password=GOOD_PASSWORD,
+                                               first_name="Sam", last_name="Okoro", role="solver")
+        team = Team.objects.create(name="Plumbing")
+        service = Service.objects.create(name="Sinks", owning_team=team)
+        self.open = Incident.objects.create(title="Leak", description="d", service=service,
+                                            reported_by=self.reporter, assigned_team=team, priority="low")
+        self.taken = Incident.objects.create(title="Clog", description="d", service=service,
+                                             reported_by=self.reporter, assigned_team=team, priority="low",
+                                             assigned_to=self.solver, status="assigned")
+        self.client.login(username="r@x.com", password=GOOD_PASSWORD)
+
+    def test_profile_offers_delete_only_for_the_unassigned_ticket(self):
+        html = self.client.get("/profile/").content.decode()
+        self.assertIn(f"/incidents/{self.open.pk}/delete/", html)
+        self.assertNotIn(f"/incidents/{self.taken.pk}/delete/", html)
+        self.assertIn('id="confirm-modal"', html)
+
+    def test_unassigned_ticket_can_be_deleted(self):
+        self.client.post(f"/incidents/{self.open.pk}/delete/")
+        self.open.refresh_from_db()
+        self.assertTrue(self.open.is_deleted)
+
+    def test_assigned_ticket_cannot_be_deleted(self):
+        resp = self.client.post(f"/incidents/{self.taken.pk}/delete/", follow=True)
+        self.taken.refresh_from_db()
+        self.assertFalse(self.taken.is_deleted)
+        self.assertIn("cannot be deleted", resp.content.decode())
