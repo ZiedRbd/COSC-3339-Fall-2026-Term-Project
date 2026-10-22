@@ -18,10 +18,10 @@ View -> View : _can_access_incident:\nreporter, team member, or lead
 View -> DB : SELECT updates for incident 12
 DB --> View : timeline rows
 View --> Browser : Render page with allowed next actions
-Browser --> Solver : Show ticket, timeline,\nand "Move to in progress" button
+Browser --> Solver : Show ticket, timeline,\nand "Move to In Progress" button
 
 == Start work ==
-Solver -> Browser : Click "Move to in progress"
+Solver -> Browser : Click "Move to In Progress"
 Browser -> Nginx : POST /incidents/12/transition/\nnew_status=in_progress
 Nginx -> View : forward request
 View -> DB : SELECT incident 12
@@ -38,7 +38,7 @@ Nginx -> View : forward request
 View -> DB : SELECT incident and updates
 DB --> View : rows
 View --> Browser : Render page
-Browser --> Solver : "Ticket #12 moved to in_progress"\ntimeline shows the change\nnext action is "Move to resolved"
+Browser --> Solver : "Ticket #12 moved to In Progress"\ntimeline shows the change\nnext action is "Move to Resolved"
 
 == Rejected transition ==
 Solver -> Browser : Attempt "Resolve" from Assigned
@@ -47,7 +47,7 @@ Nginx -> View : forward request
 View -> Rules : is "resolved" allowed from "assigned"?
 Rules --> View : rejected
 View --> Browser : 302 redirect with error message
-Browser --> Solver : "Cannot move from assigned\nto resolved"
+Browser --> Solver : "Cannot move from Assigned\nto Resolved"
 
 note over View, DB
   The timeline row is written only after a transition is

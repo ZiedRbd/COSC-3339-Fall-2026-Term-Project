@@ -14,6 +14,13 @@ sudo venv/bin/python manage.py collectstatic --noinput
 sudo systemctl restart campusdesk
 ```
 
+To refresh the demo data, run these before the restart. Both are safe to run again.
+
+```bash
+sudo venv/bin/python manage.py seed
+sudo venv/bin/python manage.py seed_shifts
+```
+
 ## Troubleshooting
 
 ```bash

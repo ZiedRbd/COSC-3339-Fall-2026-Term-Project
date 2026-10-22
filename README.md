@@ -20,7 +20,7 @@ python manage.py seed
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000. The `seed` command loads three teams, seven services, eleven users, and ten incidents.
+Open http://127.0.0.1:8000. The `seed` command loads three teams, seven services, sixteen users (six reporters and ten solvers), and ten incidents. `python manage.py seed_shifts` adds a week of on-call shifts.
 
 Local development uses SQLite. No `.env` file is needed; production settings are read from environment variables only when they are present.
 
@@ -44,6 +44,7 @@ COSC-3339-Fall-2026-Term-Project/
 │   ├── urls.py                 Application URL routing
 │   ├── scheduling.py           Who is on call, schedule validation, assignment
 │   ├── timeline.py             Writes entries to a ticket's timeline
+│   ├── templatetags/status.py  Shows a status by its label
 │   ├── tests/                  Automated tests, one file per purpose
 │   ├── admin.py                Django admin registration
 │   ├── migrations/             Database schema history
@@ -76,7 +77,8 @@ COSC-3339-Fall-2026-Term-Project/
 │   │   ├── password.js         Show/hide password and live rule checklist
 │   │   ├── incidents.js        Delete confirmation dialog
 │   │   ├── filter.js           Severity filtering on the incident list
-│   │   └── transition.js       Confirmation modal for status changes
+│   │   ├── transition.js       Confirmation modal for status changes
+│   │   └── schedule.js         Shift form popup and confirmation on the schedule page
 │   └── images/
 │       └── profile_icon.jpeg   Profile picture
 ├── deploy/
@@ -86,7 +88,8 @@ COSC-3339-Fall-2026-Term-Project/
     ├── ER-DIAGRAM.md           Entity relationship diagram
     ├── er-diagram.puml         Same diagram in PlantUML
     ├── incident-state-machine.puml   Incident lifecycle states and transitions
-    ├── solver-sequence.puml    How a solver acknowledges an assigned incident
+    ├── solver-sequence.puml    How a solver moves an assigned incident forward
+    ├── assignment-sequence.puml  How a filed ticket is assigned to the solver on call
     ├── TECHNOLOGY.md           Technology choices and reasoning
     └── DEPLOYING.md            Steps to release to the server
 ```
@@ -96,15 +99,20 @@ COSC-3339-Fall-2026-Term-Project/
 | Relationship | Type | Implemented via |
 |---|---|---|
 | User ↔ Team | many-to-many | `TeamMember` join table |
-| Team → Service | one-to-many | `Service.owning_team` |
+| Team → Service | one-to-many, optional | `Service.owning_team` |
 | Service → Incident | one-to-many | `Incident.service` |
 | User → Incident (reporter) | one-to-many | `Incident.reported_by` |
 | User → Incident (assignee) | one-to-many, optional | `Incident.assigned_to` |
 | Team → Incident (assigned team) | one-to-many, optional | `Incident.assigned_team` |
 | Incident → IncidentUpdate | one-to-many | `IncidentUpdate.incident` |
 | User → IncidentUpdate (author) | one-to-many | `IncidentUpdate.author` |
+| User → IncidentUpdate (old and new assignee) | one-to-many, optional | `IncidentUpdate.old_assignee`, `IncidentUpdate.new_assignee` |
+| User → Team (lead) | one-to-many, optional | `Team.lead` |
+| Team → Shift | one-to-many | `Shift.team` |
+| User → Shift (solver) | one-to-many | `Shift.solver` |
+| User → Shift (scheduled by) | one-to-many | `Shift.created_by` |
 
-A user may belong to one or more teams. Each service is owned by exactly one team. Each incident is filed against exactly one service by exactly one reporting user, and may optionally be assigned to a handling user and team. Each incident may accumulate any number of updates, each written by one user.
+A user may belong to one or more teams. Each service is owned by at most one team; a ticket against a service with no team cannot be assigned. Each incident is filed against exactly one service by exactly one reporting user, and may optionally be assigned to a handling user and team. Each incident may accumulate any number of updates, each written by one user.
 
 Incidents are never physically deleted. Deleting sets `is_deleted` so the ticket leaves the list but its history is kept.
 
@@ -113,7 +121,7 @@ Full ER diagram: [`docs/ER-DIAGRAM.md`](docs/ER-DIAGRAM.md)
 ## Roles and Incident Lifecycle
 
 **Roles.** Every user is a *reporter* or a *solver* (the `role` field, default `reporter`).
-- **Reporters** file tickets and add comments, and manage their own tickets from their profile page. They cannot change a ticket's status.
+- **Reporters** file tickets and add comments. From their profile page they can edit or delete their own tickets until a solver has one. They cannot change a ticket's status.
 - **Solvers** work the tickets assigned to their team. They move tickets through the lifecycle and add notes. They see the full incident list, filtered to their team, and cannot file tickets.
 
 A reporter's comments and a solver's notes both appear on the ticket timeline, and neither side can edit the other's entries.
@@ -136,7 +144,7 @@ Only legal moves are accepted; an illegal move (skipping a step, or going backwa
 
 **Team leads.** Each team has a `lead`, a column on the Team table pointing at a user. It is not a role value: a solver may lead any number of teams, finding a team's lead is one row read, and a lead does not have to be a member of the team. Only the lead can edit a team's schedule or reassign its tickets.
 
-**Shifts.** A shift is one solver covering one team between two instants. The interval is half open: a shift covers `starts_at` up to, but not including, `ends_at`, so the end instant belongs to the next shift. Shifts are edited on the team's schedule page, and every change is checked against the whole future schedule before it is saved. A save is refused, with a message naming the day and the window, when it would leave a gap between now and the last shift, double book a team, put one person on two teams at once, or put a reporter or a non-member on a shift.
+**Shifts.** A shift is one solver covering one team between two instants. The interval is half open: a shift covers `starts_at` up to, but not including, `ends_at`, so the end instant belongs to the next shift. Shifts are edited on the team's schedule page, and every change is checked against the whole future schedule before it is saved. A save is refused, with a message naming the day and the window, when it would leave a gap between now and the last shift, double book a team, put one person on two teams at once, or put a reporter or a non-member on a shift. A shift that ends before it starts, or that has already ended, is refused by the form.
 
 **Calendar.** Solvers see a week of cover for every team they are on or lead, one row per team and one column per day. Leads get a link to edit the schedules they own. Reporters and signed-out visitors cannot open it.
 
