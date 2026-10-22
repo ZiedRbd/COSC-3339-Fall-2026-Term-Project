@@ -459,6 +459,7 @@ def schedule(request, team_id):
         form = ShiftForm(team)
     return render(request, "schedule.html", {
         "team": team, "form": form, "shifts": _future_shifts(team), "editing": None,
+        "open_form": request.method == "POST",
     })
 
 
@@ -487,6 +488,7 @@ def shift_edit(request, team_id, shift_id):
         form = ShiftForm(team, instance=shift)
     return render(request, "schedule.html", {
         "team": team, "form": form, "shifts": _future_shifts(team), "editing": shift,
+        "open_form": True,
     })
 
 

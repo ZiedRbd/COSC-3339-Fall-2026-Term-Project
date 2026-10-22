@@ -132,3 +132,25 @@ class ShiftFormTests(SchedulePageTests):
         html = self.client.get(self.url).content.decode()
         self.assertIn("shift-modal", html)
         self.assertIn("schedule.js", html)
+
+
+class ShiftPopupTests(SchedulePageTests):
+    """The form sits in a popup: Add opens it empty, Edit opens it filled in, a refused save reopens it."""
+
+    def test_page_has_the_add_button_and_a_closed_popup(self):
+        self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
+        html = self.client.get(self.url).content.decode()
+        self.assertIn('id="add-shift"', html)
+        self.assertIn('id="shift-form-modal" class="modal-overlay" data-add-url="/schedule/%d/" hidden' % self.team.pk, html)
+
+    def test_edit_button_carries_the_shift_values(self):
+        self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
+        html = self.client.get(self.url).content.decode()
+        self.assertIn('data-solver="%d"' % self.tim.pk, html)
+        self.assertIn('data-start-hour="%s"' % timezone.localtime(self.running.starts_at).strftime("%H:%M"), html)
+
+    def test_refused_save_reopens_the_popup_with_the_problem(self):
+        resp = self.add_as("lead@x.com", self.jane, self.base + timedelta(hours=9), self.base + timedelta(hours=17))
+        html = resp.content.decode()
+        self.assertIn('id="shift-form-modal" class="modal-overlay" data-add-url="/schedule/%d/">' % self.team.pk, html)
+        self.assertIn("missing coverage", html.lower())
