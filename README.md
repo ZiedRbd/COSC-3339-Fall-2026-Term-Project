@@ -122,7 +122,7 @@ Full ER diagram: [`docs/ER-DIAGRAM.md`](docs/ER-DIAGRAM.md)
 
 **Roles.** Every user is a *reporter* or a *solver* (the `role` field, default `reporter`).
 - **Reporters** file tickets and add comments. From their profile page they can edit or delete their own tickets until a solver starts work on one. The service a ticket was filed against is fixed once it is routed. They cannot change a ticket's status.
-- **Solvers** work the tickets assigned to their team. They move tickets through the lifecycle and add notes. They see the full incident list, filtered to their team, and cannot file or delete tickets. Once work starts on a ticket, only the assigned solver can edit its details.
+- **Solvers** work the tickets assigned to their team. They move the tickets assigned to them through the lifecycle and add notes; a team lead can move any ticket of the team. They see the full incident list, filtered to their team, and cannot file or delete tickets. Once work starts on a ticket, only the assigned solver can edit its details.
 
 Each role sees a different profile page. A reporter's profile lists the tickets they filed, split into active and closed. A solver's profile lists the teams they belong to and the members of each team.
 
@@ -150,9 +150,9 @@ Only legal moves are accepted; an illegal move (skipping a step, or going backwa
 
 **Calendar.** Solvers see a week of cover for every team they are on or lead, one row per team and one column per day. Leads get a link to edit the schedules they own. Reporters and signed-out visitors cannot open it.
 
-**Automatic assignment.** When a ticket is filed, the system looks up who is on call for the team that owns the service at that instant and assigns the ticket to them, moving it from Open to Assigned and recording the assignment on the timeline. When the service has no team, nobody is on call, or the person on call is deactivated, the ticket is still created, stays Open, and the timeline records why.
+**Automatic assignment.** When a ticket is filed, the system looks up who is on call for the team that owns the service at that instant and assigns the ticket to them, moving it from Open to Assigned and recording the assignment on the timeline. When the service has no team, nobody is on call, or the person on call is deactivated, the ticket is still created, stays Open, and the timeline records why. A waiting ticket is assigned automatically as soon as someone is on call: the check runs whenever a schedule changes, a solver opens the list, the ticket is opened, or shifts are seeded. Reopening a ticket releases its solver and assigns it again the same way.
 
-**Reassignment.** A team lead can hand an active ticket to whoever is on call for the team right now. The timeline records the time, who did it, and the previous and new solver. Assignment and status changes are recorded with timestamps in the `IncidentUpdate` table.
+**Reassignment.** A team lead can hand an active ticket to any other active solver on the team; the one on call is suggested first. The timeline records the time, who did it, and the previous and new solver. Assignment and status changes are recorded with timestamps in the `IncidentUpdate` table.
 
 **Seeding.** `python manage.py seed_shifts` fills every team's schedule from now until a week ahead, around the clock, rotating the team's solvers. It replaces current and future shifts only and never changes which ticket belongs to whom. Pass `--short-team Electrical` to stop one team at midnight tonight so the no-cover case can be shown.
 
