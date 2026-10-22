@@ -15,6 +15,8 @@ from .timeline import log_event
 
 # A ticket leaves Open only by being assigned, automatically on creation or
 # by a team lead. Solvers move it along from there.
+STATUS_LABELS = dict(Incident.STATUS_CHOICES)
+
 ALLOWED_TRANSITIONS = {
     "open": [],
     "assigned": ["in_progress"],
@@ -321,7 +323,7 @@ def incident_transition(request, pk):
 
     # the move must be legal from the current state
     if new_status not in ALLOWED_TRANSITIONS.get(old_status, []):
-        messages.error(request, f"Cannot move from {old_status} to {new_status}")
+        messages.error(request, f"Cannot move from {STATUS_LABELS.get(old_status, old_status)} to {STATUS_LABELS.get(new_status, new_status)}")
         return redirect("incident_detail", pk=pk)
 
     # Apply the change and log it to the timeline
@@ -332,7 +334,7 @@ def incident_transition(request, pk):
         f"Status changed from {old_status} to {new_status}",
         old_status=old_status, new_status=new_status,
     )
-    messages.success(request, f"Ticket #{incident.pk} moved to {new_status}")
+    messages.success(request, f"Ticket #{incident.pk} moved to {STATUS_LABELS.get(new_status, new_status)}")
     return redirect("incident_detail", pk=pk)
 
 

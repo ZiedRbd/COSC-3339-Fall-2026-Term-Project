@@ -34,4 +34,4 @@ The secret key, debug flag, allowed hosts, and database credentials are read fro
 
 ## Front end: Django templates
 
-Pages are rendered server-side with Django templates and styled with a small set of stylesheets split by concern. A base template holds the navigation bar and shared layout; each page extends it. A few small JavaScript files handle the show/hide password toggle, the live password rule checklist, severity filtering on the incident list, and the confirmation dialogs for deleting a ticket and changing its status. No front-end framework was needed for the pages in scope.
+Pages are rendered server-side with Django templates and styled with a small set of stylesheets split by concern. A base template holds the navigation bar and shared layout; each page extends it. A few small JavaScript files handle the show/hide password toggle, the live password rule checklist, severity filtering on the incident list, the confirmation dialogs for deleting a ticket and changing its status, and the shift form popup on the schedule page. No front-end framework was needed for the pages in scope.
