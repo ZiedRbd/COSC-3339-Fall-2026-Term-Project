@@ -83,6 +83,53 @@ input:focus, textarea:focus, select:focus {
     animation: fadeIn 0.35s ease both;
 }
 
+@keyframes popIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Popups fade the backdrop in and pop the window */
+.modal-overlay:not([hidden]) { animation: fadeIn 0.18s ease both; }
+.modal-overlay:not([hidden]) .modal { animation: popIn 0.22s ease-out both; }
+
+/* Table rows arrive one after another and highlight under the pointer */
+.incident-table tbody tr { transition: background 0.15s ease; }
+.incident-table tbody tr:hover { background: #f5f7fb; }
+.incident-table tbody tr:nth-child(1) { animation-delay: 0.03s; }
+.incident-table tbody tr:nth-child(2) { animation-delay: 0.06s; }
+.incident-table tbody tr:nth-child(3) { animation-delay: 0.09s; }
+.incident-table tbody tr:nth-child(4) { animation-delay: 0.12s; }
+.incident-table tbody tr:nth-child(5) { animation-delay: 0.15s; }
+.incident-table tbody tr:nth-child(6) { animation-delay: 0.18s; }
+.incident-table tbody tr:nth-child(7) { animation-delay: 0.21s; }
+.incident-table tbody tr:nth-child(8) { animation-delay: 0.24s; }
+
+/* Timeline entries rise in one after another */
+.timeline li:nth-child(1) { animation-delay: 0.04s; }
+.timeline li:nth-child(2) { animation-delay: 0.08s; }
+.timeline li:nth-child(3) { animation-delay: 0.12s; }
+.timeline li:nth-child(4) { animation-delay: 0.16s; }
+.timeline li:nth-child(5) { animation-delay: 0.20s; }
+.timeline li:nth-child(6) { animation-delay: 0.24s; }
+.timeline li:nth-child(7) { animation-delay: 0.28s; }
+.timeline li:nth-child(8) { animation-delay: 0.32s; }
+
+/* Calendar slots fade in by row and lift under the pointer */
+.calendar-table .slot {
+    animation: fadeInUp 0.35s ease both;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.calendar-table .slot:nth-child(2) { animation-delay: 0.06s; }
+.calendar-table .slot:nth-child(3) { animation-delay: 0.12s; }
+.calendar-table .slot:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.14); }
+
+/* Gold buttons lift a little on hover, settle on press */
+.btn-gold:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); }
+.btn-small:hover { transform: translateY(-1px); }
+
+/* Page titles fade in with their cards */
+.form-header, .detail-head { animation: fadeIn 0.4s ease both; }
+
 /* Turn off animations when the OS reduce-motion setting is on */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
