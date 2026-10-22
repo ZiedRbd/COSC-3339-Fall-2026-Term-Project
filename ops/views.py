@@ -166,6 +166,19 @@ def incident_form(request):
     return render(request, "incidents/form.html", {"form": form})
 
 
+# A ticket is "not started" while Open or Assigned. Assignment is automatic,
+# so the reporter keeps control of their own ticket until a solver actually
+# starts work on it.
+NOT_STARTED = ("open", "assigned")
+
+
+def _can_edit(user, incident):
+    """The assigned solver always may; the reporter may until work starts."""
+    if user.id == incident.assigned_to_id:
+        return True
+    return user.id == incident.reported_by_id and incident.status in NOT_STARTED
+
+
 @login_required
 def incident_edit(request, pk):
     """
@@ -174,14 +187,11 @@ def incident_edit(request, pk):
     unknown or deleted incident.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
-    # While a ticket is assigned, only the assigned solver may edit it.
-    # Before that, only the reporter who filed it may.
-    if incident.assigned_to_id:
-        if request.user.id != incident.assigned_to_id:
-            messages.error(request, "Only the assigned solver can edit this ticket")
-            return redirect("incident_detail", pk=incident.pk)
-    elif request.user.id != incident.reported_by_id:
-        messages.error(request, "Only the reporter can edit a ticket nobody is assigned to")
+    if not _can_edit(request.user, incident):
+        if request.user.id == incident.reported_by_id:
+            messages.error(request, "A ticket being worked on can only be edited by its solver")
+        else:
+            messages.error(request, "Only the reporter or the assigned solver can edit this ticket")
         return redirect("incident_detail", pk=incident.pk)
     if request.method == "POST":
         # The service cannot be changed on edit; force the existing one.
@@ -247,8 +257,8 @@ def incident_delete(request, pk):
     if not _can_access_incident(request.user, incident):
         messages.error(request, "You do not have access to that ticket")
         return redirect("profile")
-    if incident.assigned_to_id:
-        messages.error(request, "A ticket a solver is working on cannot be deleted")
+    if incident.status not in NOT_STARTED:
+        messages.error(request, "A ticket being worked on cannot be deleted")
         return redirect("incident_detail", pk=incident.pk)
     if request.method == "POST":
         incident.is_deleted = True
@@ -367,10 +377,7 @@ def incident_detail(request, pk):
         and incident.status not in ("resolved", "closed")
         and on_call is not None and on_call != incident.assigned_to
     )
-    can_edit = (
-        incident.assigned_to_id == request.user.id
-        or (incident.assigned_to_id is None and incident.reported_by_id == request.user.id)
-    )
+    can_edit = _can_edit(request.user, incident)
     return render(request, "incidents/detail.html", {
         "incident": incident,
         "timeline": timeline,
