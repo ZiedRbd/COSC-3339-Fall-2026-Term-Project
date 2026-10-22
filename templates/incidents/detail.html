@@ -62,9 +62,14 @@
           <a href="{% url 'incident_edit' incident.pk %}" class="btn-gold">Edit details</a>
         {% endif %}
         {% if can_reassign %}
-          <form method="post" action="{% url 'incident_reassign' incident.pk %}">
+          <form method="post" action="{% url 'incident_reassign' incident.pk %}" class="reassign-form">
             {% csrf_token %}
-            <button type="submit" class="btn-gold">Reassign to {{ on_call.first_name }} {{ on_call.last_name }}</button>
+            <select name="solver" aria-label="Solver to reassign to">
+              {% for solver in candidates %}
+                <option value="{{ solver.pk }}"{% if solver == on_call %} selected{% endif %}>{{ solver.first_name }} {{ solver.last_name }}{% if solver == on_call %} (on call now){% endif %}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn-gold">Reassign</button>
           </form>
         {% endif %}
       </div>

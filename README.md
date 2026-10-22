@@ -152,7 +152,7 @@ Only legal moves are accepted; an illegal move (skipping a step, or going backwa
 
 **Automatic assignment.** When a ticket is filed, the system looks up who is on call for the team that owns the service at that instant and assigns the ticket to them, moving it from Open to Assigned and recording the assignment on the timeline. When the service has no team, nobody is on call, or the person on call is deactivated, the ticket is still created, stays Open, and the timeline records why. A waiting ticket is assigned automatically as soon as someone is on call: the check runs whenever a schedule changes, a solver opens the list, the ticket is opened, or shifts are seeded. Reopening a ticket releases its solver and assigns it again the same way.
 
-**Reassignment.** A team lead can hand an active ticket to whoever is on call for the team right now. The timeline records the time, who did it, and the previous and new solver. Assignment and status changes are recorded with timestamps in the `IncidentUpdate` table.
+**Reassignment.** A team lead can hand an active ticket to any other active solver on the team; the one on call is suggested first. The timeline records the time, who did it, and the previous and new solver. Assignment and status changes are recorded with timestamps in the `IncidentUpdate` table.
 
 **Seeding.** `python manage.py seed_shifts` fills every team's schedule from now until a week ahead, around the clock, rotating the team's solvers. It replaces current and future shifts only and never changes which ticket belongs to whom. Pass `--short-team Electrical` to stop one team at midnight tonight so the no-cover case can be shown.
 

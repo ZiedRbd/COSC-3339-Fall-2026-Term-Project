@@ -311,3 +311,7 @@
     text-align: center;
 }
 .incident-table .row-actions .btn-small { margin: 2px 0; }
+
+/* Reassign: a dropdown of the team's solvers next to its button */
+.reassign-form { display: inline-flex; align-items: center; gap: 8px; }
+.reassign-form select { width: auto; min-width: 220px; padding: 8px 10px; font-size: 15px; }

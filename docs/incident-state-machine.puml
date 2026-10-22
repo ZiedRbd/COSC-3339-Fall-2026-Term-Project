@@ -24,8 +24,8 @@ note right of Assigned
   The reporter may still edit or delete
   the ticket here. From In Progress on,
   only the assigned solver edits it.
-  A team lead may hand it to whoever
-  is on call for the team now.
+  A team lead may hand it to any other
+  solver on the team.
 end note
 
 note bottom of Closed

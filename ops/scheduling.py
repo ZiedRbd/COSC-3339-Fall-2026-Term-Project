@@ -1,7 +1,7 @@
 """Who is on call, checking a schedule, and handing tickets to people."""
 from django.utils import timezone
 
-from .models import Incident, Shift, TeamMember
+from .models import Incident, Shift, TeamMember, User
 from .timeline import log_event
 
 
@@ -199,11 +199,17 @@ def validate_schedule(team, proposed, now=None):
     return errors
 
 
+def team_solvers(team):
+    """Active solvers on this team, the people a ticket can be handed to."""
+    return User.objects.filter(teammember__team=team, role="solver", is_active=True).order_by("first_name", "last_name")
+
+
 def reassign(incident, new_solver, by):
     """
-    A team lead hands an active ticket to the solver on call for its team
-    right now. Returns the reason it was refused, or None when it worked.
-    Writes a reassignment entry naming the old and the new solver.
+    A team lead hands an active ticket to another solver on the team. The
+    one on call is the usual choice, but any active member will do.
+    Returns the reason it was refused, or None when it worked. Writes a
+    reassignment entry naming the old and the new solver.
     """
     team = incident.assigned_team
     if team is None:
@@ -212,9 +218,10 @@ def reassign(incident, new_solver, by):
         return f"Only the lead of {team.name} can reassign its tickets"
     if incident.status in ("resolved", "closed"):
         return "Only active tickets can be reassigned"
-    if new_solver is None or who_is_on_call(team) != new_solver:
-        who = _full_name(new_solver) if new_solver else "Nobody"
-        return f"{who} is not on call for {team.name} right now"
+    if new_solver is None:
+        return f"Nobody is on call for {team.name} right now, so pick a solver"
+    if not team_solvers(team).filter(pk=new_solver.pk).exists():
+        return f"{_full_name(new_solver)} is not an active solver on {team.name}"
     old = incident.assigned_to
     if old == new_solver:
         return f"{_full_name(new_solver)} already has this ticket"

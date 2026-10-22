@@ -11,7 +11,7 @@ from django.views.decorators.cache import never_cache
 from .forms import IncidentForm, LoginForm, RegisterForm, ShiftForm
 from .models import Incident, IncidentUpdate, Service, Shift, Team, TeamMember, User
 from .scheduling import (assign_now, assign_on_creation, assign_waiting, is_lead, on_call_roster, reassign,
-                         validate_schedule, who_is_on_call)
+                         team_solvers, validate_schedule, who_is_on_call)
 from .timeline import log_event
 
 # A ticket leaves Open only by being assigned, automatically on creation or
@@ -393,16 +393,19 @@ def incident_detail(request, pk):
     incident.next_states = ALLOWED_TRANSITIONS.get(incident.status, [])
     team = incident.assigned_team
     on_call = who_is_on_call(team) if team else None
+    # The lead may hand an active ticket to any other solver on the team
+    candidates = team_solvers(team).exclude(pk=incident.assigned_to_id) if team else []
     can_reassign = (
         team is not None and is_lead(request.user, team)
         and incident.status not in ("resolved", "closed")
-        and on_call is not None and on_call != incident.assigned_to
+        and len(candidates) > 0
     )
     can_edit = _can_edit(request.user, incident)
     return render(request, "incidents/detail.html", {
         "incident": incident,
         "timeline": timeline,
         "on_call": on_call,
+        "candidates": candidates,
         "can_reassign": can_reassign,
         "can_edit": can_edit,
         "can_transition": _can_transition(request.user, incident),
@@ -435,18 +438,21 @@ def incident_comment(request, pk):
 @login_required
 def incident_reassign(request, pk):
     """
-    A team lead hands the ticket to whoever is on call for its team right
-    now. POST only. The rules live in scheduling.reassign.
+    A team lead hands the ticket to the solver picked in the form, or to
+    whoever is on call when none is picked. POST only. The rules live in
+    scheduling.reassign.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
     if request.method == "POST":
-        on_call = who_is_on_call(incident.assigned_team) if incident.assigned_team_id else None
-        problem = reassign(incident, on_call, request.user)
+        team = incident.assigned_team
+        chosen = User.objects.filter(pk=request.POST.get("solver")).first() if request.POST.get("solver") else None
+        new_solver = chosen or (who_is_on_call(team) if team else None)
+        problem = reassign(incident, new_solver, request.user)
         if problem:
             messages.error(request, problem)
         else:
             messages.success(request, f"Ticket #{incident.pk} reassigned to "
-                                      f"{on_call.first_name} {on_call.last_name}")
+                                      f"{new_solver.first_name} {new_solver.last_name}")
     return redirect("incident_detail", pk=pk)
 
 

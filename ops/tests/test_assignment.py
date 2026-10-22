@@ -93,7 +93,7 @@ class AutoAssignmentTests(TestCase):
 
 
 class ReassignmentTests(TestCase):
-    """A lead moves an active ticket to whoever is on call now, and the timeline records it."""
+    """A lead moves an active ticket to another solver on the team, and the timeline records it."""
 
     def setUp(self):
         self.team = Team.objects.create(name="Plumbing")
@@ -117,9 +117,9 @@ class ReassignmentTests(TestCase):
         Shift.objects.create(team=self.team, solver=self.jane, created_by=self.lead,
                              starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=1))
 
-    def post_as(self, email):
+    def post_as(self, email, solver=None):
         self.client.login(username=email, password=GOOD_PASSWORD)
-        self.client.post(f"/incidents/{self.inc.pk}/reassign/")
+        self.client.post(f"/incidents/{self.inc.pk}/reassign/", {"solver": solver.pk} if solver else {})
         self.inc.refresh_from_db()
 
     def test_lead_reassigns_to_the_solver_on_call(self):
@@ -136,11 +136,32 @@ class ReassignmentTests(TestCase):
         self.post_as("tim@x.com")
         self.assertEqual(self.inc.assigned_to, self.tim)
 
-    def test_nobody_on_call_is_refused(self):
-        """With no shift running there is nobody to give it to."""
+    def test_nobody_on_call_and_nobody_picked_is_refused(self):
+        """With no shift running and no choice made there is nobody to give it to."""
         Shift.objects.all().delete()
         self.post_as("lead@x.com")
         self.assertEqual(self.inc.assigned_to, self.tim)
+
+    def test_lead_can_pick_a_solver_who_is_not_on_call(self):
+        """Any active solver on the team will do, not only the one on call."""
+        bob = User.objects.create_user(username="bob@x.com", email="bob@x.com", password=GOOD_PASSWORD,
+                                       first_name="Bob", last_name="Ray", role="solver")
+        TeamMember.objects.create(user=bob, team=self.team)
+        self.post_as("lead@x.com", bob)
+        self.assertEqual(self.inc.assigned_to, bob)
+
+    def test_someone_off_the_team_is_refused(self):
+        outsider = User.objects.create_user(username="o@x.com", email="o@x.com", password=GOOD_PASSWORD,
+                                            first_name="Out", last_name="Sider", role="solver")
+        self.post_as("lead@x.com", outsider)
+        self.assertEqual(self.inc.assigned_to, self.tim)
+
+    def test_reassign_is_offered_in_progress_too(self):
+        """The dropdown shows as long as the ticket is active and someone else is on the team."""
+        self.inc.status = "in_progress"
+        self.inc.save()
+        self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
+        self.assertIn('class="reassign-form"', self.client.get(f"/incidents/{self.inc.pk}/").content.decode())
 
     def test_closed_ticket_is_refused(self):
         """Only active tickets move."""
@@ -157,12 +178,14 @@ class ReassignmentTests(TestCase):
         self.post_as("lead@x.com")
         self.assertEqual((self.inc.assigned_to, self.inc.status), (self.jane, "assigned"))
 
-    def test_only_the_lead_sees_the_reassign_button(self):
-        """The button names the on-call solver and shows for the lead alone."""
+    def test_only_the_lead_sees_the_reassign_form(self):
+        """The dropdown suggests the on-call solver, leaves out the holder, and shows for the lead alone."""
         self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
-        self.assertIn("Reassign to Jane Okoro", self.client.get(f"/incidents/{self.inc.pk}/").content.decode())
+        html = self.client.get(f"/incidents/{self.inc.pk}/").content.decode()
+        self.assertIn("Jane Okoro (on call now)", html)
+        self.assertNotIn("<option value=\"%d\"" % self.tim.pk, html)
         self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
-        self.assertNotIn("Reassign to", self.client.get(f"/incidents/{self.inc.pk}/").content.decode())
+        self.assertNotIn('class="reassign-form"', self.client.get(f"/incidents/{self.inc.pk}/").content.decode())
 
 
 class AssigneeEditsTests(TestCase):
