@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}Profile{% endblock %}
+{% block extra_js %}
+  <script src="{% static 'js/incidents.js' %}?v=3" defer></script>
+{% endblock %}
 
 
 {% block content %}
@@ -61,7 +64,13 @@
                 </div>
                 <div class="pi-actions">
                   <a href="{% url 'incident_detail' incident.pk %}" class="pi-btn">Details</a>
-                  {% if not incident.assigned_to_id %}<a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a>{% endif %}
+                  {% if not incident.assigned_to_id %}
+                    <a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a>
+                    <form method="post" action="{% url 'incident_delete' incident.pk %}" class="delete-form" style="display:inline">
+                      {% csrf_token %}
+                      <button type="button" class="pi-btn danger" data-title="#{{ incident.pk }} {{ incident.title }}">Delete</button>
+                    </form>
+                  {% endif %}
                 </div>
               </li>
             {% empty %}
@@ -83,7 +92,13 @@
                 </div>
                 <div class="pi-actions">
                   <a href="{% url 'incident_detail' incident.pk %}" class="pi-btn">Details</a>
-                  {% if not incident.assigned_to_id %}<a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a>{% endif %}
+                  {% if not incident.assigned_to_id %}
+                    <a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a>
+                    <form method="post" action="{% url 'incident_delete' incident.pk %}" class="delete-form" style="display:inline">
+                      {% csrf_token %}
+                      <button type="button" class="pi-btn danger" data-title="#{{ incident.pk }} {{ incident.title }}">Delete</button>
+                    </form>
+                  {% endif %}
                 </div>
               </li>
         {% empty %}
@@ -99,9 +114,14 @@
 </section>
 </div>
 
+<div id="confirm-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2>Delete this ticket?</h2>
+    <p id="confirm-title" class="lead"></p>
+    <div class="actions">
+      <button type="button" id="confirm-cancel" class="btn-small">Cancel</button>
+      <button type="button" id="confirm-delete" class="btn-small danger">Delete</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
-
-
-
-
-
