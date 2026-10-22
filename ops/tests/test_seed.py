@@ -16,8 +16,8 @@ class SeedLeadsTests(TestCase):
     def test_seed_assigns_leads_and_three_solvers_per_team(self):
         """Pat leads two teams and is a Plumbing member. Maya leads one and is on no team."""
         call_command("seed", stdout=io.StringIO())
-        pat = User.objects.get(email="pat.diaz@campusdesk.edu")
-        maya = User.objects.get(email="maya.ortiz@campusdesk.edu")
+        pat = User.objects.get(email="pat.diaz.leadsolver@campusdesk.edu")
+        maya = User.objects.get(email="maya.ortiz.leadsolver@campusdesk.edu")
         self.assertEqual(Team.objects.get(name="Plumbing").lead, pat)
         self.assertEqual(Team.objects.get(name="Electrical").lead, pat)
         self.assertEqual(Team.objects.get(name="IT Support").lead, maya)
@@ -68,7 +68,7 @@ class ShiftSeederTests(TestCase):
 
     def test_lead_who_is_not_a_member_gets_no_shifts(self):
         """Maya leads IT Support but is on no team, so she is never on call."""
-        self.assertFalse(Shift.objects.filter(solver__email="maya.ortiz@campusdesk.edu").exists())
+        self.assertFalse(Shift.objects.filter(solver__email="maya.ortiz.leadsolver@campusdesk.edu").exists())
 
     def test_rerun_replaces_shifts_without_duplicates(self):
         """Running it twice leaves the same number of shifts, not double."""
@@ -80,7 +80,7 @@ class ShiftSeederTests(TestCase):
         """A ticket assigned before the rerun stays with its solver after it."""
         it = Team.objects.get(name="IT Support")
         wifi = Service.objects.get(name="Campus Wi-Fi")
-        reporter = User.objects.get(email="demo@campusdesk.edu")
+        reporter = User.objects.get(email="demo.reporter@campusdesk.edu")
         incident = Incident.objects.create(
             title="Wi-Fi down", description="d", service=wifi, reported_by=reporter,
             assigned_team=it, priority="high")
