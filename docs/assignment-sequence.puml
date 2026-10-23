@@ -5,7 +5,7 @@ actor Reporter
 participant "Browser\n(ticket form)" as Browser
 participant "Django view\nincident_form" as View
 participant "IncidentForm" as Form
-participant "scheduling\nassign_on_creation" as Assign
+participant "scheduling\nassign_on_creation -> assign_now" as Assign
 participant "scheduling\nwho_is_on_call" as OnCall
 participant "timeline\nlog_event" as Log
 database "PostgreSQL" as DB
@@ -22,7 +22,7 @@ View -> Assign : assign_on_creation(incident)
 
 Assign -> Assign : team = incident.service.owning_team
 alt service has no owning team
-  Assign -> Log : log_event(..., "assignment_failed",\n"Service has no owning team")
+  Assign -> Log : log_event(..., "assignment_failed",\n"Nobody is on call for <service> right now,\nso this ticket is waiting to be assigned")
   Log -> DB : INSERT IncidentUpdate
   Assign --> View : return (ticket stays Open)
 else team found
@@ -32,7 +32,7 @@ else team found
   alt nobody on call
     OnCall --> Assign : None
     Assign -> DB : incident.save() (assigned_team set)
-    Assign -> Log : log_event(..., "assignment_failed",\n"No solver on call for <team>")
+    Assign -> Log : log_event(..., "assignment_failed",\n"Nobody is on call for <team> right now,\nso this ticket is waiting to be assigned")
     Log -> DB : INSERT IncidentUpdate
     Assign --> View : return (ticket stays Open)
   else solver on call
