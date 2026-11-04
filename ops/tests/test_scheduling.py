@@ -207,3 +207,35 @@ class ValidateScheduleTests(TestCase):
                              starts_at=self.at(10), ends_at=self.at(16))
         errors = validate_schedule(self.team, [self.shift(self.tim, 8, 14), self.shift(self.pat, 14, 20)], self.now)
         self.assertIn("Pat Lee is already on call for HVAC Monday from 10:00 to 16:00", errors)
+
+
+class ShiftLengthAndRestTests(TestCase):
+    """A shift is at most 12 hours and nobody takes two in a row."""
+
+    def setUp(self):
+        self.team = Team.objects.create(name="Plumbing")
+        self.tim = User.objects.create_user(username="tim@x.com", email="tim@x.com", password=GOOD_PASSWORD,
+                                            first_name="Tim", last_name="Diaz", role="solver")
+        self.jane = User.objects.create_user(username="jane@x.com", email="jane@x.com", password=GOOD_PASSWORD,
+                                             first_name="Jane", last_name="Okoro", role="solver")
+        for u in (self.tim, self.jane):
+            TeamMember.objects.create(user=u, team=self.team)
+        self.now = timezone.make_aware(datetime(2026, 10, 19, 8, 0))
+
+    def shift(self, solver, start_h, end_h):
+        at = lambda h: self.now + timedelta(hours=h - 8)
+        return Shift(team=self.team, solver=solver, created_by=solver, starts_at=at(start_h), ends_at=at(end_h))
+
+    def test_twelve_hours_is_the_limit(self):
+        errors = validate_schedule(self.team, [self.shift(self.tim, 8, 21)], self.now)
+        self.assertIn("Tim Diaz's shift on Monday is longer than 12 hours", errors)
+        self.assertEqual(validate_schedule(self.team, [self.shift(self.tim, 8, 20)], self.now), [])
+
+    def test_two_shifts_in_a_row_are_refused(self):
+        errors = validate_schedule(self.team, [self.shift(self.tim, 8, 16), self.shift(self.tim, 16, 24)], self.now)
+        self.assertTrue(any(e.startswith("Tim Diaz cannot take two shifts in a row on Plumbing") for e in errors), errors)
+
+    def test_alternating_solvers_are_fine(self):
+        errors = validate_schedule(self.team, [self.shift(self.tim, 8, 16), self.shift(self.jane, 16, 24),
+                                               self.shift(self.tim, 24, 32)], self.now)
+        self.assertEqual(errors, [])

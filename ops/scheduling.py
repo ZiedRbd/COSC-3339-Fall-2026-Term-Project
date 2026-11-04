@@ -1,7 +1,9 @@
 """Who is on call, checking a schedule, and handing tickets to people."""
+from datetime import timedelta
+
 from django.utils import timezone
 
-from .models import Incident, Shift, TeamMember, User
+from .models import Incident, Shift, TeamMember
 from .timeline import log_event
 
 
@@ -150,13 +152,17 @@ def _problem(what, a, b, from_now=False):
     return f"{what.capitalize()} from {opens} to {b_local:%A} {_clock(b)}"
 
 
+MAX_SHIFT = timedelta(hours=12)
+
+
 def validate_schedule(team, proposed, now=None):
     """
     Check a team's whole future schedule and return the list of problems,
     empty when it is fine. Shifts that already ended are ignored. Cover
     must run from now to the last shift with no gap and no overlap, one
     person may not cover two teams at once, and only solvers who are on
-    the team may take a shift.
+    the team may take a shift. A shift is at most 12 hours and nobody
+    takes two shifts in a row.
     """
     if now is None:
         now = timezone.now()
@@ -170,6 +176,9 @@ def validate_schedule(team, proposed, now=None):
                     key=lambda s: s.starts_at)
 
     for shift in shifts:
+        if shift.ends_at - shift.starts_at > MAX_SHIFT:
+            errors.append(f"{_full_name(shift.solver)}'s shift on {timezone.localtime(shift.starts_at):%A} "
+                          f"is longer than 12 hours")
         if shift.solver.role != "solver":
             errors.append(f"{_full_name(shift.solver)} is a reporter and cannot take a shift")
         if not TeamMember.objects.filter(user=shift.solver, team=team).exists():
@@ -185,6 +194,13 @@ def validate_schedule(team, proposed, now=None):
             errors.append(f"{_full_name(shift.solver)} is already on call for {clash.team.name} "
                           f"{_window(clash.starts_at, clash.ends_at)}")
 
+    # Nobody works two shifts in a row: the person who just finished cannot
+    # be the one who starts the next shift on the same team.
+    for before, after in zip(shifts, shifts[1:]):
+        if before.solver_id == after.solver_id and after.starts_at == before.ends_at:
+            errors.append(f"{_full_name(after.solver)} cannot take two shifts in a row on {team.name} "
+                          f"({_window(before.starts_at, after.ends_at)})")
+
     # Walk forward from now. Each shift should start exactly where the
     # cursor stands: later is a gap, earlier is a double booking. A shift
     # that is running right now started before now, which is fine.
@@ -199,17 +215,12 @@ def validate_schedule(team, proposed, now=None):
     return errors
 
 
-def team_solvers(team):
-    """Active solvers on this team, the people a ticket can be handed to."""
-    return User.objects.filter(teammember__team=team, role="solver", is_active=True).order_by("first_name", "last_name")
-
-
 def reassign(incident, new_solver, by):
     """
-    A team lead hands an active ticket to another solver on the team. The
-    one on call is the usual choice, but any active member will do.
-    Returns the reason it was refused, or None when it worked. Writes a
-    reassignment entry naming the old and the new solver.
+    A team lead hands an active ticket to the solver on call for its team
+    right now, and to nobody else. Returns the reason it was refused, or
+    None when it worked. Writes a reassignment entry naming the old and
+    the new solver.
     """
     team = incident.assigned_team
     if team is None:
@@ -219,9 +230,9 @@ def reassign(incident, new_solver, by):
     if incident.status in ("resolved", "closed"):
         return "Only active tickets can be reassigned"
     if new_solver is None:
-        return f"Nobody is on call for {team.name} right now, so pick a solver"
-    if not team_solvers(team).filter(pk=new_solver.pk).exists():
-        return f"{_full_name(new_solver)} is not an active solver on {team.name}"
+        return f"Nobody is on call for {team.name} right now"
+    if who_is_on_call(team) != new_solver:
+        return f"{_full_name(new_solver)} is not on call for {team.name} right now"
     old = incident.assigned_to
     if old == new_solver:
         return f"{_full_name(new_solver)} already has this ticket"
