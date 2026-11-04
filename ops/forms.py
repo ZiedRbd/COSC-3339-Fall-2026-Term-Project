@@ -158,8 +158,16 @@ class ShiftForm(forms.ModelForm):
     def clean(self):
         data = super().clean()
         starts_at, ends_at = data.get("starts_at"), data.get("ends_at")
-        if starts_at and ends_at and ends_at <= starts_at:
+        if not (starts_at and ends_at):
+            return data
+        # A shift may begin in the hour that is running now, not earlier. A shift
+        # that already started keeps its start when the lead edits something else.
+        this_hour = timezone.now().replace(minute=0, second=0, microsecond=0)
+        original_start = self.instance.starts_at if self.instance.pk else None
+        if ends_at <= starts_at:
             self.add_error("ends_at", "The shift ends before it starts")
-        elif ends_at and ends_at <= timezone.now():
+        elif ends_at <= timezone.now():
             self.add_error("ends_at", "That shift is already over. Shifts can only be added for the future.")
+        elif starts_at < this_hour and starts_at != original_start:
+            self.add_error("starts_at", "A shift cannot start in the past")
         return data
