@@ -87,6 +87,12 @@ class Incident(models.Model):
     priority = models.CharField(max_length=20, default="medium")
     escalation_level = models.IntegerField(default=0)
     escalated_at = models.DateTimeField(null=True, blank=True)
+    # When the escalation stopwatch started: creation, or the last reopen.
+    # The minute timer compares now minus this against the tier's wait.
+    escalation_timer_started_at = models.DateTimeField(null=True, blank=True)
+    # True once every tier of the team's policy has run out. The ticket
+    # is then shown unassigned at the top of the list until someone takes it.
+    is_unassigned_after_escalation = models.BooleanField(default=False)
     sla_due_at = models.DateTimeField(null=True, blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
     # Soft delete flag. Deleted tickets are hidden, never removed.
@@ -121,12 +127,18 @@ class IncidentUpdate(models.Model):
         return f"Update on {self.incident}"
 
 
-# One on-call shift. Exactly one solver covers a team between
-# starts_at and ends_at. The interval is half open: the end instant
-# belongs to the next shift. Only the team lead creates these.
+# One on-call shift. One solver covers a team between starts_at and
+# ends_at. The interval is half open: the end instant belongs to the next
+# shift. Only the team lead creates these. The primary takes tickets
+# first; the secondary takes them once the primary holds three.
 class Shift(models.Model):
+    ON_CALL_ROLE_CHOICES = [
+        ("primary", "Primary"),
+        ("secondary", "Secondary"),
+    ]
     team = models.ForeignKey(Team, on_delete=models.PROTECT, related_name="shifts")
     solver = models.ForeignKey(User, on_delete=models.PROTECT, related_name="shifts")
+    on_call_role = models.CharField(max_length=10, choices=ON_CALL_ROLE_CHOICES, default="primary")
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField()
     created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="scheduled_shifts")
@@ -142,4 +154,68 @@ class Shift(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.solver} on call for {self.team}"
+        return f"{self.solver} {self.on_call_role} on call for {self.team}"
+
+
+# One step of a team's escalation policy. Tier 1 is the on-call solver
+# who first got the ticket. When the solver at a tier has not started
+# work within wait_minutes, the ticket moves to the next tier. The last
+# tier has no wait: reaching it marks the ticket unassigned.
+class EscalationTier(models.Model):
+    ESCALATE_TO_CHOICES = [
+        ("on_call", "The on-call solver"),
+        ("lead", "The team lead"),
+        ("user", "A named solver on the team"),
+        ("administration", "Administration"),
+    ]
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="escalation_tiers")
+    tier_number = models.PositiveIntegerField()
+    escalate_to = models.CharField(max_length=20, choices=ESCALATE_TO_CHOICES)
+    # Only set when escalate_to is "user"
+    escalate_to_user = models.ForeignKey(
+        User, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    # Empty on the last tier only
+    wait_minutes = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["team", "tier_number"]
+        constraints = [
+            models.UniqueConstraint(fields=["team", "tier_number"], name="one_tier_per_number_per_team"),
+            models.CheckConstraint(
+                condition=models.Q(wait_minutes__isnull=True) | models.Q(wait_minutes__gt=0),
+                name="tier_wait_is_positive",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.team} tier {self.tier_number}: {self.get_escalate_to_display()}"
+
+
+# One message to one person about one ticket. The bell counts rows with
+# no read_at. The minute timer emails rows with no emailed_at.
+class Notification(models.Model):
+    EVENT_CHOICES = [
+        ("assigned", "Assigned to you"),
+        ("escalated", "Escalated to you"),
+        ("final_escalation", "Escalation ran out"),
+        ("queued", "Ticket is waiting in the queue"),
+        ("work_started", "Work started on your ticket"),
+        ("resolved", "Your ticket was resolved"),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
+    incident = models.ForeignKey(Incident, on_delete=models.CASCADE, null=True, blank=True)
+    event = models.CharField(max_length=20, choices=EVENT_CHOICES)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+    emailed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["user", "read_at"])]
+
+    def __str__(self):
+        return f"{self.get_event_display()} for {self.user}"

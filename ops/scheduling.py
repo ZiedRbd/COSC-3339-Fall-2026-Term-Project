@@ -21,6 +21,7 @@ def who_is_on_call(team, at=None):
     shift = (
         Shift.objects.filter(
             team=team,
+            on_call_role="primary",
             starts_at__lte=at,
             ends_at__gt=at,
             solver__is_active=True,
@@ -47,6 +48,7 @@ def on_call_roster(team, window_start, window_end):
     return (
         Shift.objects.filter(
             team=team,
+            on_call_role="primary",
             starts_at__lt=window_end,
             ends_at__gt=window_start,
         )

@@ -456,7 +456,10 @@ def incident_reassign(request, pk):
 
 def _future_shifts(team):
     """Shifts still running or yet to come, earliest first."""
-    return Shift.objects.filter(team=team, ends_at__gt=timezone.now()).select_related("solver").order_by("starts_at")
+    return (
+        Shift.objects.filter(team=team, on_call_role="primary", ends_at__gt=timezone.now())
+        .select_related("solver").order_by("starts_at")
+    )
 
 
 def _solver_name(shift):
