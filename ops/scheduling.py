@@ -3,25 +3,29 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from .models import Incident, Shift, TeamMember
+from .models import Incident, Notification, Shift, TeamMember, User
 from .timeline import log_event
 
+# How many unfinished tickets one solver may hold at a time
+MAX_ACTIVE_TICKETS = 3
 
-def who_is_on_call(team, at=None):
+
+def who_is_on_call(team, at=None, on_call_role="primary"):
     """
     The person on call for a team at a given moment, or None if nobody is.
     A shift runs from starts_at up to ends_at, and the ends_at moment
     itself already belongs to the next shift, so a ticket filed at
     exactly 16:00 goes to whoever starts at 16:00. Anyone who is
     deactivated, is not a solver, or is no longer on the team is skipped
-    even if a shift names them.
+    even if a shift names them. Primary by default; ask for the secondary
+    with on_call_role="secondary".
     """
     if at is None:
         at = timezone.now()
     shift = (
         Shift.objects.filter(
             team=team,
-            on_call_role="primary",
+            on_call_role=on_call_role,
             starts_at__lte=at,
             ends_at__gt=at,
             solver__is_active=True,
@@ -35,6 +39,34 @@ def who_is_on_call(team, at=None):
     if shift is None:
         return None
     return shift.solver
+
+
+def who_is_secondary_on_call(team, at=None):
+    """The backup solver for a team at a given moment, or None."""
+    return who_is_on_call(team, at, on_call_role="secondary")
+
+
+def on_call_solvers(team, at=None):
+    """Everyone on call right now, primary first, then secondary. Empty slots skipped."""
+    return [s for s in (who_is_on_call(team, at), who_is_secondary_on_call(team, at)) if s is not None]
+
+
+def active_ticket_count(solver):
+    """How many unfinished tickets this solver holds. Resolved and Closed do not count."""
+    return Incident.objects.filter(
+        assigned_to=solver, status__in=("assigned", "in_progress"), is_deleted=False,
+    ).count()
+
+
+def pick_solver(team, at=None):
+    """
+    Who takes the next ticket: the primary while they hold fewer than
+    MAX_ACTIVE_TICKETS, then the secondary while they do, otherwise None.
+    """
+    for solver in on_call_solvers(team, at):
+        if active_ticket_count(solver) < MAX_ACTIVE_TICKETS:
+            return solver
+    return None
 
 
 def on_call_roster(team, window_start, window_end):
@@ -60,9 +92,10 @@ def on_call_roster(team, window_start, window_end):
 def assign_now(incident, by, at=None):
     """
     Hand an unassigned ticket to whoever is on call for the team that owns
-    its service, and write what happened to the timeline either way. Used
-    when a ticket is filed and when one is reopened. The ticket stays Open
-    and unassigned when the service has no team or nobody is on call.
+    its service and still has room, and write what happened to the timeline
+    either way. Used when a ticket is filed and when one is reopened. The
+    ticket stays Open and unassigned when the service has no team, nobody is
+    on call, or everyone on call already holds MAX_ACTIVE_TICKETS.
     Returns the solver it went to, or None.
     """
     team = incident.service.owning_team
@@ -71,11 +104,16 @@ def assign_now(incident, by, at=None):
                   f"Nobody is on call for {incident.service.name} right now, so this ticket is waiting to be assigned")
         return None
     incident.assigned_team = team
-    solver = who_is_on_call(team, at)
+    solver = pick_solver(team, at)
     if solver is None:
         incident.save()
-        log_event(incident, by, "assignment_failed",
-                  f"Nobody is on call for {team.name} right now, so this ticket is waiting to be assigned")
+        if on_call_solvers(team, at):
+            log_event(incident, by, "assignment_failed",
+                      f"Everyone on call for {team.name} is full, so this ticket is waiting in the queue")
+            _notify_about_queue(team, incident)
+        else:
+            log_event(incident, by, "assignment_failed",
+                      f"Nobody is on call for {team.name} right now, so this ticket is waiting to be assigned")
         return None
     incident.assigned_to = solver
     incident.status = "assigned"
@@ -84,6 +122,28 @@ def assign_now(incident, by, at=None):
               f"Assigned to {_full_name(solver)}, on call for {team.name}",
               new_assignee=solver)
     return solver
+
+
+def _notify_about_queue(team, incident):
+    """
+    A ticket just joined the queue because everyone on call is full. The
+    lead hears about the first one waiting; every superuser hears about
+    the second and each one after it.
+    """
+    waiting = Incident.objects.filter(
+        assigned_team=team, status="open", assigned_to__isnull=True, is_deleted=False,
+    ).count()
+    if waiting == 1 and team.lead is not None:
+        Notification.objects.create(
+            user=team.lead, incident=incident, event="queued",
+            message=f"Everyone on call for {team.name} is full and a ticket is waiting",
+        )
+    elif waiting >= 2:
+        for admin in User.objects.filter(is_superuser=True, is_active=True):
+            Notification.objects.create(
+                user=admin, incident=incident, event="queued",
+                message=f"Everyone on call for {team.name} is full and {waiting} tickets are waiting",
+            )
 
 
 def assign_on_creation(incident):
@@ -97,15 +157,18 @@ def assign_waiting(team, by=None):
     solver on call right now. Runs when a schedule changes, when a solver
     opens the list, when a ticket is opened, and when shifts are seeded, so
     a ticket filed while nobody was on call is picked up as soon as someone
-    is. Quiet when nobody is on call: the ticket already says it is waiting.
-    Returns how many tickets were assigned.
+    is. Oldest ticket first, each one to whoever on call has room, stopping
+    when nobody does. Quiet when it cannot assign: the ticket already says
+    it is waiting. Returns how many tickets were assigned.
     """
-    solver = who_is_on_call(team)
-    if solver is None:
-        return 0
-    waiting = Incident.objects.filter(assigned_team=team, status="open", assigned_to__isnull=True, is_deleted=False)
+    waiting = Incident.objects.filter(
+        assigned_team=team, status="open", assigned_to__isnull=True, is_deleted=False,
+    ).order_by("created_at", "id")
     count = 0
     for incident in waiting:
+        solver = pick_solver(team)
+        if solver is None:
+            break
         incident.assigned_to = solver
         incident.status = "assigned"
         incident.save()
@@ -219,10 +282,11 @@ def validate_schedule(team, proposed, now=None):
 
 def reassign(incident, new_solver, by):
     """
-    A team lead hands an active ticket to the solver on call for its team
-    right now, and to nobody else. Returns the reason it was refused, or
-    None when it worked. Writes a reassignment entry naming the old and
-    the new solver.
+    A team lead hands an active ticket to the primary or secondary solver
+    on call for its team right now, and to nobody else, and only while
+    that solver holds fewer than MAX_ACTIVE_TICKETS. Returns the reason it
+    was refused, or None when it worked. Writes a reassignment entry
+    naming the old and the new solver.
     """
     team = incident.assigned_team
     if team is None:
@@ -233,11 +297,13 @@ def reassign(incident, new_solver, by):
         return "Only active tickets can be reassigned"
     if new_solver is None:
         return f"Nobody is on call for {team.name} right now"
-    if who_is_on_call(team) != new_solver:
+    if new_solver not in on_call_solvers(team):
         return f"{_full_name(new_solver)} is not on call for {team.name} right now"
     old = incident.assigned_to
     if old == new_solver:
         return f"{_full_name(new_solver)} already has this ticket"
+    if active_ticket_count(new_solver) >= MAX_ACTIVE_TICKETS:
+        return f"{_full_name(new_solver)} already holds {MAX_ACTIVE_TICKETS} tickets"
     incident.assigned_to = new_solver
     if incident.status == "open":
         incident.status = "assigned"

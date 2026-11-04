@@ -81,6 +81,8 @@ class ShiftSeederTests(TestCase):
         it = Team.objects.get(name="IT Support")
         wifi = Service.objects.get(name="Campus Wi-Fi")
         reporter = User.objects.get(email="demo.reporter@campusdesk.edu")
+        # Clear the on-call solver's plate so the new ticket is not capped
+        Incident.objects.filter(assigned_team=it, status__in=("assigned", "in_progress")).update(status="resolved")
         incident = Incident.objects.create(
             title="Wi-Fi down", description="d", service=wifi, reported_by=reporter,
             assigned_team=it, priority="high")
