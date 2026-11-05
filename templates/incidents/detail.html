@@ -23,6 +23,10 @@
     {% endfor %}
   {% endif %}
 
+  {% if incident.is_unassigned_after_escalation %}
+    <p class="notice error">Nobody started work on this ticket in time and the escalation policy ran out. It is unassigned and needs attention.</p>
+  {% endif %}
+
   <div class="detail-grid">
     <div class="field"><span class="field-label">Severity</span>
       <span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></div>
@@ -54,7 +58,7 @@
     </div>
   {% endif %}
 
-  {% if can_edit or can_reassign %}
+  {% if can_edit or can_reassign or on_call_holds %}
     <div class="action-bar">
       <span class="field-label">Ticket</span>
       <div class="action-buttons">
@@ -64,13 +68,11 @@
         {% if can_reassign %}
           <form method="post" action="{% url 'incident_reassign' incident.pk %}" class="reassign-form">
             {% csrf_token %}
-            <select name="solver" aria-label="Solver to reassign to">
-              {% for solver in candidates %}
-                <option value="{{ solver.pk }}"{% if solver == on_call %} selected{% endif %}>{{ solver.first_name }} {{ solver.last_name }}{% if solver == on_call %} (on call now){% endif %}</option>
-              {% endfor %}
-            </select>
-            <button type="submit" class="btn-gold">Reassign</button>
+            <button type="submit" class="btn-gold">Reassign to {{ on_call.first_name }} {{ on_call.last_name }} (on call now)</button>
           </form>
+        {% endif %}
+        {% if on_call_holds %}
+          <p class="muted">{{ on_call.first_name }} {{ on_call.last_name }} is on call and already has this ticket</p>
         {% endif %}
       </div>
     </div>
@@ -99,6 +101,8 @@
             <span class="tl-tag assignment">Unassigned</span> {{ entry.body }}
           {% elif entry.update_type == "reassignment" %}
             <span class="tl-tag assignment">Reassigned</span> {{ entry.body }}
+          {% elif entry.update_type == "escalation" %}
+            <span class="tl-tag severity">Escalated</span> {{ entry.body }}
           {% elif entry.update_type == "severity" %}
             <span class="tl-tag severity">Severity</span> {{ entry.body }}
           {% elif entry.update_type == "edit" %}

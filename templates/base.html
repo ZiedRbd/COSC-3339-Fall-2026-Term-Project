@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="{% static 'css/profile.css' %}?v=22">
     <link rel="stylesheet" href="{% static 'css/animations.css' %}?v=21">
     <link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=6">
+    <script src="{% static 'js/notifications.js' %}"></script>
     {% block extra_js %}{% endblock %}
 </head>
 <body class="base-body">
@@ -29,6 +30,34 @@
         </div>
         <div class="nav-user-section">
         {% if user.is_authenticated %}
+            <!-- Notification System Skeleton -->
+            <div class="nav-notification-wrapper">
+                <button type="button" class="nav-notification-btn" id="notificationBtn" aria-label="Notifications">
+                    <svg class="notification-icon" viewBox="0 0 24 24">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                    {% if messages %}
+                        <span class="notification-badge">{{ messages|length }}</span>
+                    {% endif %}
+                </button>
+
+                <div class="notification-dropdown" id="notificationDropdown">
+                    <div class="notification-header">Notifications</div>
+                    <div class="notification-list">
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="notification-item notification-{{ message.tags|default:'info' }}">
+                                    <span class="notification-text">{{ message }}</span>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="notification-empty">No new notifications</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
             <a href="{% url  'profile' %}" class="nav-btn">Profile</a>
             <span class="info">Logged in as: <strong>{{ user.username }}</strong></span>
             <form action="{% url 'logout' %}" method="POST" class="logout-form">

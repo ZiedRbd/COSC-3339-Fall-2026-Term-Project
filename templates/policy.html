@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ team.name }} escalation policy{% endblock %}
+
+{% block content %}
+<div class="card wide">
+  <h1 class="form-header">{{ team.name }}: escalation policy</h1>
+  <p class="lead">A new ticket starts at tier 1 with the solver on call. When the person at a tier has not started work within the wait, the ticket moves to the next tier. Critical tickets wait half as long, high three quarters, low twice as long. After the last tier the ticket is marked unassigned.</p>
+
+  {% if messages %}
+    {% for message in messages %}
+      <p class="notice {{ message.tags }}">{{ message }}</p>
+    {% endfor %}
+  {% endif %}
+
+  <h2 class="section-title">Tiers</h2>
+  {% if tiers %}
+    <table class="incident-table schedule-table">
+      <thead>
+        <tr><th>Tier</th><th>Escalate to</th><th>Wait</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for tier in tiers %}
+          <tr>
+            <td>{{ tier.tier_number }}</td>
+            <td>
+              {% if tier.escalate_to == "user" %}
+                {{ tier.escalate_to_user.first_name }} {{ tier.escalate_to_user.last_name }}
+              {% else %}
+                {{ tier.get_escalate_to_display }}
+              {% endif %}
+            </td>
+            <td>{% if tier.wait_minutes %}{{ tier.wait_minutes }} min{% else %}<span class="muted">No wait, ends the policy</span>{% endif %}</td>
+            <td class="row-actions">
+              <form method="post" style="display:inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="remove">
+                <input type="hidden" name="tier" value="{{ tier.pk }}">
+                <button type="submit" class="btn-small danger">Remove</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">No tiers yet. Tickets for {{ team.name }} will never escalate until you add one.</p>
+  {% endif %}
+
+  <h2 class="section-title">Add tier {{ tiers|length|add:1 }}</h2>
+  <form method="post" class="shift-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="add">
+    {{ form.as_p }}
+    <div class="actions">
+      <button type="submit" class="btn-gold">Add tier</button>
+    </div>
+  </form>
+
+  <a href="{% url 'schedule' team.pk %}" class="back-link">&larr; Back to the schedule</a>
+</div>
+{% endblock %}

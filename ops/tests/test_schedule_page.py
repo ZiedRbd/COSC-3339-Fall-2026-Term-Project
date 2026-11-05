@@ -154,3 +154,54 @@ class ShiftPopupTests(SchedulePageTests):
         html = resp.content.decode()
         self.assertIn('id="shift-form-modal" class="modal-overlay" data-add-url="/schedule/%d/">' % self.team.pk, html)
         self.assertIn("missing coverage", html.lower())
+
+
+class PastStartAndBoundaryMoveTests(SchedulePageTests):
+    """A shift cannot start in the past, and moving a boundary moves the neighbour with it."""
+
+    def test_new_shift_starting_in_the_past_is_refused(self):
+        resp = self.add_as("lead@x.com", self.jane, self.base - timedelta(hours=3), self.base + timedelta(hours=7))
+        self.assertEqual(Shift.objects.count(), 1)
+        self.assertIn("A shift cannot start in the past", resp.content.decode())
+
+    def test_running_shift_keeps_its_past_start_when_edited(self):
+        """Swapping the solver on the running shift is fine even though it started an hour ago."""
+        self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
+        self.client.post(f"/schedule/{self.team.pk}/{self.running.pk}/edit/", {
+            "solver": self.jane.pk, **parts("starts_at", self.running.starts_at), **parts("ends_at", self.running.ends_at)})
+        self.running.refresh_from_db()
+        self.assertEqual(self.running.solver, self.jane)
+
+    def test_moving_a_start_later_pulls_the_previous_shift_along(self):
+        nxt = Shift.objects.create(team=self.team, solver=self.jane, created_by=self.lead,
+                                   starts_at=self.base + timedelta(hours=7), ends_at=self.base + timedelta(hours=15))
+        self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
+        resp = self.client.post(f"/schedule/{self.team.pk}/{nxt.pk}/edit/", {
+            "solver": self.jane.pk, **parts("starts_at", self.base + timedelta(hours=9)),
+            **parts("ends_at", self.base + timedelta(hours=15))}, follow=True)
+        self.running.refresh_from_db()
+        nxt.refresh_from_db()
+        self.assertEqual(self.running.ends_at, self.base + timedelta(hours=9))
+        self.assertEqual(nxt.starts_at, self.base + timedelta(hours=9))
+        self.assertIn("shift now ends at", resp.content.decode())
+
+    def test_moving_an_end_pushes_the_next_shift_along(self):
+        nxt = Shift.objects.create(team=self.team, solver=self.jane, created_by=self.lead,
+                                   starts_at=self.base + timedelta(hours=7), ends_at=self.base + timedelta(hours=15))
+        self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
+        self.client.post(f"/schedule/{self.team.pk}/{self.running.pk}/edit/", {
+            "solver": self.tim.pk, **parts("starts_at", self.running.starts_at),
+            **parts("ends_at", self.base + timedelta(hours=5))})
+        nxt.refresh_from_db()
+        self.assertEqual(nxt.starts_at, self.base + timedelta(hours=5))
+
+    def test_a_move_that_leaves_the_neighbour_no_time_is_refused(self):
+        nxt = Shift.objects.create(team=self.team, solver=self.jane, created_by=self.lead,
+                                   starts_at=self.base + timedelta(hours=7), ends_at=self.base + timedelta(hours=9))
+        self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
+        resp = self.client.post(f"/schedule/{self.team.pk}/{self.running.pk}/edit/", {
+            "solver": self.tim.pk, **parts("starts_at", self.running.starts_at),
+            **parts("ends_at", self.base + timedelta(hours=10))}, follow=True)
+        nxt.refresh_from_db()
+        self.assertEqual(nxt.starts_at, self.base + timedelta(hours=7))
+        self.assertIn("with no time", resp.content.decode())

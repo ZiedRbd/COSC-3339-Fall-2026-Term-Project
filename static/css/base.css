@@ -106,3 +106,106 @@ h1, h2 {
     overflow-wrap: anywhere;
     min-width: 0;
 }
+
+/* ---------- Notifications ---------- */
+.nav-notification-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.nav-notification-btn {
+    background: transparent;
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    border-radius: 4px;
+    padding: 7px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: background 0.15s, color 0.15s;
+}
+
+.nav-notification-btn:hover {
+    background: var(--gold);
+    color: var(--navy-dark);
+}
+
+.notification-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background-color: var(--red);
+    color: var(--white);
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 2px 6px;
+    line-height: 1;
+}
+
+.notification-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    width: 320px;
+    background-color: var(--white);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    z-index: 100;
+    color: var(--ink);
+    overflow: hidden;
+}
+
+.notification-dropdown.active {
+    display: block;
+}
+
+.notification-header {
+    background-color: var(--navy-dark);
+    color: var(--gold);
+    padding: 10px 14px;
+    font-weight: 600;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.notification-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.notification-item:last-child {
+    border-bottom: none;
+}
+
+.notification-item.notification-success { border-left: 4px solid var(--green); }
+.notification-item.notification-error { border-left: 4px solid var(--red); }
+.notification-item.notification-warning { border-left: 4px solid var(--amber); }
+.notification-item.notification-info { border-left: 4px solid var(--navy); }
+
+.notification-empty {
+    padding: 16px;
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+}
+
+.notification-icon {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+}

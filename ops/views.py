@@ -8,10 +8,11 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
-from .forms import IncidentForm, LoginForm, RegisterForm, ShiftForm
-from .models import Incident, IncidentUpdate, Service, Shift, Team, TeamMember, User
+from .forms import EscalationTierForm, IncidentForm, LoginForm, RegisterForm, ShiftForm
+from .models import EscalationTier, Incident, IncidentUpdate, Service, Shift, Team, TeamMember, User
+from .notifications import notify
 from .scheduling import (assign_now, assign_on_creation, assign_waiting, is_lead, on_call_roster, reassign,
-                         team_solvers, validate_schedule, who_is_on_call)
+                         validate_schedule, who_is_on_call)
 from .timeline import log_event
 
 # A ticket leaves Open only by being assigned, automatically on creation or
@@ -126,7 +127,7 @@ def incident_list(request):
         Incident.objects.filter(is_deleted=False)
         .filter(Q(assigned_team_id__in=team_ids) | Q(assigned_team_id__in=led_ids))
         .select_related("service", "reported_by")
-        .order_by("-created_at")
+        .order_by("-is_unassigned_after_escalation", "-created_at")
     )
     for i in incidents:
         i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
@@ -365,6 +366,12 @@ def incident_transition(request, pk):
     )
     if new_status == "open":
         assign_now(incident, request.user)
+    elif new_status == "in_progress":
+        notify(incident.reported_by, incident, "work_started",
+               f"Work has started on your ticket #{incident.pk} ({incident.title})")
+    elif new_status == "resolved":
+        notify(incident.reported_by, incident, "resolved",
+               f"Your ticket #{incident.pk} ({incident.title}) was resolved")
     messages.success(request, f"Ticket #{incident.pk} moved to {STATUS_LABELS.get(new_status, new_status)}")
     return redirect("incident_detail", pk=pk)
 
@@ -393,20 +400,20 @@ def incident_detail(request, pk):
     incident.next_states = ALLOWED_TRANSITIONS.get(incident.status, [])
     team = incident.assigned_team
     on_call = who_is_on_call(team) if team else None
-    # The lead may hand an active ticket to any other solver on the team
-    candidates = team_solvers(team).exclude(pk=incident.assigned_to_id) if team else []
-    can_reassign = (
+    # The lead may hand an active ticket to the solver on call, and only them
+    lead_of_active = (
         team is not None and is_lead(request.user, team)
-        and incident.status not in ("resolved", "closed")
-        and len(candidates) > 0
+        and incident.status not in ("resolved", "closed") and on_call is not None
     )
+    can_reassign = lead_of_active and on_call != incident.assigned_to
+    on_call_holds = lead_of_active and on_call == incident.assigned_to
     can_edit = _can_edit(request.user, incident)
     return render(request, "incidents/detail.html", {
         "incident": incident,
         "timeline": timeline,
         "on_call": on_call,
-        "candidates": candidates,
         "can_reassign": can_reassign,
+        "on_call_holds": on_call_holds,
         "can_edit": can_edit,
         "can_transition": _can_transition(request.user, incident),
     })
@@ -438,15 +445,13 @@ def incident_comment(request, pk):
 @login_required
 def incident_reassign(request, pk):
     """
-    A team lead hands the ticket to the solver picked in the form, or to
-    whoever is on call when none is picked. POST only. The rules live in
-    scheduling.reassign.
+    A team lead hands the ticket to whoever is on call for its team right
+    now. POST only. The rules live in scheduling.reassign.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
     if request.method == "POST":
         team = incident.assigned_team
-        chosen = User.objects.filter(pk=request.POST.get("solver")).first() if request.POST.get("solver") else None
-        new_solver = chosen or (who_is_on_call(team) if team else None)
+        new_solver = who_is_on_call(team) if team else None
         problem = reassign(incident, new_solver, request.user)
         if problem:
             messages.error(request, problem)
@@ -458,7 +463,14 @@ def incident_reassign(request, pk):
 
 def _future_shifts(team):
     """Shifts still running or yet to come, earliest first."""
-    return Shift.objects.filter(team=team, ends_at__gt=timezone.now()).select_related("solver").order_by("starts_at")
+    return (
+        Shift.objects.filter(team=team, on_call_role="primary", ends_at__gt=timezone.now())
+        .select_related("solver").order_by("starts_at")
+    )
+
+
+def _solver_name(shift):
+    return f"{shift.solver.first_name} {shift.solver.last_name}"
 
 
 def _report_pickups(request, count):
@@ -518,17 +530,38 @@ def shift_edit(request, team_id, shift_id):
     denied = _lead_only(request, team)
     if denied:
         return denied
+    original_start, original_end = shift.starts_at, shift.ends_at
     if request.method == "POST":
         form = ShiftForm(team, request.POST, instance=shift)
         if form.is_valid():
             changed = form.save(commit=False)
             others = [s for s in _future_shifts(team) if s.pk != shift.pk]
-            problems = validate_schedule(team, others + [changed])
+            # Moving a start or an end moves the neighbouring shift's boundary
+            # with it, so the schedule stays whole in one save.
+            moved = []
+            if changed.starts_at != original_start:
+                before = next((s for s in others if s.ends_at == original_start), None)
+                if before:
+                    before.ends_at = changed.starts_at
+                    moved.append((before, "ends"))
+            if changed.ends_at != original_end:
+                after = next((s for s in others if s.starts_at == original_end), None)
+                if after:
+                    after.starts_at = changed.ends_at
+                    moved.append((after, "starts"))
+            problems = [f"That would leave {_solver_name(s)} with no time on {timezone.localtime(s.starts_at):%A}"
+                        for s, _ in moved if s.ends_at <= s.starts_at]
+            if not problems:
+                problems = validate_schedule(team, others + [changed])
             if problems:
                 for problem in problems:
                     messages.error(request, problem)
             else:
                 changed.save()
+                for neighbour, edge in moved:
+                    neighbour.save()
+                    when = neighbour.ends_at if edge == "ends" else neighbour.starts_at
+                    messages.info(request, f"{_solver_name(neighbour)}'s shift now {edge} at {timezone.localtime(when):%A %H:%M}")
                 messages.success(request, "Shift updated")
                 _report_pickups(request, assign_waiting(team, request.user))
                 return redirect("schedule", team_id=team.pk)
@@ -609,3 +642,39 @@ def calendar(request):
         "prev": (first_day - timedelta(days=7)).isoformat(),
         "next": (first_day + timedelta(days=7)).isoformat(),
     })
+
+
+@login_required
+def team_policy(request, team_id):
+    """
+    One team's escalation policy: its tiers in order and a form to add the
+    next one. Only the lead gets in. Adding puts the new tier last;
+    removing one renumbers the rest so they stay 1, 2, 3.
+    """
+    team = get_object_or_404(Team, pk=team_id)
+    if not is_lead(request.user, team):
+        messages.error(request, f"Only the lead of {team.name} can edit its escalation policy")
+        return redirect("profile")
+    tiers = list(team.escalation_tiers.select_related("escalate_to_user"))
+    form = EscalationTierForm(team)
+    if request.method == "POST" and request.POST.get("action") == "remove":
+        tier = get_object_or_404(EscalationTier, pk=request.POST.get("tier"), team=team)
+        tier.delete()
+        for number, t in enumerate(team.escalation_tiers.all(), start=1):
+            if t.tier_number != number:
+                t.tier_number = number
+                t.save()
+        messages.success(request, "Tier removed")
+        return redirect("team_policy", team_id=team.pk)
+    if request.method == "POST":
+        form = EscalationTierForm(team, request.POST)
+        if tiers and tiers[-1].escalate_to == "administration":
+            messages.error(request, "The administration tier is the last one. Remove it to add more tiers")
+        elif form.is_valid():
+            tier = form.save(commit=False)
+            tier.team = team
+            tier.tier_number = len(tiers) + 1
+            tier.save()
+            messages.success(request, f"Tier {tier.tier_number} added")
+            return redirect("team_policy", team_id=team.pk)
+    return render(request, "policy.html", {"team": team, "tiers": tiers, "form": form})

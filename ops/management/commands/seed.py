@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from ops.models import User, Team, TeamMember, Service, Incident
+from ops.models import User, Team, TeamMember, Service, Incident, EscalationTier
 from ops.scheduling import assign_on_creation
 from ops.timeline import log_event
 
@@ -25,6 +25,17 @@ class Command(BaseCommand):
             ("IT Support", "Wi-Fi, printing, and classroom technology"),
         ]:
             teams[name], _ = Team.objects.get_or_create(name=name, defaults={"description": desc})
+
+        # Every team starts with the same three-step escalation policy:
+        # the on-call solver has five minutes, then the lead has ten, then
+        # the ticket is marked unassigned. Leads change it on the policy page.
+        for team in teams.values():
+            if not team.escalation_tiers.exists():
+                EscalationTier.objects.bulk_create([
+                    EscalationTier(team=team, tier_number=1, escalate_to="on_call", wait_minutes=5),
+                    EscalationTier(team=team, tier_number=2, escalate_to="lead", wait_minutes=10),
+                    EscalationTier(team=team, tier_number=3, escalate_to="administration", wait_minutes=None),
+                ])
 
         services = {}
         for name, desc, team, crit in [
@@ -172,7 +183,8 @@ class Command(BaseCommand):
                           old_status=prev, new_status=status)
 
         self.stdout.write(self.style.SUCCESS(
-            f"Seeded: {Team.objects.count()} teams, {Service.objects.count()} services, "
+            f"Seeded: {Team.objects.count()} teams, {EscalationTier.objects.count()} escalation tiers, "
+            f"{Service.objects.count()} services, "
             f"{User.objects.filter(role='reporter').count()} reporters, "
             f"{User.objects.filter(role='solver').count()} solvers, "
             f"{Incident.objects.count()} incidents"
