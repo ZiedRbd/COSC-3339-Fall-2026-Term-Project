@@ -1,7 +1,7 @@
 from django import forms
 from django.utils import timezone
 
-from .models import Service, Shift, User
+from .models import EscalationTier, Service, Shift, User
 
 
 class RegisterForm(forms.Form):
@@ -170,4 +170,39 @@ class ShiftForm(forms.ModelForm):
             self.add_error("ends_at", "That shift is already over. Shifts can only be added for the future.")
         elif starts_at < this_hour and starts_at != original_start:
             self.add_error("starts_at", "A shift cannot start in the past")
+        return data
+
+
+class EscalationTierForm(forms.ModelForm):
+    """
+    One step of a team's escalation policy. A named solver must be on the
+    team. Every tier waits a positive number of minutes, except an
+    administration tier, which ends the policy and has no wait.
+    """
+    class Meta:
+        model = EscalationTier
+        fields = ["escalate_to", "escalate_to_user", "wait_minutes"]
+        labels = {"escalate_to": "Escalate to", "escalate_to_user": "Named solver", "wait_minutes": "Wait (minutes)"}
+
+    def __init__(self, team, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.team = team
+        self.fields["escalate_to_user"].queryset = User.objects.filter(
+            teammember__team=team, role="solver", is_active=True).order_by("first_name", "last_name")
+        self.fields["escalate_to_user"].label_from_instance = lambda u: f"{u.first_name} {u.last_name}"
+        self.fields["escalate_to_user"].required = False
+        self.fields["wait_minutes"].required = False
+
+    def clean(self):
+        data = super().clean()
+        kind, user, wait = data.get("escalate_to"), data.get("escalate_to_user"), data.get("wait_minutes")
+        if kind == "user" and user is None:
+            self.add_error("escalate_to_user", "Pick the solver this tier escalates to")
+        if kind != "user":
+            data["escalate_to_user"] = None
+        if kind == "administration":
+            if wait is not None:
+                self.add_error("wait_minutes", "The administration tier ends the policy and has no wait")
+        elif not wait or wait <= 0:
+            self.add_error("wait_minutes", "Wait must be a whole number of minutes above zero")
         return data

@@ -1,0 +1,11 @@
+[Unit]
+Description=CampusDesk escalation check
+After=network.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/campusdesk
+EnvironmentFile=/srv/campusdesk/.env
+ExecStart=/srv/campusdesk/venv/bin/python manage.py escalate

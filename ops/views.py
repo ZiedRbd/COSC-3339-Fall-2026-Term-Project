@@ -8,8 +8,9 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
-from .forms import IncidentForm, LoginForm, RegisterForm, ShiftForm
-from .models import Incident, IncidentUpdate, Service, Shift, Team, TeamMember, User
+from .forms import EscalationTierForm, IncidentForm, LoginForm, RegisterForm, ShiftForm
+from .models import EscalationTier, Incident, IncidentUpdate, Service, Shift, Team, TeamMember, User
+from .notifications import notify
 from .scheduling import (assign_now, assign_on_creation, assign_waiting, is_lead, on_call_roster, reassign,
                          validate_schedule, who_is_on_call)
 from .timeline import log_event
@@ -126,7 +127,7 @@ def incident_list(request):
         Incident.objects.filter(is_deleted=False)
         .filter(Q(assigned_team_id__in=team_ids) | Q(assigned_team_id__in=led_ids))
         .select_related("service", "reported_by")
-        .order_by("-created_at")
+        .order_by("-is_unassigned_after_escalation", "-created_at")
     )
     for i in incidents:
         i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
@@ -365,6 +366,12 @@ def incident_transition(request, pk):
     )
     if new_status == "open":
         assign_now(incident, request.user)
+    elif new_status == "in_progress":
+        notify(incident.reported_by, incident, "work_started",
+               f"Work has started on your ticket #{incident.pk} ({incident.title})")
+    elif new_status == "resolved":
+        notify(incident.reported_by, incident, "resolved",
+               f"Your ticket #{incident.pk} ({incident.title}) was resolved")
     messages.success(request, f"Ticket #{incident.pk} moved to {STATUS_LABELS.get(new_status, new_status)}")
     return redirect("incident_detail", pk=pk)
 
@@ -635,3 +642,39 @@ def calendar(request):
         "prev": (first_day - timedelta(days=7)).isoformat(),
         "next": (first_day + timedelta(days=7)).isoformat(),
     })
+
+
+@login_required
+def team_policy(request, team_id):
+    """
+    One team's escalation policy: its tiers in order and a form to add the
+    next one. Only the lead gets in. Adding puts the new tier last;
+    removing one renumbers the rest so they stay 1, 2, 3.
+    """
+    team = get_object_or_404(Team, pk=team_id)
+    if not is_lead(request.user, team):
+        messages.error(request, f"Only the lead of {team.name} can edit its escalation policy")
+        return redirect("profile")
+    tiers = list(team.escalation_tiers.select_related("escalate_to_user"))
+    form = EscalationTierForm(team)
+    if request.method == "POST" and request.POST.get("action") == "remove":
+        tier = get_object_or_404(EscalationTier, pk=request.POST.get("tier"), team=team)
+        tier.delete()
+        for number, t in enumerate(team.escalation_tiers.all(), start=1):
+            if t.tier_number != number:
+                t.tier_number = number
+                t.save()
+        messages.success(request, "Tier removed")
+        return redirect("team_policy", team_id=team.pk)
+    if request.method == "POST":
+        form = EscalationTierForm(team, request.POST)
+        if tiers and tiers[-1].escalate_to == "administration":
+            messages.error(request, "The administration tier is the last one. Remove it to add more tiers")
+        elif form.is_valid():
+            tier = form.save(commit=False)
+            tier.team = team
+            tier.tier_number = len(tiers) + 1
+            tier.save()
+            messages.success(request, f"Tier {tier.tier_number} added")
+            return redirect("team_policy", team_id=team.pk)
+    return render(request, "policy.html", {"team": team, "tiers": tiers, "form": form})
