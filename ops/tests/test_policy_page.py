@@ -46,7 +46,7 @@ class PolicyPageTests(TestCase):
 
     def test_administration_tier_cannot_have_a_wait(self):
         resp = self.add(escalate_to="administration", wait_minutes=5)
-        self.assertContains(resp, "has no wait")
+        self.assertContains(resp, "Leave the wait empty")
         self.assertEqual(self.tiers(), [])
 
     def test_named_solver_must_be_on_the_team(self):
