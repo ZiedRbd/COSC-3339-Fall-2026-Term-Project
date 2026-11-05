@@ -192,6 +192,8 @@ class EscalationTierForm(forms.ModelForm):
         self.fields["escalate_to_user"].label_from_instance = lambda u: f"{u.first_name} {u.last_name}"
         self.fields["escalate_to_user"].required = False
         self.fields["wait_minutes"].required = False
+        # Let the server, not the browser, explain why -2 is refused
+        self.fields["wait_minutes"].widget.attrs.pop("min", None)
 
     def clean(self):
         data = super().clean()
