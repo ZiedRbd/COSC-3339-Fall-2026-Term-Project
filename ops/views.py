@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
 from .forms import EscalationTierForm, IncidentForm, LoginForm, RegisterForm, ShiftForm
-from .models import EscalationTier, Incident, IncidentUpdate, Service, Shift, Team, TeamMember, User
+from .models import EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team, TeamMember, User
 from .notifications import notify
 from .scheduling import (assign_now, assign_on_creation, assign_waiting, is_lead, on_call_roster, reassign,
                          validate_schedule, who_is_on_call)
@@ -678,3 +678,23 @@ def team_policy(request, team_id):
             messages.success(request, f"Tier {tier.tier_number} added")
             return redirect("team_policy", team_id=team.pk)
     return render(request, "policy.html", {"team": team, "tiers": tiers, "form": form})
+
+
+@login_required
+def notification_open(request, pk):
+    """Clicking a notification marks it read and opens its ticket."""
+    note = get_object_or_404(Notification, pk=pk, user=request.user)
+    if note.read_at is None:
+        note.read_at = timezone.now()
+        note.save()
+    if note.incident_id and not note.incident.is_deleted:
+        return redirect("incident_detail", pk=note.incident_id)
+    return redirect("incidents" if request.user.role == "solver" else "profile")
+
+
+@login_required
+def notifications_read_all(request):
+    """Clears the bell. POST only."""
+    if request.method == "POST":
+        request.user.notifications.filter(read_at__isnull=True).update(read_at=timezone.now())
+    return redirect(request.META.get("HTTP_REFERER") or "home")
