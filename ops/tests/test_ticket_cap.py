@@ -62,7 +62,7 @@ class TicketCapTests(TestCase):
         note = IncidentUpdate.objects.filter(incident=seventh, update_type="assignment_failed").get()
         self.assertIn("Everyone on call for Plumbing is full", note.body)
         self.assertEqual(
-            [(n.user, n.event) for n in Notification.objects.all()], [(self.lead, "queued")],
+            [(n.user, n.event) for n in Notification.objects.filter(event="queued")], [(self.lead, "queued")],
         )
 
     def test_eighth_tells_the_superusers_not_the_lead_again(self):

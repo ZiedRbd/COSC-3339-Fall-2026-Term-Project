@@ -48,6 +48,7 @@
     <p class="empty">No upcoming shifts. Nobody is on call for {{ team.name }}.</p>
   {% endif %}
 
+  <p><a href="{% url 'team_policy' team.pk %}" class="btn-small">Escalation policy</a></p>
   <a href="{% url 'calendar' %}" class="back-link">&larr; Back to calendar</a>
 </div>
 

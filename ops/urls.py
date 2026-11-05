@@ -23,4 +23,5 @@ urlpatterns = [
     path("schedule/<int:team_id>/", views.schedule, name="schedule"),
     path("schedule/<int:team_id>/<int:shift_id>/edit/", views.shift_edit, name="shift_edit"),
     path("schedule/<int:team_id>/<int:shift_id>/delete/", views.shift_delete, name="shift_delete"),
+    path("policy/<int:team_id>/", views.team_policy, name="team_policy"),
 ]

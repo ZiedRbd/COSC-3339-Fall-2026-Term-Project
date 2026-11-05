@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the CampusDesk escalation check every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=5s
+Unit=escalate.service
+
+[Install]
+WantedBy=timers.target

@@ -23,6 +23,10 @@
     {% endfor %}
   {% endif %}
 
+  {% if incident.is_unassigned_after_escalation %}
+    <p class="notice error">Nobody started work on this ticket in time and the escalation policy ran out. It is unassigned and needs attention.</p>
+  {% endif %}
+
   <div class="detail-grid">
     <div class="field"><span class="field-label">Severity</span>
       <span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></div>
@@ -97,6 +101,8 @@
             <span class="tl-tag assignment">Unassigned</span> {{ entry.body }}
           {% elif entry.update_type == "reassignment" %}
             <span class="tl-tag assignment">Reassigned</span> {{ entry.body }}
+          {% elif entry.update_type == "escalation" %}
+            <span class="tl-tag severity">Escalated</span> {{ entry.body }}
           {% elif entry.update_type == "severity" %}
             <span class="tl-tag severity">Severity</span> {{ entry.body }}
           {% elif entry.update_type == "edit" %}
