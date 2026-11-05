@@ -57,7 +57,7 @@ class PolicyPageTests(TestCase):
 
     def test_named_solver_tier_needs_a_person(self):
         resp = self.add(escalate_to="user", wait_minutes=5)
-        self.assertContains(resp, "Pick the solver")
+        self.assertContains(resp, "Pick the person")
 
     def test_nothing_comes_after_administration(self):
         self.add(escalate_to="administration", wait_minutes="")

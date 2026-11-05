@@ -165,7 +165,7 @@ class EscalationTier(models.Model):
     ESCALATE_TO_CHOICES = [
         ("on_call", "The on-call solver"),
         ("lead", "The team lead"),
-        ("user", "A named solver on the team"),
+        ("user", "A specific person on the team"),
         ("administration", "Administration"),
     ]
     team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="escalation_tiers")

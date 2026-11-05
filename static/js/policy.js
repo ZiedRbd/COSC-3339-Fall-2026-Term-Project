@@ -1,5 +1,5 @@
 // The tier form shows only the fields that matter for the chosen target:
-// the solver dropdown only for "a named solver", and no wait for administration.
+// the person dropdown only for "a specific person", and no wait for administration.
 document.addEventListener("DOMContentLoaded", function () {
     const kind = document.getElementById("id_escalate_to");
     const solverRow = document.getElementById("id_escalate_to_user").closest("p");
