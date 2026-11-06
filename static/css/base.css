@@ -220,6 +220,7 @@ h1, h2 {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 8px;
 }
 .nav-icon svg {
     display: block;
