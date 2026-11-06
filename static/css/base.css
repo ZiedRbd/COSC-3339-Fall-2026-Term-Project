@@ -61,6 +61,7 @@ h1, h2 {
 .nav-links {
     display: flex;
     gap: 12px;
+    align-items: center;
 }
 
 .nav-user-section {
@@ -81,7 +82,7 @@ h1, h2 {
 }
 
 .nav-btn {
-    display: inline-block;
+    display: inline-flex;
     background: transparent;
     border: 1px solid var(--gold);
     color: var(--gold);
@@ -92,6 +93,18 @@ h1, h2 {
     border-radius: 4px;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    box-sizing: border-box;
+    line-height: 1;
+}
+.nav-btn svg{
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    display: block;
 }
 
 .nav-btn:hover {
