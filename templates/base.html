@@ -87,10 +87,12 @@
             </div>
 
             <a href="{% url  'profile' %}" class="nav-btn nav-icon">
-                <svg width ="22" height ="22" viewbox = "0 0 24 24"fill="none" stroke="currentColor"
+                <svg width ="22" height ="22" viewBox = "0 0 24 24"fill="none" stroke="currentColor"
          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="8" r="4"/>
-        <path d="M4 21c0-4 4-6 8-6s8 2 8 6"/> Profile </svg>
+        <path d="M4 21c0-4 4-6 8-6s8 2 8 6"/> </svg>
+        Profile
+        </a>
             <span class="info">Logged in as: <strong>{{ user.username }}</strong></span>
             <form action="{% url 'logout' %}" method="POST" class="logout-form">
                 {% csrf_token %}
