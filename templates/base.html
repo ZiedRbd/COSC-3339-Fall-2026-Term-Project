@@ -19,9 +19,28 @@
 <body class="base-body">
     <nav class="navbar">
         <div class="nav-links">
-            <a href="{% url 'home' %}" class="nav-btn">Home</a>
-            <a href="{% url 'services' %}" class="nav-btn">Services</a>
-            <a href="{% url 'landing' %}" class="nav-btn">Incidents</a>
+            <a href="{% url 'home' %}" class="nav-btn nav-icon" title = "Home" aria-label="Home">Home</a>
+            <svg width = "22" height="22" viewbox = "0 0 24 24" fill = "none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 10.5 12 3l9 7.5"/>
+                    <path d="M5 9.5V21h5v-6h4v6h5V9.5"/>
+            </svg>
+        </a>
+            <a href="{% url 'services' %}" class="nav-btn nav-icon" title="services" aria-label="services">Services</a>
+            <svg width="22" height="22"viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14.7 6.3a4 4 0 0 0 5 5L21 13l-8 8-3-3 8-8-1.3-1.3a4 4 0 0 1-5-5L13 2z"/>
+                    <path d="M3 21l6-6"/>
+            </svg>
+        </a>
+            <a href="{% url 'landing' %}" class="nav-btn nav-icon" title="Incidents" aria-label="incidents">Incidents</a>
+            <svg width ="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 3 2 20h20L12 3z"/>
+                    <path d="M12 10v4"/>
+                    <path d="M12 17h.01"/>
+                </svg>
+            </a>
             {% if user.role == "solver" %}
                 <a href="{% url 'calendar' %}" class="nav-btn">Calendar</a>
             {% endif %}
