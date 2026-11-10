@@ -99,8 +99,24 @@
                 <button type="submit" class="nav-btn logout-btn">Log out</button>
             </form>
             {%elif not user.is_authenticated and request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'register'%}
-                <a href="{% url 'login' %}" class="nav-btn">Log in</a>
-                <a href="{% url 'register' %}" class="nav-btn">Register</a>
+                <a href="{% url 'login' %}" class="nav-btn nav-icon">
+                    <svg width="22" height="22" viewBox = "0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                <path d="M10 17l5-5-5-5"/>
+                <path d="M15 12H3"/>
+                </svg>     
+                    Log in
+                </a>
+                <a href="{% url 'register' %}" class="nav-btn nav-icon">
+                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="9" cy="8" r="4"/>
+                <path d="M2 21c0-4 3-6 7-6s7 2 7 6"/>
+                <path d="M19 8v6"/>
+                <path d="M16 11h6"/>
+                </svg>
+                Register</a>
         {% endif %}
         </div>
     </nav>
