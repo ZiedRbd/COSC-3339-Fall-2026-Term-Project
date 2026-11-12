@@ -6,7 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
         navBtns: ".nav-btn:not(.logout-btn)",//all the nav btns except the logout
         bell: ".nav-notification-btn",
         card:".card",
-        cardParts:".card > .form-header, .card>.lead, .card>.actions",
+        cardParts:".card > .form-header, .card >.lead, .card >.actions",
         goldBtns:".btn-gold",
 
     };

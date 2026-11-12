@@ -107,10 +107,10 @@ h1, h2 {
     display: block;
 }
 
-.nav-btn:hover {
+/* .nav-btn:hover {
     background: var(--gold);
     color: var(--navy-dark);
-}
+} */
 
 /* User-typed text can be one long unbroken string. Wrap it wherever it
    is shown so it never widens the page. */
