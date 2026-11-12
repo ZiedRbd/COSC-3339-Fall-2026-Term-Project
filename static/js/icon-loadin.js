@@ -32,7 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
     
         });
-    }
+    
 
 
     element.addEventListener("mouseleave",()=>{
@@ -44,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
 
     });
-
+    }
 const navbar = document.querySelector(SELECTORS.navbar);
 if (navbar){
     navbar.animate(
