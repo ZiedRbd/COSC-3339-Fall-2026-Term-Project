@@ -61,6 +61,7 @@ h1, h2 {
 .nav-links {
     display: flex;
     gap: 12px;
+    align-items: center;
 }
 
 .nav-user-section {
@@ -81,7 +82,7 @@ h1, h2 {
 }
 
 .nav-btn {
-    display: inline-block;
+    display: inline-flex;
     background: transparent;
     border: 1px solid var(--gold);
     color: var(--gold);
@@ -92,12 +93,24 @@ h1, h2 {
     border-radius: 4px;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    box-sizing: border-box;
+    line-height: 1;
+}
+.nav-btn svg{
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    display: block;
 }
 
-.nav-btn:hover {
+/* .nav-btn:hover {
     background: var(--gold);
     color: var(--navy-dark);
-}
+} */
 
 /* User-typed text can be one long unbroken string. Wrap it wherever it
    is shown so it never widens the page. */
@@ -215,4 +228,12 @@ h1, h2 {
     fill: none;
     stroke: currentColor;
     stroke-width: 2;
+}
+.nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.nav-icon svg {
+    display: block;
 }
