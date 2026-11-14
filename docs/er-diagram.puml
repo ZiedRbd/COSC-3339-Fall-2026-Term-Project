@@ -77,6 +77,8 @@ entity "INCIDENT" as incident {
   * priority : varchar = 'medium'
   * escalation_level : int = 0
     escalated_at : datetime
+    escalation_timer_started_at : datetime
+  * is_unassigned_after_escalation : bool = false
     sla_due_at : datetime
     resolved_at : datetime
   * is_deleted : bool = false
@@ -124,6 +126,7 @@ entity "SHIFT" as shift {
   --
   * team_id : int <<FK>>
   * solver_id : int <<FK>>
+  * on_call_role : varchar = 'primary'
   * starts_at : datetime
   * ends_at : datetime
   * created_by_id : int <<FK>>

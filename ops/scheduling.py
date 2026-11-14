@@ -4,7 +4,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Incident, Shift, Team, TeamMember, User
+from .models import EscalationTier, Incident, Shift, Team, TeamMember, User
 from .notifications import notify
 from .timeline import log_event
 
@@ -105,6 +105,9 @@ def assign_now(incident, by, at=None):
                   f"Nobody is on call for {incident.service.name} right now, so this ticket is waiting to be assigned")
         return None
     incident.assigned_team = team
+    # Anything already waiting is older and goes first, in case a slot
+    # opened that nothing has handed out yet
+    assign_waiting(team, skip=incident)
     solver = pick_solver(team, at)
     if solver is None:
         incident.save()
@@ -203,7 +206,7 @@ def assign_on_creation(incident):
     return assign_now(incident, incident.reported_by, incident.created_at)
 
 
-def assign_waiting(team, by=None):
+def assign_waiting(team, by=None, skip=None):
     """
     Every waiting ticket of this team gets another chance at the solvers
     on call right now. Runs every minute from the escalate command, and
@@ -213,11 +216,13 @@ def assign_waiting(team, by=None):
     stopping when nobody does. Quiet when it cannot assign: the ticket
     already says it is waiting. Pass the lead whose schedule change set
     this off as `by`; with nobody, the timeline says it was automatic.
-    Returns how many tickets were assigned.
+    `skip` leaves one ticket out, for the caller that is assigning it
+    itself. Returns how many tickets were assigned.
     """
     how = "Assigned" if by else "Assigned automatically"
+    waiting = _waiting(team).exclude(pk=skip.pk) if skip is not None else _waiting(team)
     count = 0
-    for incident in _waiting(team):
+    for incident in waiting:
         solver = pick_solver(team)
         if solver is None:
             break
@@ -428,9 +433,21 @@ def reassign(incident, new_solver, by):
     _hand_to(incident, new_solver, by, "reassignment",
              f"Reassigned from {_full_name(old) if old else 'nobody'} to {_full_name(new_solver)}",
              "assigned", "was reassigned to you")
-    # The solver who let go may now have room for a ticket that was waiting
-    assign_waiting(team)
+    # The solver who let go may now have room for a ticket that was waiting, on any team they cover
+    assign_all_waiting()
     return None
+
+
+def ensure_policy(team):
+    """
+    Every team has a policy. A team that has none gets the default one:
+    the on-call solver has 5 minutes, then the lead has 10.
+    """
+    if not team.escalation_tiers.exists():
+        EscalationTier.objects.bulk_create([
+            EscalationTier(team=team, tier_number=1, escalate_to="on_call", wait_minutes=5),
+            EscalationTier(team=team, tier_number=2, escalate_to="lead", wait_minutes=10),
+        ])
 
 
 def escalate_due(now=None):
@@ -469,9 +486,8 @@ def _escalate_if_overdue(incident, now):
         incident.escalation_timer_started_at = now
         incident.save(update_fields=["escalation_timer_started_at"])
         return False
+    ensure_policy(incident.assigned_team)
     tiers = list(incident.assigned_team.escalation_tiers.select_related("escalate_to_user").order_by("tier_number"))
-    if not tiers:
-        return False
     # escalation_level counts the tiers the ticket has left behind, so it is
     # the position of the tier it sits at. If the lead has shortened the
     # policy since, a ticket that was further along sits at the last tier.
@@ -521,14 +537,17 @@ def _move_up(incident, tiers, position, minutes, now):
     incident.escalated_at = now
 
     passed = []
+
+    def skipped():
+        if not passed:
+            return ""
+        return f" {'Tiers' if len(passed) > 1 else 'Tier'} {' and '.join(passed)} had nobody available."
+
     for index in range(position + 1, len(tiers)):
         person = _person_at(tiers[index], team, holder)
         if person is not None:
-            skipped = ""
-            if passed:
-                skipped = f" {'Tiers' if len(passed) > 1 else 'Tier'} {' and '.join(passed)} had nobody available."
             _hand_to(incident, person, author, "escalation",
-                     f"{reason}.{skipped} Escalated to tier {index + 1}: {_full_name(person)}",
+                     f"{reason}.{skipped()} Escalated to tier {index + 1}: {_full_name(person)}",
                      "escalated", f"escalated to you at tier {index + 1}", at=now, level=index)
             return
         passed.append(str(index + 1))
@@ -540,9 +559,12 @@ def _move_up(incident, tiers, position, minutes, now):
     incident.escalation_timer_started_at = now
     incident.save()
     log_event(incident, author, "escalation",
-              f"{reason}. Escalation ran out: this ticket is unassigned and needs attention",
+              f"{reason}.{skipped()} Escalation ran out: this ticket is unassigned and needs attention",
               old_assignee=holder)
     for person in _lead_or_admins(team):
+        if is_lead(person, team):
+            action = "Open it and reassign it to a solver on call."
+        else:
+            action = f"{team.name} has no active lead to reassign it."
         notify(person, incident, "final_escalation",
-               f"{_ticket_label(incident)} ran out of escalation tiers and is unassigned. "
-               f"Open it and reassign it to a solver on call.")
+               f"{_ticket_label(incident)} ran out of escalation tiers and is unassigned. {action}")

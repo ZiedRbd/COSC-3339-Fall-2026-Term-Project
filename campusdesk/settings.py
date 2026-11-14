@@ -153,6 +153,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # EMAIL_HOST_PASSWORD are set. Without them the same emails are printed
 # in the terminal, so the site runs with no mail account.
 MAIL_ACCOUNT = os.getenv("EMAIL_HOST_USER", "")
+MAIL_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = MAIL_ACCOUNT or "campusdesk@localhost"
 
 CONSOLE_MAILER = {"BACKEND": "django.core.mail.backends.console.EmailBackend"}
@@ -163,15 +164,15 @@ GMAIL_MAILER = {
         "port": 587,
         "use_tls": True,
         "username": MAIL_ACCOUNT,
-        "password": os.getenv("EMAIL_HOST_PASSWORD", ""),
+        "password": MAIL_PASSWORD,
         # A mail server that does not answer must not hold a request open
-        "timeout": 10,
+        "timeout": 5,
     },
 }
 
 MAILERS = {
     "default": CONSOLE_MAILER,
-    "notifications": GMAIL_MAILER if MAIL_ACCOUNT else CONSOLE_MAILER,
+    "notifications": GMAIL_MAILER if MAIL_ACCOUNT and MAIL_PASSWORD else CONSOLE_MAILER,
 }
 
 # Tests create hundreds of users. The real hasher is deliberately slow, so a

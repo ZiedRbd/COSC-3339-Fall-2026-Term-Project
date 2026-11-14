@@ -120,3 +120,13 @@ class LoginTests(TestCase):
         self.client.post("/logout/")
         response = self.client.get("/incidents/list")
         self.assertEqual(response.status_code, 302)
+
+
+class LongEmailTests(TestCase):
+    def test_an_email_too_long_to_store_is_refused_by_the_form(self):
+        """The address is also the username, which holds 150 characters."""
+        long_email = "a" * 200 + "@example.com"
+        resp = register(self.client, long_email)
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(User.objects.filter(email=long_email).exists())
+        self.assertContains(resp, "150")

@@ -281,3 +281,60 @@ class BellHygieneTests(CapSetup, TestCase):
         self.assertEqual(resp.url, "/")
         resp = self.client.post("/notifications/read-all/", HTTP_REFERER="http://testserver/profile/")
         self.assertEqual(resp.url, "http://testserver/profile/")
+
+
+class SecondRoundTests(CapSetup, TestCase):
+    """What a second look at the queue and the administrator found."""
+
+    def test_the_administrator_can_read_any_ticket_and_do_nothing_else_to_it(self):
+        ticket = self.file(1)[0]
+        self.admin.role = "reporter"
+        self.admin.save()
+        self.client.login(username="admin@x.com", password=GOOD_PASSWORD)
+        self.assertEqual(self.client.get(f"/incidents/{ticket.pk}/").status_code, 200)
+        self.client.post(f"/incidents/{ticket.pk}/delete/")
+        self.client.post(f"/incidents/{ticket.pk}/transition/", {"new_status": "in_progress"})
+        self.client.post(f"/incidents/{ticket.pk}/comment/", {"body": "hello"})
+        self.client.post(f"/incidents/{ticket.pk}/reassign/", {"solver": self.jane.pk})
+        ticket.refresh_from_db()
+        self.assertEqual((ticket.is_deleted, ticket.status, ticket.assigned_to), (False, "assigned", self.tim))
+        self.assertFalse(IncidentUpdate.objects.filter(incident=ticket, update_type="comment").exists())
+
+    def test_a_new_ticket_does_not_jump_ahead_of_tickets_already_waiting(self):
+        """A slot opens with nothing to hand it out. The next ticket filed must not take it."""
+        tickets = self.file(8)
+        Incident.objects.filter(pk=tickets[0].pk).update(status="resolved")
+        newest = self.file(1)[0]
+        for t in tickets:
+            t.refresh_from_db()
+        self.assertEqual(tickets[6].assigned_to, self.tim)
+        self.assertIsNone(tickets[7].assigned_to)
+        self.assertIsNone(newest.assigned_to)
+
+    def test_a_freed_solver_takes_the_waiting_ticket_of_another_team_they_cover(self):
+        """Tim covers Plumbing. Resolving his HVAC ticket frees him, and Plumbing's waiting ticket goes to him."""
+        hvac = Team.objects.create(name="HVAC", lead=self.lead)
+        vents = Service.objects.create(name="Vents", owning_team=hvac)
+        TeamMember.objects.create(user=self.tim, team=hvac)
+        Shift.objects.filter(on_call_role="secondary").delete()
+        old = Incident.objects.create(title="Vent", description="d", service=vents, reported_by=self.reporter,
+                                      assigned_team=hvac, assigned_to=self.tim, status="in_progress")
+        tickets = self.file(3)
+        self.assertEqual(self.holders(tickets), [self.tim, self.tim, None])
+        self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
+        self.client.post(f"/incidents/{old.pk}/transition/", {"new_status": "resolved"})
+        tickets[2].refresh_from_db()
+        self.assertEqual(tickets[2].assigned_to, self.tim)
+
+    def test_an_empty_role_posted_by_hand_is_saved_as_primary(self):
+        from ops.tests.test_schedule_page import parts
+        base = timezone.localtime(timezone.now()).replace(minute=0, second=0, microsecond=0)
+        primary = Shift.objects.get(on_call_role="primary")
+        primary.starts_at, primary.ends_at = base - timedelta(hours=1), base + timedelta(hours=7)
+        primary.save()
+        self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
+        self.client.post(f"/schedule/{self.team.pk}/", {
+            "on_call_role": "", "solver": self.lead.pk,
+            **parts("starts_at", base + timedelta(hours=7)), **parts("ends_at", base + timedelta(hours=15))})
+        self.assertFalse(Shift.objects.filter(on_call_role="").exists())
+        self.assertEqual(Shift.objects.filter(on_call_role="primary").count(), 2)

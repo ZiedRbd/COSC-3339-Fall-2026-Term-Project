@@ -88,8 +88,10 @@ class Incident(models.Model):
     priority = models.CharField(max_length=20, default="medium")
     escalation_level = models.IntegerField(default=0)
     escalated_at = models.DateTimeField(null=True, blank=True)
-    # When the escalation stopwatch started: creation, or the last reopen.
-    # The minute timer compares now minus this against the tier's wait.
+    # When the wait at the current tier began: the moment the ticket was
+    # given to its solver, by assignment, hand-out from the queue,
+    # reassignment, reopening or escalation. The minute timer compares
+    # now minus this against the tier's wait.
     escalation_timer_started_at = models.DateTimeField(null=True, blank=True)
     # True once every tier of the team's policy has run out. The ticket
     # is then shown unassigned at the top of the list until someone takes it.

@@ -1,13 +1,16 @@
-from django.db import migrations, models
+from django.db import migrations
 
 
 def simplify_policies(apps, schema_editor):
     """
     Bring every team's policy to the simpler shape. Tier 1 is always the
-    on-call solver, so every team gets one. Administration tiers go: the
-    policy now ends by itself after its last tier. An on-call tier further
-    down goes too, because the on-call solver already had the ticket. The
-    tiers that stay keep their order and are renumbered 1, 2, 3.
+    on-call solver. Administration tiers go: the policy now ends by itself
+    after its last tier. An on-call tier further down goes too, because
+    the on-call solver already had the ticket. The tiers that stay keep
+    their order and are renumbered 1, 2, 3. A team with no policy gets the
+    default one: the on-call solver has 5 minutes, then the lead has 10.
+    The columns themselves change in the next migration, because
+    PostgreSQL does not alter a table in the transaction that edited its rows.
     """
     Team = apps.get_model("ops", "Team")
     EscalationTier = apps.get_model("ops", "EscalationTier")
@@ -20,6 +23,7 @@ def simplify_policies(apps, schema_editor):
                 kept.append(tier)
         if not kept:
             EscalationTier.objects.create(team=team, tier_number=1, escalate_to="on_call", wait_minutes=5)
+            EscalationTier.objects.create(team=team, tier_number=2, escalate_to="lead", wait_minutes=10)
             continue
         kept[0].escalate_to = "on_call"
         kept[0].escalate_to_user = None
@@ -38,21 +42,4 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunPython(simplify_policies, migrations.RunPython.noop),
-        migrations.AlterField(
-            model_name="escalationtier",
-            name="escalate_to",
-            field=models.CharField(
-                choices=[
-                    ("on_call", "The on-call solver"),
-                    ("lead", "The team lead"),
-                    ("user", "A specific person on the team"),
-                ],
-                max_length=20,
-            ),
-        ),
-        migrations.AlterField(
-            model_name="escalationtier",
-            name="wait_minutes",
-            field=models.PositiveIntegerField(),
-        ),
     ]

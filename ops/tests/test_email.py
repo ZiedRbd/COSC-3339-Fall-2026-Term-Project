@@ -4,6 +4,7 @@ from unittest import mock
 from django.core import mail
 from django.test import TestCase
 
+from ops import notifications
 from ops.models import Incident, Notification, Service, Team, User
 from ops.notifications import notify
 from ops.tests.helpers import GOOD_PASSWORD
@@ -19,6 +20,9 @@ class EmailTests(TestCase):
                                                  first_name="Rae", last_name="Port")
         self.incident = Incident.objects.create(title="Leak", description="x", service=self.service,
                                                 reported_by=self.reporter)
+        # A failed send pauses email for a while. No test may leave that behind.
+        notifications._mail_paused_until = None
+        self.addCleanup(setattr, notifications, "_mail_paused_until", None)
 
     def test_a_notification_writes_the_row_and_sends_one_email_to_that_person(self):
         note = notify(self.tim, self.incident, "assigned", "Ticket #1 was assigned to you")
@@ -55,6 +59,19 @@ class EmailTests(TestCase):
                 note = notify(self.tim, self.incident, "assigned", "Ticket #1 was assigned to you")
         self.assertEqual(Notification.objects.filter(user=self.tim).count(), 1)
         self.assertIsNone(note.emailed_at)
+
+    def test_after_a_failed_send_email_pauses_so_later_requests_are_not_slowed(self):
+        with mock.patch("ops.notifications.send_mail", side_effect=OSError("mail server is down")) as send:
+            with self.assertLogs("ops.notifications", level="ERROR"):
+                notify(self.tim, self.incident, "assigned", "first")
+            notify(self.tim, self.incident, "escalated", "second")
+            notify(self.reporter, self.incident, "resolved", "third")
+        self.assertEqual(send.call_count, 1)
+        self.assertEqual(Notification.objects.count(), 3)
+        # Once the pause is over, email is tried again
+        notifications._mail_paused_until = None
+        notify(self.tim, self.incident, "assigned", "fourth")
+        self.assertEqual(len(mail.outbox), 1)
 
     def test_filing_a_ticket_still_works_when_the_mail_server_is_down(self):
         self.client.login(username="r@x.com", password=GOOD_PASSWORD)

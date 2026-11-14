@@ -140,10 +140,14 @@ class EscalationTests(TestCase):
         self.assertEqual(inc.assigned_to, self.tim)
         self.assertEqual(inc.escalation_level, 0)
 
-    def test_a_team_without_a_policy_never_escalates(self):
+    def test_a_team_without_a_policy_gets_the_default_one_and_escalates(self):
         EscalationTier.objects.all().delete()
-        self.file()
-        self.assertEqual(escalate_due(self.later(600)), 0)
+        inc = self.file()
+        self.assertEqual(escalate_due(self.later(5)), 1)
+        inc.refresh_from_db()
+        self.assertEqual(inc.assigned_to, self.lead)
+        self.assertEqual([(t.escalate_to, t.wait_minutes) for t in self.team.escalation_tiers.all()],
+                         [("on_call", 5), ("lead", 10)])
 
     def test_the_command_reports_how_many_moved(self):
         self.file()
@@ -280,6 +284,43 @@ class EscalationEdgeTests(TestCase):
         self.assertEqual(escalate_due(self.later(600)), 1)
         inc.refresh_from_db()
         self.assertTrue(inc.is_unassigned_after_escalation)
+
+    def test_running_out_names_the_tiers_that_had_nobody(self):
+        bob = self.add_bob()
+        bob.is_active = False
+        bob.save()
+        self.lead.is_active = False
+        self.lead.save()
+        self.policy(("on_call", 5), (bob, 5), ("lead", 10))
+        inc = self.file()
+        escalate_due(self.later(5))
+        self.assertIn("Tiers 2 and 3 had nobody available. Escalation ran out", self.last_entry(inc))
+
+    def test_an_administrator_is_not_told_to_reassign_a_ticket_they_cannot_reassign(self):
+        admin = User.objects.create_superuser(username="admin@x.com", email="admin@x.com", password=GOOD_PASSWORD)
+        inc = self.file()
+        escalate_due(self.later(5))
+        escalate_due(self.later(15))
+        self.assertIn("reassign it to a solver on call",
+                      Notification.objects.get(user=self.lead, event="final_escalation").message)
+        self.assertFalse(Notification.objects.filter(user=admin).exists())
+        self.team.lead = None
+        self.team.save()
+        other = self.file()
+        escalate_due(self.later(5))
+        message = Notification.objects.get(user=admin, event="final_escalation").message
+        self.assertIn("Plumbing has no active lead to reassign it", message)
+        self.assertNotIn("Open it and reassign", message)
+
+    def test_an_edit_made_while_the_timer_runs_does_not_undo_the_escalation(self):
+        """The reporter saves an edit after the ticket moved to the lead. The lead still has it."""
+        inc = self.file()
+        escalate_due(self.later(5))
+        self.client.login(username="r@x.com", password=GOOD_PASSWORD)
+        self.client.post(f"/incidents/{inc.pk}/edit/", {
+            "title": "Leak, worse", "description": "d", "service": self.svc.pk, "priority": "medium"})
+        inc.refresh_from_db()
+        self.assertEqual((inc.title, inc.assigned_to, inc.escalation_level), ("Leak, worse", self.lead, 1))
 
     def test_the_timeline_states_the_wait_the_severity_really_gave(self):
         inc = self.file("high")

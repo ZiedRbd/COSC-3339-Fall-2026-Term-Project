@@ -1,49 +1,59 @@
 @startuml
-title A Filed Ticket Is Assigned to the Solver on Call
+title A Filed Ticket Is Assigned to a Solver on Call
 
 actor Reporter
 participant "Browser\n(ticket form)" as Browser
 participant "Django view\nincident_form" as View
-participant "IncidentForm" as Form
 participant "scheduling\nassign_on_creation -> assign_now" as Assign
-participant "scheduling\nwho_is_on_call" as OnCall
-participant "timeline\nlog_event" as Log
+participant "scheduling\npick_solver" as Pick
+participant "scheduling\n_hand_to" as Hand
+participant "notifications\nnotify" as Notify
 database "PostgreSQL" as DB
 
 Reporter -> Browser : Submit ticket form
 Browser -> View : POST /incidents/form
-View -> Form : IncidentForm(request.POST).is_valid()
-Form --> View : cleaned data
 View -> DB : Incident.objects.create(\nservice, reported_by, priority, ...\nassigned_team = service.owning_team)
 DB --> View : incident (status = open)
-View -> Log : log_event(incident, reporter, "created", ...)
-Log -> DB : INSERT IncidentUpdate
+View -> DB : INSERT IncidentUpdate ("created")
 View -> Assign : assign_on_creation(incident)
 
-Assign -> Assign : team = incident.service.owning_team
 alt service has no owning team
-  Assign -> Log : log_event(..., "assignment_failed",\n"Nobody is on call for <service> right now,\nso this ticket is waiting to be assigned")
-  Log -> DB : INSERT IncidentUpdate
-  Assign --> View : return (ticket stays Open)
+  Assign -> DB : INSERT IncidentUpdate ("assignment_failed",\n"Nobody is on call for <service> right now")
+  Assign --> View : ticket stays Open
 else team found
-  Assign -> OnCall : who_is_on_call(team, incident.created_at)
-  OnCall -> DB : SELECT Shift WHERE team = team\nAND starts_at <= at AND ends_at > at\nAND solver.is_active AND solver.role = "solver"\nAND solver is a TeamMember\nORDER BY starts_at, id LIMIT 1
-  DB --> OnCall : shift row, or none
+  Assign -> Assign : assign_waiting(team, skip = this ticket)\nolder waiting tickets go first
+  Assign -> Pick : pick_solver(team, incident.created_at)
+  Pick -> DB : SELECT the primary shift running now,\nthen the secondary shift running now
+  Pick -> DB : COUNT each one's tickets that are\nAssigned or In Progress
+  Pick --> Assign : the primary if they hold fewer than 3,\nelse the secondary if they do, else None
+
   alt nobody on call
-    OnCall --> Assign : None
-    Assign -> DB : incident.save() (assigned_team set)
-    Assign -> Log : log_event(..., "assignment_failed",\n"Nobody is on call for <team> right now,\nso this ticket is waiting to be assigned")
-    Log -> DB : INSERT IncidentUpdate
-    Assign --> View : return (ticket stays Open)
-  else solver on call
-    OnCall --> Assign : shift.solver
-    Assign -> DB : incident.assigned_to = solver\nincident.status = "assigned"\nincident.save()
-    Assign -> Log : log_event(..., "assignment",\n"Assigned to <solver>, on call for <team>",\nnew_assignee = solver)
-    Log -> DB : INSERT IncidentUpdate (timestamp)
-    Assign --> View : return
+    Assign -> DB : INSERT IncidentUpdate ("assignment_failed",\n"Nobody is on call for <team> right now")
+    Assign --> View : ticket stays Open
+  else everyone on call holds 3
+    Assign -> DB : INSERT IncidentUpdate ("assignment_failed",\n"Everyone on call for <team> is full,\nso this ticket is waiting in the queue")
+    Assign -> Notify : first ticket waiting: the team lead\nsecond and later: the administrators
+    Notify -> DB : INSERT Notification ("queued")
+    Notify -> Notify : send the same words by email
+    Assign --> View : ticket stays Open
+  else a solver has room
+    Assign -> Hand : _hand_to(incident, solver, ...)
+    Hand -> DB : UPDATE incident SET assigned_to = solver,\nstatus = assigned, escalation_level = 0,\nescalation_timer_started_at = now
+    Hand -> DB : INSERT IncidentUpdate ("assignment",\n"Assigned to <solver>, on call for <team>")
+    Hand -> Notify : notify(solver, incident, "assigned",\nticket number, service, severity, what to do)
+    Notify -> DB : INSERT Notification
+    Notify -> Notify : send the same words by email
+    Hand --> View : assigned
   end
 end
 
-View --> Browser : 302 redirect to the incident list
+View --> Browser : 302 redirect
 Browser --> Reporter : "Ticket #41 created"
+
+note over Assign, DB
+  A waiting ticket is handed out, oldest first, as soon as
+  a solver on call has room: every minute by the escalate
+  command, and right after a ticket is resolved, closed,
+  deleted or reassigned, or a schedule changes.
+end note
 @enduml

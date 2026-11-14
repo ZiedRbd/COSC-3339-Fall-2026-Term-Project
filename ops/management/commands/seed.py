@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from ops.models import User, Team, TeamMember, Service, Incident, EscalationTier
-from ops.scheduling import assign_on_creation
+from ops.scheduling import assign_on_creation, ensure_policy
 from ops.timeline import log_event
 
 PASSWORD = "Demo!Pass1"
@@ -31,11 +31,7 @@ class Command(BaseCommand):
         # solver has five minutes, then the lead has ten, then the ticket
         # is marked unassigned. Leads change it on the policy page.
         for team in teams.values():
-            if not team.escalation_tiers.exists():
-                EscalationTier.objects.bulk_create([
-                    EscalationTier(team=team, tier_number=1, escalate_to="on_call", wait_minutes=5),
-                    EscalationTier(team=team, tier_number=2, escalate_to="lead", wait_minutes=10),
-                ])
+            ensure_policy(team)
 
         services = {}
         for name, desc, team, crit in [

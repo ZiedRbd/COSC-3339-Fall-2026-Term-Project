@@ -26,8 +26,11 @@ class PolicyPageTests(TestCase):
         self.team.save()
         self.url = f"/policy/{self.team.pk}/"
         self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
-        # Opening the page gives the team its tier 1
+        # Opening the page gives a team with no policy the default one. The
+        # tests below start from tier 1 alone.
         self.client.get(self.url)
+        self.default = self.tiers()
+        self.team.escalation_tiers.filter(tier_number__gt=1).delete()
 
     def add(self, target, wait):
         return self.client.post(self.url, {"action": "add", "target": target, "wait_minutes": wait}, follow=True)
@@ -52,8 +55,8 @@ class PolicyPageTests(TestCase):
 
     # ---- the shape of a policy
 
-    def test_every_team_starts_with_the_on_call_solver_as_tier_one(self):
-        self.assertEqual(self.tiers(), [(1, "on_call", None, 5)])
+    def test_a_team_with_no_policy_gets_the_default_one(self):
+        self.assertEqual(self.default, [(1, "on_call", None, 5), (2, "lead", None, 10)])
         self.assertContains(self.client.get(self.url), "On-call solver")
 
     def test_lead_builds_a_policy_with_a_person_and_a_role(self):
@@ -91,6 +94,13 @@ class PolicyPageTests(TestCase):
             self.assertContains(resp, WAIT_ERROR, count=1)
             self.assertNotContains(resp, "greater than or equal to")
         self.assertEqual(len(self.tiers()), 1)
+
+    def test_only_plain_digits_are_a_whole_number(self):
+        for wait in ("1_0", "+5", "5.0", "\uff15"):
+            self.assertContains(self.add("lead", wait), WAIT_ERROR, count=1, msg_prefix=repr(wait))
+        self.assertEqual(len(self.tiers()), 1)
+        self.add("lead", " 007 ")
+        self.assertEqual(self.tiers()[-1], (2, "lead", None, 7))
 
     def test_a_wait_longer_than_a_day_is_refused(self):
         self.assertContains(self.add("lead", 1441), "at most 1440")
@@ -164,6 +174,57 @@ class PolicyPageTests(TestCase):
             self.assertEqual(resp.status_code, 404, value)
         self.assertTrue(EscalationTier.objects.filter(pk=foreign.pk).exists())
 
+    def test_a_post_with_no_action_or_an_unknown_one_changes_nothing(self):
+        for action in (None, "", "delete-everything"):
+            data = {"target": "lead", "wait_minutes": 5}
+            if action is not None:
+                data["action"] = action
+            self.client.post(self.url, data)
+        self.assertEqual(len(self.tiers()), 1)
+
+    def test_a_new_tier_takes_the_number_after_the_last_one_even_across_a_gap(self):
+        EscalationTier.objects.create(team=self.team, tier_number=5, escalate_to="lead", wait_minutes=10)
+        self.add(self.person(self.tim), 5)
+        self.assertEqual([t[0] for t in self.tiers()], [1, 5, 6])
+
+    def test_a_row_the_page_could_not_have_made_still_renders(self):
+        """A later tier saved as on-call, or as a person with nobody named, shows with nothing chosen."""
+        EscalationTier.objects.create(team=self.team, tier_number=2, escalate_to="on_call", wait_minutes=5)
+        EscalationTier.objects.create(team=self.team, tier_number=3, escalate_to="user", wait_minutes=5)
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_removing_a_tier_keeps_waiting_tickets_in_their_place(self):
+        """
+        On call, Tim, the lead. One ticket is with Tim and one with the lead when Tim's tier is
+        removed. Tim's ticket must still go to the lead next, and the lead's must still be the last step.
+        """
+        from datetime import timedelta
+        from django.utils import timezone
+        from ops.models import Incident, Service
+        from ops.scheduling import escalate_due
+        self.add(self.person(self.tim), 5)
+        self.add("lead", 10)
+        service = Service.objects.create(name="Pipes", owning_team=self.team)
+        now = timezone.now()
+
+        def ticket(holder, level):
+            return Incident.objects.create(
+                title="Leak", description="d", service=service, reported_by=self.outsider, assigned_team=self.team,
+                assigned_to=holder, status="assigned", escalation_level=level, escalation_timer_started_at=now)
+        with_tim, with_lead = ticket(self.tim, 1), ticket(self.lead, 2)
+        self.remove(2)
+        with_tim.refresh_from_db()
+        with_lead.refresh_from_db()
+        self.assertEqual((with_tim.escalation_level, with_lead.escalation_level), (0, 1))
+        escalate_due(now + timedelta(minutes=5))
+        with_tim.refresh_from_db()
+        with_lead.refresh_from_db()
+        self.assertEqual(with_tim.assigned_to, self.lead)
+        self.assertEqual((with_lead.assigned_to, with_lead.status), (self.lead, "assigned"))
+        escalate_due(now + timedelta(minutes=10))
+        with_lead.refresh_from_db()
+        self.assertTrue(with_lead.is_unassigned_after_escalation)
+
     def test_a_get_never_changes_the_policy(self):
         self.add("lead", 10)
         tier = self.team.escalation_tiers.get(tier_number=2)
@@ -214,4 +275,11 @@ class PolicyMigrationTests(TestCase):
                     for t in team.escalation_tiers.all()]
         self.assertEqual(shape(full), [(1, "on_call", None, 5), (2, "lead", None, 12)])
         self.assertEqual(shape(odd), [(1, "on_call", None, 7)])
-        self.assertEqual(shape(empty), [(1, "on_call", None, 5)])
+        self.assertEqual(shape(empty), [(1, "on_call", None, 5), (2, "lead", None, 10)])
+
+    def test_the_rows_and_the_columns_change_in_separate_migrations(self):
+        """PostgreSQL refuses to alter a table in the transaction that edited its rows."""
+        data = import_module("ops.migrations.0010_simpler_escalation_policy").Migration
+        schema = import_module("ops.migrations.0011_tier_fields_for_simpler_policy").Migration
+        self.assertEqual([type(op).__name__ for op in data.operations], ["RunPython"])
+        self.assertEqual({type(op).__name__ for op in schema.operations}, {"AlterField"})

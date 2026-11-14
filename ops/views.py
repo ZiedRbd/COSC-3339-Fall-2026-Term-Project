@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Prefetch, Q
+from django.db.models import F, Prefetch, Q
 from django.http import Http404
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -14,8 +14,9 @@ from django.views.decorators.cache import never_cache
 from .forms import EscalationTierForm, IncidentForm, LoginForm, RegisterForm, ShiftForm
 from .models import EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team, TeamMember, User
 from .notifications import notify
-from .scheduling import (MAX_ACTIVE_TICKETS, active_ticket_count, assign_now, assign_on_creation,
-                         assign_waiting, is_lead, on_call_roster, on_call_solvers, reassign,
+from .scheduling import (MAX_ACTIVE_TICKETS, active_ticket_count, assign_all_waiting, assign_now,
+                         assign_on_creation, assign_waiting, ensure_policy, is_lead, on_call_roster,
+                         on_call_solvers, reassign,
                          validate_schedule, validate_secondary, who_is_on_call, who_is_secondary_on_call)
 from .timeline import log_event
 
@@ -199,13 +200,15 @@ def _can_transition(user, incident):
 
 
 @login_required
+@transaction.atomic
 def incident_edit(request, pk):
     """
     GET shows the form pre-filled with the incident's current values.
     POST saves the changes and returns to the list. Returns 404 for an
-    unknown or deleted incident.
+    unknown or deleted incident. The ticket is locked while it is saved,
+    so an edit cannot undo an escalation that happens at the same moment.
     """
-    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    incident = get_object_or_404(Incident.objects.select_for_update(of=("self",)), pk=pk, is_deleted=False)
     if not _can_edit(request.user, incident):
         if request.user.id == incident.reported_by_id:
             messages.error(request, "A ticket being worked on can only be edited by its solver")
@@ -263,12 +266,13 @@ def incident_edit(request, pk):
 
 
 @login_required
+@transaction.atomic
 def incident_delete(request, pk):
     """
     Soft delete. Sets is_deleted so the ticket leaves the list while the
     row and its history are kept. Only responds to POST.
     """
-    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    incident = get_object_or_404(Incident.objects.select_for_update(of=("self",)), pk=pk, is_deleted=False)
     # Solvers work tickets, they do not remove them. Only the reporter deletes.
     if request.user.role == "solver":
         messages.error(request, "Solvers cannot delete tickets")
@@ -283,9 +287,8 @@ def incident_delete(request, pk):
         incident.is_deleted = True
         incident.save()
         messages.success(request, f"Ticket #{incident.pk} deleted")
-        # Its solver has room again for a ticket that was waiting
-        if incident.assigned_team:
-            assign_waiting(incident.assigned_team)
+        # Its solver has room again for a ticket that was waiting, on any team they cover
+        assign_all_waiting()
     return redirect("profile")
 
 @login_required
@@ -321,12 +324,10 @@ def profile(request):
 
 def _can_access_incident(user, incident):
     """
-    A user may access an incident if they reported it, or they are a solver
-    on the team it is assigned to, or they lead that team. An
-    administrator may open any ticket, because the notification about a
-    full queue links to one.
+    A user may work with an incident if they reported it, or they are a
+    solver on the team it is assigned to, or they lead that team.
     """
-    if incident.reported_by_id == user.id or user.is_superuser:
+    if incident.reported_by_id == user.id:
         return True
     if user.role == "solver" and incident.assigned_team_id:
         if TeamMember.objects.filter(user=user, team_id=incident.assigned_team_id).exists():
@@ -383,9 +384,9 @@ def incident_transition(request, pk):
     elif new_status == "resolved":
         notify(incident.reported_by, incident, "resolved",
                f"Your ticket #{incident.pk} ({incident.title}) was resolved")
-    if new_status in ("resolved", "closed") and incident.assigned_team:
-        # Its solver has room again for a ticket that was waiting
-        assign_waiting(incident.assigned_team)
+    if new_status in ("resolved", "closed"):
+        # Its solver has room again for a ticket that was waiting, on any team they cover
+        assign_all_waiting()
     messages.success(request, f"Ticket #{incident.pk} moved to {STATUS_LABELS.get(new_status, new_status)}")
     return redirect("incident_detail", pk=pk)
 
@@ -400,7 +401,10 @@ def incident_detail(request, pk):
     """
     
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
-    if not _can_access_incident(request.user, incident):
+    # An administrator may read any ticket, because the notification about a
+    # full queue links to one. Reading is all it allows: every action on the
+    # page checks access again without this exception.
+    if not (_can_access_incident(request.user, incident) or request.user.is_superuser):
         messages.error(request, "You do not have access to that ticket")
         return redirect("incidents")
     if incident.status == "open" and incident.assigned_to_id is None and incident.assigned_team_id:
@@ -696,56 +700,65 @@ def calendar(request):
 
 
 @login_required
+@transaction.atomic
 def team_policy(request, team_id):
     """
     One team's escalation policy. Only the lead gets in. Tier 1 is always
     the on-call solver and cannot be removed, so a policy never has fewer
     than one tier; its wait can be changed. Every later tier can be
     changed in its row or removed, and a new tier is added at the end.
-    Removing a tier renumbers the rest so they stay 1, 2, 3.
+    Removing a tier renumbers the rest so they stay 1, 2, 3, and moves the
+    tickets that were at or past it back one step so they keep their place.
     """
     team = get_object_or_404(Team, pk=team_id)
     if not is_lead(request.user, team):
         messages.error(request, f"Only the lead of {team.name} can edit its escalation policy")
         return redirect("profile")
-    EscalationTier.objects.get_or_create(team=team, tier_number=1,
-                                         defaults={"escalate_to": "on_call", "wait_minutes": 5})
+    if request.method == "POST":
+        # One edit at a time per team, so two submissions never take the same tier number
+        Team.objects.select_for_update().get(pk=team.pk)
+    ensure_policy(team)
     tiers = list(team.escalation_tiers.select_related("escalate_to_user"))
     add_form = EscalationTierForm(team)
     refused = None
-    if request.method == "POST":
-        action = request.POST.get("action")
+    action = request.POST.get("action") if request.method == "POST" else None
+    if action in ("save", "remove"):
         tier = next((t for t in tiers if str(t.pk) == request.POST.get("tier")), None)
-        if action in ("save", "remove") and tier is None:
+        if tier is None:
             raise Http404("No such tier on this team")
-        if action == "remove":
-            if tier.tier_number == 1:
-                messages.error(request, "Tier 1 is the on-call solver and cannot be removed: "
-                                        "a policy needs at least one tier. Change its wait instead.")
-            else:
-                tier.delete()
-                for number, t in enumerate(team.escalation_tiers.all(), start=1):
-                    if t.tier_number != number:
-                        t.tier_number = number
-                        t.save()
-                messages.success(request, "Tier removed")
-            return redirect("team_policy", team_id=team.pk)
-        if action == "save":
-            form = EscalationTierForm(team, request.POST, instance=tier, prefix=f"t{tier.pk}")
-            if form.is_valid():
-                form.save()
-                messages.success(request, f"Tier {tier.tier_number} saved")
-                return redirect("team_policy", team_id=team.pk)
-            refused = form
+    if action == "remove":
+        if tier.tier_number == 1:
+            messages.error(request, "Tier 1 is the on-call solver and cannot be removed: "
+                                    "a policy needs at least one tier. Change its wait instead.")
         else:
-            add_form = EscalationTierForm(team, request.POST)
-            if add_form.is_valid():
-                tier = add_form.save(commit=False)
-                tier.team = team
-                tier.tier_number = len(tiers) + 1
-                tier.save()
-                messages.success(request, f"Tier {tier.tier_number} added")
-                return redirect("team_policy", team_id=team.pk)
+            removed = tier.tier_number
+            tier.delete()
+            for number, t in enumerate(team.escalation_tiers.all(), start=1):
+                if t.tier_number != number:
+                    t.tier_number = number
+                    t.save()
+            # A ticket's level is the position of its tier, and every position from the removed one on moved up
+            Incident.objects.filter(
+                assigned_team=team, status="assigned", escalation_level__gte=removed - 1,
+            ).update(escalation_level=F("escalation_level") - 1)
+            messages.success(request, "Tier removed")
+        return redirect("team_policy", team_id=team.pk)
+    if action == "save":
+        form = EscalationTierForm(team, request.POST, instance=tier, prefix=f"t{tier.pk}")
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Tier {tier.tier_number} saved")
+            return redirect("team_policy", team_id=team.pk)
+        refused = form
+    if action == "add":
+        add_form = EscalationTierForm(team, request.POST)
+        if add_form.is_valid():
+            tier = add_form.save(commit=False)
+            tier.team = team
+            tier.tier_number = tiers[-1].tier_number + 1
+            tier.save()
+            messages.success(request, f"Tier {tier.tier_number} added")
+            return redirect("team_policy", team_id=team.pk)
     rows = []
     for tier in tiers:
         if refused is not None and refused.instance.pk == tier.pk:
@@ -755,7 +768,7 @@ def team_policy(request, team_id):
         else:
             rows.append((tier, EscalationTierForm(team, instance=tier, prefix=f"t{tier.pk}")))
     return render(request, "policy.html", {
-        "team": team, "rows": rows, "add_form": add_form, "next_number": len(tiers) + 1,
+        "team": team, "rows": rows, "add_form": add_form, "next_number": tiers[-1].tier_number + 1,
     })
 
 

@@ -17,6 +17,7 @@ class RegisterForm(forms.Form):
         widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Last name'})
     )
     email = forms.EmailField(
+        max_length=150,
         widget=forms.EmailInput(attrs={'class': 'form-input', 'placeholder': 'Email'})
     )
     password = forms.CharField(
@@ -162,6 +163,9 @@ class ShiftForm(forms.ModelForm):
             teammember__team=team, role="solver", is_active=True).order_by("first_name", "last_name")
         self.fields["solver"].label_from_instance = lambda u: f"{u.first_name} {u.last_name}"
 
+    def clean_on_call_role(self):
+        return self.cleaned_data.get("on_call_role") or "primary"
+
     def clean(self):
         data = super().clean()
         starts_at, ends_at = data.get("starts_at"), data.get("ends_at")
@@ -222,8 +226,10 @@ class EscalationTierForm(forms.ModelForm):
         for person in User.objects.filter(teammember__team=team, role="solver", is_active=True).order_by(
                 "first_name", "last_name"):
             choices.append((f"user:{person.pk}", f"{person.first_name} {person.last_name}"))
-        if tier.pk:
-            current = "lead" if tier.escalate_to == "lead" else f"user:{tier.escalate_to_user_id}"
+        if tier.pk and tier.escalate_to == "lead":
+            self.initial["target"] = "lead"
+        elif tier.pk and tier.escalate_to_user is not None:
+            current = f"user:{tier.escalate_to_user_id}"
             if current not in dict(choices):
                 # Left the team or was deactivated since: the tier is skipped until it is changed
                 gone = tier.escalate_to_user
@@ -231,6 +237,13 @@ class EscalationTierForm(forms.ModelForm):
             self.initial["target"] = current
         self.fields["target"].choices = choices
         self.fields["target"].error_messages["invalid_choice"] = TARGET_ERROR
+
+    def clean_wait_minutes(self):
+        # "1_0", "+5" and "5.0" all read as numbers to Python. Only plain digits are a whole number here.
+        typed = str(self.data.get(self.add_prefix("wait_minutes"), "")).strip()
+        if not (typed.isascii() and typed.isdigit()):
+            raise forms.ValidationError(WAIT_ERROR)
+        return self.cleaned_data["wait_minutes"]
 
     def save(self, commit=True):
         tier = super().save(commit=False)
