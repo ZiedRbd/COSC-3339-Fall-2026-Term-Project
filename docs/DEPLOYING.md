@@ -15,7 +15,7 @@ sudo venv/bin/python manage.py collectstatic --noinput
 sudo systemctl restart campusdesk
 ```
 
-To refresh the demo data, run these before the restart. Both are safe to run again. Tickets they assign notify their solvers, by email too when a mail account is configured.
+To refresh the demo data, run these before the restart. Both are safe to run again. Tickets they hand to a solver on call notify that solver, by email too when a mail account is configured.
 
 ```bash
 sudo venv/bin/python manage.py seed

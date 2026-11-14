@@ -36,6 +36,7 @@ COSC-3339-Fall-2026-Term-Project/
 ├── campusdesk/                 Project configuration
 │   ├── settings.py             Settings, database, static files
 │   ├── urls.py                 Top-level URL routing
+│   ├── asgi.py                 ASGI entry point, not used by the server
 │   └── wsgi.py                 Entry point for gunicorn
 ├── ops/                        Application code
 │   ├── models.py               Database tables
@@ -48,7 +49,8 @@ COSC-3339-Fall-2026-Term-Project/
 │   ├── timeline.py             Writes entries to a ticket's timeline
 │   ├── templatetags/status.py  Shows a status by its label
 │   ├── tests/                  Automated tests, one file per purpose
-│   ├── admin.py                Django admin registration
+│   ├── apps.py                 Application configuration
+│   ├── admin.py                Django admin registration; no models are registered
 │   ├── migrations/             Database schema history
 │   └── management/commands/
 │       ├── seed.py             Loads demo data
@@ -60,14 +62,14 @@ COSC-3339-Fall-2026-Term-Project/
 │   ├── services.html
 │   ├── login.html
 │   ├── register.html
-│   ├── profile.html            Profile, bio, and the user's incidents
+│   ├── profile.html            Profile picture, bio, a reporter's tickets or a solver's teams
 │   ├── calendar.html           Weekly on-call calendar
 │   ├── schedule.html           A team lead's shift editor
 │   ├── shift_table.html        One list of shifts on the schedule page
 │   ├── policy.html             A team lead's escalation policy editor
 │   └── incidents/
 │       ├── landing.html        Links to file a ticket or view the list
-│       ├── list.html           Active incidents table with the severity filter
+│       ├── list.html           A solver's incident table for their teams, with the severity filter
 │       ├── form.html           Create and edit an incident
 │       └── detail.html         One incident with its timeline
 ├── static/
@@ -97,9 +99,11 @@ COSC-3339-Fall-2026-Term-Project/
 └── docs/
     ├── ER-DIAGRAM.md           Entity relationship diagram
     ├── er-diagram.puml         Same diagram in PlantUML
+    ├── er-diagram-sprint4.puml   ER diagram of the changes from Sprint 3 to Sprint 4
     ├── incident-state-machine.puml   Incident lifecycle states and transitions
     ├── solver-sequence.puml    How a solver moves an assigned incident forward
     ├── assignment-sequence.puml  How a filed ticket is assigned to the solver on call
+    ├── escalation-activity.puml  Activity diagram of the escalation process
     ├── TECHNOLOGY.md           Technology choices and reasoning
     └── DEPLOYING.md            Steps to release to the server
 ```
@@ -137,6 +141,7 @@ Full ER diagram: [`docs/ER-DIAGRAM.md`](docs/ER-DIAGRAM.md)
 **Roles.** Every user is a *reporter* or a *solver* (the `role` field, default `reporter`).
 - **Reporters** file tickets and add comments. From their profile page they can edit or delete their own tickets until a solver starts work on one. The service a ticket was filed against is fixed once it is routed. They cannot change a ticket's status.
 - **Solvers** work the tickets assigned to their team. They move the tickets assigned to them through the lifecycle and add notes; a team lead can move any ticket of the team. They see the full incident list, filtered to their team, and cannot file or delete tickets. Once work starts on a ticket, only the assigned solver can edit its details.
+- **Administrators** are users with `is_superuser` set, a flag on the account and not a third `role` value; the seeded one is a reporter. An administrator is notified when a second ticket, and each one after it, starts waiting in a team's queue, and in the lead's place when a team has no active lead. An administrator can open any ticket to read it, and every action on a ticket is still checked as for any other user. The seeded administrator cannot sign in to the Django admin.
 
 Each role sees a different profile page. Any user can upload a profile picture there (JPEG, PNG or WebP, at most 2 MB); it is stored as a file under `media/avatars/`, outside the repository, and can be replaced or removed. A reporter's profile lists the tickets they filed, split into active and closed. A solver's profile lists the teams they belong to and the members of each team.
 
@@ -152,29 +157,29 @@ Open -> Assigned -> In Progress -> Resolved -> Closed
                                           +--- reopened back to Open ---+
 ```
 
-Only legal moves are accepted; an illegal move (skipping a step, or going backward without reopening) is rejected with a message explaining why. The full diagram is in [`docs/incident-state-machine.puml`](docs/incident-state-machine.puml).
+Only legal moves are accepted; an illegal move (skipping a step, or going backward without reopening) is rejected with a message explaining why. The system makes one backward move itself: when a ticket's escalation policy runs out, the ticket returns from Assigned to Open with nobody assigned, and it is not handed out again until the team lead reassigns it. The full diagram is in [`docs/incident-state-machine.puml`](docs/incident-state-machine.puml).
 
-**Timeline.** Each ticket keeps an automatic, non-editable timeline of everything that happens to it: creation, assignment, reassignment, escalation, status changes (old to new), severity changes, detail edits (old to new value), comments, and notes. Every entry records who made the change and when. The timeline is reached by opening a ticket from the profile or incident list. It is stored in the `IncidentUpdate` table.
+**Timeline.** Each ticket keeps an automatic, non-editable timeline of everything that happens to it: creation, assignment, a failed assignment (why the ticket is waiting), reassignment, escalation, status changes (old to new), severity changes, detail edits (old to new value), comments, and notes. Every entry records a user and the time. An entry the system writes by itself is recorded under the user it concerns: the reporter when the ticket is filed, the solver who receives it from the queue, or the solver who held it when it escalated. The timeline is reached by opening a ticket from the profile or incident list. It is stored in the `IncidentUpdate` table.
 
 ## On-Call Scheduling and Assignment
 
 **Team leads.** Each team has a `lead`, a column on the Team table pointing at a user. It is not a role value: a solver may lead any number of teams, finding a team's lead is one row read, and a lead does not have to be a member of the team. Only the lead can edit a team's schedule or reassign its tickets.
 
-**Shifts.** A shift is one solver covering one team between two instants. The interval is half open: a shift covers `starts_at` up to, but not including, `ends_at`, so the end instant belongs to the next shift. Shifts are edited on the team's schedule page, and every change is checked against the whole future schedule before it is saved. A save is refused, with a message naming the day and the window, when it would leave a gap between now and the last shift, double book a team, put one person on two teams at once, or put a reporter or a non-member on a shift. A shift that ends before it starts, has already ended, or starts in the past is refused by the form. A shift is at most 12 hours, and the same solver cannot take two shifts in a row. Editing a shift's start or end moves the neighbouring shift's boundary with it, so the week stays whole in one save.
+**Shifts.** A shift is one solver covering one team between two instants. The interval is half open: a shift covers `starts_at` up to, but not including, `ends_at`, so the end instant belongs to the next shift. Shifts are edited on the team's schedule page, and every change is checked against the whole future schedule before it is saved. A save is refused, with a message naming the day and the window, when it would leave a gap between now and the last shift, double book a team, or put one person on two teams at once. It is also refused when it would put a reporter or a non-member on a shift. A shift that ends before it starts, has already ended, or starts in the past is refused by the form. A shift is at most 12 hours, and the same solver cannot take two shifts in a row. Editing a shift's start or end moves the neighbouring shift's boundary with it, so the week stays whole in one save.
 
 **Primary and secondary.** Every shift is primary or secondary, chosen when it is added. The rules above are the primary's: a team must have exactly one primary at every hour. A secondary is optional, so hours without one are fine. A secondary shift is at most 24 hours, a team has one secondary at a time, a person rests 24 hours between two secondary shifts, and nobody is on call twice at the same moment in any role on any team.
 
-**Calendar.** Solvers see a week of cover for every team they are on or lead, one row per team and one column per day. Leads get a link to edit the schedules they own. Reporters and signed-out visitors cannot open it.
+**Calendar.** Solvers see a week of cover for every team they are on or lead, one row per team and one column per day. Leads get a link to the schedule and a link to the escalation policy of each team they lead. Reporters and signed-out visitors cannot open it.
 
-**Automatic assignment.** When a ticket is filed, it goes to the primary on call for the team that owns the service, moving from Open to Assigned with an entry on the timeline. A solver holds at most three unfinished tickets (Assigned or In Progress). Once the primary holds three, new tickets go to the secondary, and once both are full a ticket waits, Open and unassigned, with the reason on its timeline. The team lead is notified about the first ticket waiting and the administrator about the second and every one after it. A waiting ticket is handed out, oldest first, as soon as someone on call has room: the check runs every minute on the server and straight away when a ticket is resolved, closed, deleted or reassigned, or a schedule changes. A ticket also waits when its service has no team or nobody is on call. Reopening a ticket releases its solver and assigns it again the same way.
+**Automatic assignment.** When a ticket is filed, it goes to the primary on call for the team that owns the service, moving from Open to Assigned with an entry on the timeline. A solver holds at most three unfinished tickets (Assigned or In Progress). Once the primary holds three, new tickets go to the secondary, and once both are full a ticket waits, Open and unassigned, with the reason on its timeline. The team lead is notified about the first ticket waiting and the administrator about the second and every one after it. A waiting ticket is handed out, oldest first, as soon as someone on call has room: the check runs every minute on the server and straight away when a ticket is resolved, closed, deleted or reassigned, a shift is added or edited, another ticket is filed or reopened for the team, a solver opens the incident list, or someone opens a ticket that is waiting. A ticket also waits when its service has no team or nobody is on call. Reopening a ticket releases its solver and assigns it again the same way.
 
 **Reassignment.** A team lead can hand an active ticket to the primary or the secondary on call for the team right now, and to nobody else. A solver who already holds three tickets is refused. The timeline records the time, who did it, and the previous and new solver. Assignment and status changes are recorded with timestamps in the `IncidentUpdate` table.
 
-**Seeding.** `python manage.py seed_shifts` fills every team's schedule from now until a week ahead, around the clock, rotating the team's solvers. It also adds one secondary shift a day, 08:00 to 16:00, wherever the secondary rules allow one. It replaces current and future shifts only and never changes which ticket belongs to whom. Pass `--short-team Electrical` to stop one team at midnight tonight so the no-cover case can be shown.
+**Seeding.** `python manage.py seed_shifts` fills every team's schedule from now until a week ahead, around the clock, rotating the team's solvers. It also adds one secondary shift a day, 08:00 to 16:00, wherever the secondary rules allow one. It replaces current and future shifts only. It never takes a ticket from the solver who holds it, and it hands the tickets that were waiting to whoever on call has room. Pass `--short-team Electrical` to stop one team at midnight tonight so the no-cover case can be shown.
 
 ## Escalation and Notifications
 
-**Escalation policy.** Each team has its own policy, edited by its lead on the policy page, reached from the schedule. A policy is a list of tiers, each with a wait in minutes. Tier 1 is always the on-call solver who first receives the ticket, so a policy always has at least one tier. A team that has not written a policy has the default one: the on-call solver has 5 minutes, then the lead has 10. Each later tier names either the team lead, which is a role, or one active solver on the team, which is a user. A wait must be a whole number of minutes from 1 to 1440. After the last tier the policy ends: the ticket is marked unassigned, shown in red at the top of the incident list for every solver on the team, and the lead is notified.
+**Escalation policy.** Each team has its own policy, edited by its lead on the policy page, reached from the calendar and from the schedule. A policy is a list of tiers, each with a wait in minutes. Tier 1 is always the on-call solver who first receives the ticket, so a policy always has at least one tier. A team that has not written a policy has the default one: the on-call solver has 5 minutes, then the lead has 10. Each later tier names either the team lead, which is a role, or one active solver on the team, which is a user. A wait must be a whole number of minutes from 1 to 1440. After the last tier the policy ends: the ticket is marked unassigned, shown in red at the top of the incident list for every solver on the team, and the lead is notified.
 
 **The timer.** A solver takes responsibility for a ticket by moving it to In Progress. Until then the clock runs from the moment the ticket was assigned, and when the wait of its tier is up the ticket moves to the next tier: the solver changes, the timeline records it, and the new solver is notified. Severity changes every wait: critical tickets wait half as long, high three quarters, medium as written, low twice as long. A tier whose person cannot take the ticket (deactivated, no longer on the team, already holding three tickets, or already the holder) is passed over and named on the timeline. Reopening or reassigning a ticket starts the clock again at tier 1. The check is a scheduled task: a systemd timer runs `python manage.py escalate` once a minute, so it does not depend on anyone having the site open.
 
