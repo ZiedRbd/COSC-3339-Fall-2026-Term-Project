@@ -16,70 +16,25 @@
   {% endif %}
 
   <div class="section-head">
-    <h2 class="section-title">Upcoming shifts: primary on call</h2>
+    <h2 class="section-title">Secondary on call (optional)</h2>
     <div class="actions">
       <a href="{% url 'team_policy' team.pk %}" class="btn-small">Escalation policy</a>
       <button type="button" id="add-shift" class="btn-gold">Add shift</button>
     </div>
   </div>
-  {% if shifts %}
-    <table class="incident-table schedule-table">
-      <thead>
-        <tr><th>Starts</th><th>Ends</th><th>Solver</th><th>Actions</th></tr>
-      </thead>
-      <tbody>
-        {% for shift in shifts %}
-          <tr>
-            <td>{{ shift.starts_at|date:"D M j, H:i" }}</td>
-            <td>{{ shift.ends_at|date:"D M j, H:i" }}</td>
-            <td>{{ shift.solver.first_name }} {{ shift.solver.last_name }}</td>
-            <td class="row-actions">
-              <a href="{% url 'shift_edit' team.pk shift.pk %}" class="btn-small shift-edit"
-                 data-role="{{ shift.on_call_role }}" data-solver="{{ shift.solver_id }}"
-                 data-start-date="{{ shift.starts_at|date:'Y-m-d' }}" data-start-hour="{{ shift.starts_at|date:'H:i' }}"
-                 data-end-date="{{ shift.ends_at|date:'Y-m-d' }}" data-end-hour="{{ shift.ends_at|date:'H:i' }}">Edit</a>
-              <form method="post" action="{% url 'shift_delete' team.pk shift.pk %}" style="display:inline">
-                {% csrf_token %}
-                <button type="submit" class="btn-small danger">Delete</button>
-              </form>
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  {% else %}
-    <p class="empty">No upcoming shifts. Nobody is on call for {{ team.name }}.</p>
-  {% endif %}
-
-  <h2 class="section-title">Secondary on call (optional)</h2>
   <p class="lead">The secondary takes new tickets once the primary holds 3. A secondary shift is at most 24 hours, and a person rests 24 hours between two of them.</p>
   {% if secondary_shifts %}
-    <table class="incident-table schedule-table">
-      <thead>
-        <tr><th>Starts</th><th>Ends</th><th>Solver</th><th>Actions</th></tr>
-      </thead>
-      <tbody>
-        {% for shift in secondary_shifts %}
-          <tr>
-            <td>{{ shift.starts_at|date:"D M j, H:i" }}</td>
-            <td>{{ shift.ends_at|date:"D M j, H:i" }}</td>
-            <td>{{ shift.solver.first_name }} {{ shift.solver.last_name }}</td>
-            <td class="row-actions">
-              <a href="{% url 'shift_edit' team.pk shift.pk %}" class="btn-small shift-edit"
-                 data-role="{{ shift.on_call_role }}" data-solver="{{ shift.solver_id }}"
-                 data-start-date="{{ shift.starts_at|date:'Y-m-d' }}" data-start-hour="{{ shift.starts_at|date:'H:i' }}"
-                 data-end-date="{{ shift.ends_at|date:'Y-m-d' }}" data-end-hour="{{ shift.ends_at|date:'H:i' }}">Edit</a>
-              <form method="post" action="{% url 'shift_delete' team.pk shift.pk %}" style="display:inline">
-                {% csrf_token %}
-                <button type="submit" class="btn-small danger">Delete</button>
-              </form>
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    {% include "shift_table.html" with rows=secondary_shifts %}
   {% else %}
     <p class="empty">No secondary shifts. Add one with Add shift and the role Secondary.</p>
+  {% endif %}
+
+  <h2 class="section-title">Upcoming shifts: primary on call</h2>
+  <p class="lead">Required: every hour from now to the last shift has exactly one primary.</p>
+  {% if shifts %}
+    {% include "shift_table.html" with rows=shifts %}
+  {% else %}
+    <p class="empty">No upcoming shifts. Nobody is on call for {{ team.name }}.</p>
   {% endif %}
 
   <a href="{% url 'calendar' %}" class="back-link">&larr; Back to calendar</a>

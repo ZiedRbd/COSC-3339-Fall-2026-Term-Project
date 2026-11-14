@@ -26,15 +26,14 @@ class Command(BaseCommand):
         ]:
             teams[name], _ = Team.objects.get_or_create(name=name, defaults={"description": desc})
 
-        # Every team starts with the same three-step escalation policy:
-        # the on-call solver has five minutes, then the lead has ten, then
-        # the ticket is marked unassigned. Leads change it on the policy page.
+        # Every team starts with the same escalation policy: the on-call
+        # solver has five minutes, then the lead has ten, then the ticket
+        # is marked unassigned. Leads change it on the policy page.
         for team in teams.values():
             if not team.escalation_tiers.exists():
                 EscalationTier.objects.bulk_create([
                     EscalationTier(team=team, tier_number=1, escalate_to="on_call", wait_minutes=5),
                     EscalationTier(team=team, tier_number=2, escalate_to="lead", wait_minutes=10),
-                    EscalationTier(team=team, tier_number=3, escalate_to="administration", wait_minutes=None),
                 ])
 
         services = {}

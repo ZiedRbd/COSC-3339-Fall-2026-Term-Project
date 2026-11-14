@@ -319,3 +319,20 @@
 /* A ticket whose escalation policy ran out: nobody owns it */
 .badge.escalated { background: var(--red); color: var(--white); margin-left: 6px; }
 tr.escalated-row td { background: #fdecea; }
+
+/* Escalation policy: each tier is edited in its own row */
+.policy-table th:nth-child(1) { width: 8%; }
+.policy-table th:nth-child(2) { width: 46%; }
+.policy-table th:nth-child(3) { width: 20%; }
+.policy-table th:nth-child(4) { width: 26%; }
+.policy-table td { vertical-align: middle; }
+.policy-table select,
+.policy-table input[type="number"] { width: 100%; box-sizing: border-box; padding: 8px 10px; font-size: 15px; }
+.policy-table input[type="number"] { max-width: 110px; }
+.policy-table .row-actions form { display: inline-block; }
+.policy-table .row-actions .btn-small { display: inline-block; width: auto; margin: 2px 6px 2px 0; }
+.policy-table .policy-end td { color: var(--muted); }
+.policy-table .notice { margin: 0; }
+
+/* A form field's explanation sits on its own line under the field */
+.shift-form .helptext { display: block; margin-top: 4px; font-size: 13px; color: var(--muted); }

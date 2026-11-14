@@ -30,7 +30,6 @@ class EscalationTests(TestCase):
                              starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=7))
         EscalationTier.objects.create(team=self.team, tier_number=1, escalate_to="on_call", wait_minutes=5)
         EscalationTier.objects.create(team=self.team, tier_number=2, escalate_to="lead", wait_minutes=10)
-        EscalationTier.objects.create(team=self.team, tier_number=3, escalate_to="administration")
 
     def file(self, priority="medium"):
         inc = Incident.objects.create(title="Leak", description="d", service=self.svc,

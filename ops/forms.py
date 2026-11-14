@@ -180,38 +180,65 @@ class ShiftForm(forms.ModelForm):
         return data
 
 
+MAX_TIER_WAIT = 1440
+WAIT_ERROR = f"Wait must be a whole number of minutes above zero, and at most {MAX_TIER_WAIT} (one day)"
+TARGET_ERROR = "Pick the team lead or an active solver on this team"
+
+
 class EscalationTierForm(forms.ModelForm):
     """
-    One step of a team's escalation policy. A named solver must be on the
-    team. Every tier waits a positive number of minutes, except an
-    administration tier, which ends the policy and has no wait.
+    One step of a team's escalation policy: who gets the ticket and how
+    many minutes they have. Tier 1 is always the on-call solver, so its
+    form has only the wait. A later tier picks the team lead (a role) or
+    one active solver on the team (a user) from a single list. Whatever
+    is wrong with the wait gets the same one sentence.
     """
+    target = forms.ChoiceField(label="Escalate to", error_messages={"required": TARGET_ERROR})
+    wait_minutes = forms.IntegerField(
+        label="Wait (minutes)", min_value=1, max_value=MAX_TIER_WAIT,
+        error_messages={key: WAIT_ERROR for key in ("required", "invalid", "min_value", "max_value")},
+    )
+    field_order = ["target", "wait_minutes"]
+
     class Meta:
         model = EscalationTier
-        fields = ["escalate_to", "escalate_to_user", "wait_minutes"]
-        labels = {"escalate_to": "Escalate to", "escalate_to_user": "Which person", "wait_minutes": "Wait (minutes)"}
+        fields = ["wait_minutes"]
 
     def __init__(self, team, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.team = team
-        self.fields["escalate_to_user"].queryset = User.objects.filter(
-            teammember__team=team, role="solver", is_active=True).order_by("first_name", "last_name")
-        self.fields["escalate_to_user"].label_from_instance = lambda u: f"{u.first_name} {u.last_name}"
-        self.fields["escalate_to_user"].required = False
-        self.fields["wait_minutes"].required = False
+        tier = self.instance
         # Let the server, not the browser, explain why -2 is refused
-        self.fields["wait_minutes"].widget.attrs.pop("min", None)
+        for limit in ("min", "max"):
+            self.fields["wait_minutes"].widget.attrs.pop(limit, None)
+        if tier.pk:
+            # A saved tier is edited in its table row, by the form with this id
+            for field in self.fields.values():
+                field.widget.attrs["form"] = f"tier-{tier.pk}"
+        if tier.pk and tier.tier_number == 1:
+            del self.fields["target"]
+            return
+        lead = f"Team lead ({team.lead.first_name} {team.lead.last_name})" if team.lead else "Team lead"
+        choices = [("lead", lead)]
+        for person in User.objects.filter(teammember__team=team, role="solver", is_active=True).order_by(
+                "first_name", "last_name"):
+            choices.append((f"user:{person.pk}", f"{person.first_name} {person.last_name}"))
+        if tier.pk:
+            current = "lead" if tier.escalate_to == "lead" else f"user:{tier.escalate_to_user_id}"
+            if current not in dict(choices):
+                # Left the team or was deactivated since: the tier is skipped until it is changed
+                gone = tier.escalate_to_user
+                choices.append((current, f"{gone.first_name} {gone.last_name} (not available, tier is skipped)"))
+            self.initial["target"] = current
+        self.fields["target"].choices = choices
+        self.fields["target"].error_messages["invalid_choice"] = TARGET_ERROR
 
-    def clean(self):
-        data = super().clean()
-        kind, user, wait = data.get("escalate_to"), data.get("escalate_to_user"), data.get("wait_minutes")
-        if kind == "user" and user is None:
-            self.add_error("escalate_to_user", "Pick the person this tier escalates to")
-        if kind != "user":
-            data["escalate_to_user"] = None
-        if kind == "administration":
-            if wait is not None:
-                self.add_error("wait_minutes", "Leave the wait empty: administration ends the policy")
-        elif not wait or wait <= 0:
-            self.add_error("wait_minutes", "Wait must be a whole number of minutes above zero")
-        return data
+    def save(self, commit=True):
+        tier = super().save(commit=False)
+        target = self.cleaned_data.get("target")
+        if target == "lead":
+            tier.escalate_to, tier.escalate_to_user = "lead", None
+        elif target:
+            tier.escalate_to, tier.escalate_to_user_id = "user", int(target.split(":")[1])
+        if commit:
+            tier.save()
+        return tier

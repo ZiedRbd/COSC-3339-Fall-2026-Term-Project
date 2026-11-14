@@ -476,7 +476,7 @@ def _escalate_if_overdue(incident, now):
     # the position of the tier it sits at. If the lead has shortened the
     # policy since, a ticket that was further along sits at the last tier.
     position = min(incident.escalation_level, len(tiers) - 1)
-    minutes = (tiers[position].wait_minutes or 0) * SEVERITY_FACTOR.get(incident.priority, 1)
+    minutes = tiers[position].wait_minutes * SEVERITY_FACTOR.get(incident.priority, 1)
     if now - incident.escalation_timer_started_at < timedelta(minutes=minutes):
         return False
     _move_up(incident, tiers, position, minutes, now)
@@ -494,13 +494,11 @@ def _person_at(tier, team, holder):
         candidates = on_call_solvers(team)
     elif tier.escalate_to == "lead":
         candidates = [team.lead]
-    elif tier.escalate_to == "user":
+    else:
         person = tier.escalate_to_user
         on_team = (person is not None and person.role == "solver"
                    and TeamMember.objects.filter(user=person, team=team).exists())
         candidates = [person] if on_team else []
-    else:
-        candidates = []
     for person in candidates:
         if (person is not None and person.is_active and person != holder
                 and active_ticket_count(person) < MAX_ACTIVE_TICKETS):
@@ -524,8 +522,6 @@ def _move_up(incident, tiers, position, minutes, now):
 
     passed = []
     for index in range(position + 1, len(tiers)):
-        if tiers[index].escalate_to == "administration":
-            break
         person = _person_at(tiers[index], team, holder)
         if person is not None:
             skipped = ""

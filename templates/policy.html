@@ -1,14 +1,10 @@
 {% extends "base.html" %}
-{% load static %}
 {% block title %}{{ team.name }} escalation policy{% endblock %}
-{% block extra_js %}
-  <script src="{% static 'js/policy.js' %}?v=1" defer></script>
-{% endblock %}
 
 {% block content %}
 <div class="card wide">
   <h1 class="form-header">{{ team.name }}: escalation policy</h1>
-  <p class="lead">A new ticket starts at tier 1 with the solver on call. When the person at a tier has not started work within the wait, the ticket moves to the next tier. Critical tickets wait half as long, high three quarters, low twice as long. Administration means nobody: the ticket is marked unassigned and flagged. It must be the last tier.</p>
+  <p class="lead">A new ticket goes to the on-call solver, who is tier 1. When the person at a tier has not moved the ticket to In Progress within the wait, it goes to the next tier. Critical tickets wait half as long, high three quarters, low twice as long. A tier whose person cannot take the ticket is skipped.</p>
 
   {% if messages %}
     {% for message in messages %}
@@ -17,44 +13,60 @@
   {% endif %}
 
   <h2 class="section-title">Tiers</h2>
-  {% if tiers %}
-    <table class="incident-table schedule-table">
-      <thead>
-        <tr><th>Tier</th><th>Escalate to</th><th>Wait</th><th>Actions</th></tr>
-      </thead>
-      <tbody>
-        {% for tier in tiers %}
-          <tr>
-            <td>{{ tier.tier_number }}</td>
-            <td>
-              {% if tier.escalate_to == "user" %}
-                {{ tier.escalate_to_user.first_name }} {{ tier.escalate_to_user.last_name }}
-              {% else %}
-                {{ tier.get_escalate_to_display }}
-              {% endif %}
-            </td>
-            <td>{% if tier.wait_minutes %}{{ tier.wait_minutes }} min{% else %}<span class="muted">No wait, ends the policy</span>{% endif %}</td>
-            <td class="row-actions">
+  <table class="incident-table policy-table">
+    <thead>
+      <tr><th>Tier</th><th>Escalate to</th><th>Wait (minutes)</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for tier, form in rows %}
+        <tr>
+          <td>{{ tier.tier_number }}</td>
+          <td>
+            {% if tier.tier_number == 1 %}
+              On-call solver <span class="muted">(whoever first gets the ticket)</span>
+            {% else %}
+              {{ form.target }}
+            {% endif %}
+          </td>
+          <td>{{ form.wait_minutes }}</td>
+          <td class="row-actions">
+            <form method="post" id="tier-{{ tier.pk }}" style="display:inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="save">
+              <input type="hidden" name="tier" value="{{ tier.pk }}">
+              <button type="submit" class="btn-small">Save</button>
+            </form>
+            {% if tier.tier_number > 1 %}
               <form method="post" style="display:inline">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="remove">
                 <input type="hidden" name="tier" value="{{ tier.pk }}">
                 <button type="submit" class="btn-small danger">Remove</button>
               </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% if form.errors %}
+          <tr>
+            <td></td>
+            <td colspan="3">
+              {% for field in form %}{% for error in field.errors %}<p class="notice error">{{ error }}</p>{% endfor %}{% endfor %}
             </td>
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  {% else %}
-    <p class="empty">No tiers yet. Tickets for {{ team.name }} will never escalate until you add one.</p>
-  {% endif %}
+        {% endif %}
+      {% endfor %}
+      <tr class="policy-end">
+        <td>End</td>
+        <td colspan="3">Nobody left to escalate to: the ticket is marked unassigned, shown in red at the top of the incident list, and the lead is notified.</td>
+      </tr>
+    </tbody>
+  </table>
 
-  <h2 class="section-title">Add tier {{ tiers|length|add:1 }}</h2>
+  <h2 class="section-title">Add tier {{ next_number }}</h2>
   <form method="post" class="shift-form">
     {% csrf_token %}
     <input type="hidden" name="action" value="add">
-    {{ form.as_p }}
+    {{ add_form.as_p }}
     <div class="actions">
       <button type="submit" class="btn-gold">Add tier</button>
     </div>

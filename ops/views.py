@@ -5,6 +5,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Prefetch, Q
+from django.http import Http404
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.shortcuts import get_object_or_404, redirect, render
@@ -694,37 +695,65 @@ def calendar(request):
 @login_required
 def team_policy(request, team_id):
     """
-    One team's escalation policy: its tiers in order and a form to add the
-    next one. Only the lead gets in. Adding puts the new tier last;
-    removing one renumbers the rest so they stay 1, 2, 3.
+    One team's escalation policy. Only the lead gets in. Tier 1 is always
+    the on-call solver and cannot be removed, so a policy never has fewer
+    than one tier; its wait can be changed. Every later tier can be
+    changed in its row or removed, and a new tier is added at the end.
+    Removing a tier renumbers the rest so they stay 1, 2, 3.
     """
     team = get_object_or_404(Team, pk=team_id)
     if not is_lead(request.user, team):
         messages.error(request, f"Only the lead of {team.name} can edit its escalation policy")
         return redirect("profile")
+    EscalationTier.objects.get_or_create(team=team, tier_number=1,
+                                         defaults={"escalate_to": "on_call", "wait_minutes": 5})
     tiers = list(team.escalation_tiers.select_related("escalate_to_user"))
-    form = EscalationTierForm(team)
-    if request.method == "POST" and request.POST.get("action") == "remove":
-        tier = get_object_or_404(EscalationTier, pk=request.POST.get("tier"), team=team)
-        tier.delete()
-        for number, t in enumerate(team.escalation_tiers.all(), start=1):
-            if t.tier_number != number:
-                t.tier_number = number
-                t.save()
-        messages.success(request, "Tier removed")
-        return redirect("team_policy", team_id=team.pk)
+    add_form = EscalationTierForm(team)
+    refused = None
     if request.method == "POST":
-        form = EscalationTierForm(team, request.POST)
-        if tiers and tiers[-1].escalate_to == "administration":
-            messages.error(request, "The administration tier is the last one. Remove it to add more tiers")
-        elif form.is_valid():
-            tier = form.save(commit=False)
-            tier.team = team
-            tier.tier_number = len(tiers) + 1
-            tier.save()
-            messages.success(request, f"Tier {tier.tier_number} added")
+        action = request.POST.get("action")
+        tier = next((t for t in tiers if str(t.pk) == request.POST.get("tier")), None)
+        if action in ("save", "remove") and tier is None:
+            raise Http404("No such tier on this team")
+        if action == "remove":
+            if tier.tier_number == 1:
+                messages.error(request, "Tier 1 is the on-call solver and cannot be removed: "
+                                        "a policy needs at least one tier. Change its wait instead.")
+            else:
+                tier.delete()
+                for number, t in enumerate(team.escalation_tiers.all(), start=1):
+                    if t.tier_number != number:
+                        t.tier_number = number
+                        t.save()
+                messages.success(request, "Tier removed")
             return redirect("team_policy", team_id=team.pk)
-    return render(request, "policy.html", {"team": team, "tiers": tiers, "form": form})
+        if action == "save":
+            form = EscalationTierForm(team, request.POST, instance=tier, prefix=f"t{tier.pk}")
+            if form.is_valid():
+                form.save()
+                messages.success(request, f"Tier {tier.tier_number} saved")
+                return redirect("team_policy", team_id=team.pk)
+            refused = form
+        else:
+            add_form = EscalationTierForm(team, request.POST)
+            if add_form.is_valid():
+                tier = add_form.save(commit=False)
+                tier.team = team
+                tier.tier_number = len(tiers) + 1
+                tier.save()
+                messages.success(request, f"Tier {tier.tier_number} added")
+                return redirect("team_policy", team_id=team.pk)
+    rows = []
+    for tier in tiers:
+        if refused is not None and refused.instance.pk == tier.pk:
+            # Put the stored values back on the object: the row shows what was typed, the table what is saved
+            tier.refresh_from_db()
+            rows.append((tier, refused))
+        else:
+            rows.append((tier, EscalationTierForm(team, instance=tier, prefix=f"t{tier.pk}")))
+    return render(request, "policy.html", {
+        "team": team, "rows": rows, "add_form": add_form, "next_number": len(tiers) + 1,
+    })
 
 
 @login_required

@@ -157,16 +157,16 @@ class Shift(models.Model):
         return f"{self.solver} {self.on_call_role} on call for {self.team}"
 
 
-# One step of a team's escalation policy. Tier 1 is the on-call solver
-# who first got the ticket. When the solver at a tier has not started
-# work within wait_minutes, the ticket moves to the next tier. The last
-# tier has no wait: reaching it marks the ticket unassigned.
+# One step of a team's escalation policy. Tier 1 is always the on-call
+# solver who first got the ticket. Each later tier names a role (the team
+# lead) or a user (one person on the team). When the person at a tier has
+# not started work within wait_minutes, the ticket moves to the next
+# tier. After the last tier it is marked unassigned.
 class EscalationTier(models.Model):
     ESCALATE_TO_CHOICES = [
         ("on_call", "The on-call solver"),
         ("lead", "The team lead"),
         ("user", "A specific person on the team"),
-        ("administration", "Administration"),
     ]
     team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="escalation_tiers")
     tier_number = models.PositiveIntegerField()
@@ -175,8 +175,8 @@ class EscalationTier(models.Model):
     escalate_to_user = models.ForeignKey(
         User, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
     )
-    # Empty on the last tier only
-    wait_minutes = models.PositiveIntegerField(null=True, blank=True)
+    # How long the person at this tier has before the ticket moves on
+    wait_minutes = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
