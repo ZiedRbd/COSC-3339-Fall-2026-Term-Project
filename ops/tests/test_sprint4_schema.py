@@ -19,7 +19,7 @@ class EscalationTierTests(TestCase):
     def test_a_policy_is_a_sequence_of_tiers(self):
         EscalationTier.objects.create(team=self.team, tier_number=2, escalate_to="lead", wait_minutes=10)
         EscalationTier.objects.create(team=self.team, tier_number=1, escalate_to="on_call", wait_minutes=5)
-        EscalationTier.objects.create(team=self.team, tier_number=3, escalate_to="administration")
+        EscalationTier.objects.create(team=self.team, tier_number=3, escalate_to="user", wait_minutes=15)
         self.assertEqual(
             [t.tier_number for t in self.team.escalation_tiers.all()], [1, 2, 3],
             "tiers come back in order no matter how they were saved",
@@ -39,7 +39,7 @@ class EscalationTierTests(TestCase):
         for team in Team.objects.all():
             self.assertEqual(
                 [(t.escalate_to, t.wait_minutes) for t in team.escalation_tiers.all()],
-                [("on_call", 5), ("lead", 10), ("administration", None)], team,
+                [("on_call", 5), ("lead", 10)], team,
             )
 
 

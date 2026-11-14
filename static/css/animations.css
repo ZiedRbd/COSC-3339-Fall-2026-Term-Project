@@ -1,136 +1,34 @@
-/* ---------- Site-wide animations (presentation only) ---------- */
+/* ---------- Motion ----------
+   Things move only in answer to something the person did, with one
+   exception: the bell swings once when there is something unread,
+   because that is the one thing on a page that asks to be looked at. */
 
-
-@keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(14px); }
-    to   { opacity: 1; transform: translateY(0); }
+@keyframes bell-swing {
+    0%, 100% { transform: rotate(0); }
+    20% { transform: rotate(-16deg); }
+    45% { transform: rotate(13deg); }
+    70% { transform: rotate(-7deg); }
+    88% { transform: rotate(3deg); }
+}
+.nav-notification-btn:has(.notification-badge) svg {
+    transform-origin: 50% 2px;
+    animation: bell-swing 0.9s ease-in-out 0.5s 1;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+/* A popup arrives when asked for */
+@keyframes pop-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
 }
+.modal-overlay:not([hidden]) .modal { animation: pop-in 0.16s ease-out both; }
+.notification-dropdown.active { animation: pop-in 0.12s ease-out both; }
 
-/* Cards and panels gently rise in on load */
-.card,
-.profile-card,
-.incident-col,
-.filter-sidebar {
-    animation: fadeInUp 0.45s ease both;
-}
-
-/* Stagger the two/three panels so they don't all move at once */
-.incident-col:nth-child(2) { animation-delay: 0.06s; }
-.incident-col:nth-child(3) { animation-delay: 0.12s; }
-.profile-card { animation-delay: 0.08s; }
-
-/* Table rows fade in */
-.incident-table tbody tr {
-    animation: fadeIn 0.4s ease both;
-}
-
-/* Timeline entries rise in */
-.timeline li {
-    animation: fadeInUp 0.4s ease both;
-}
-
-/* Nav buttons: smooth, subtle lift on hover */
-.nav-btn {
-    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
-}
-.nav-btn:hover {
-    transform: translateY(-1px);
-}
-
-/* Any gold/link button gets a consistent press feel */
-.btn-gold,
-.btn-link,
-.btn-small,
-button[type="submit"] {
-    transition: background 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
-}
+/* A press is felt */
 .btn-gold:active,
-.btn-link:active,
 .btn-small:active,
-button[type="submit"]:active {
-    transform: translateY(1px);
-}
+.pi-btn:active,
+main button[type="submit"]:active { transform: translateY(1px); }
 
-/* Badges settle in softly */
-.badge {
-    transition: transform 0.15s ease;
-}
-
-/* Form inputs get a smooth focus ring */
-input, textarea, select {
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-input:focus, textarea:focus, select:focus {
-    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18);
-}
-
-/* Service cards lift on hover */
-.service-wrapper {
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
-}
-.service-wrapper:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
-}
-
-/* Flash/notice messages fade in */
-.notice, .error, .success {
-    animation: fadeIn 0.35s ease both;
-}
-
-@keyframes popIn {
-    from { opacity: 0; transform: translateY(10px) scale(0.97); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* Popups fade the backdrop in and pop the window */
-.modal-overlay:not([hidden]) { animation: fadeIn 0.18s ease both; }
-.modal-overlay:not([hidden]) .modal { animation: popIn 0.22s ease-out both; }
-
-/* Table rows arrive one after another and highlight under the pointer */
-.incident-table tbody tr { transition: background 0.15s ease; }
-.incident-table tbody tr:hover { background: #f5f7fb; }
-.incident-table tbody tr:nth-child(1) { animation-delay: 0.03s; }
-.incident-table tbody tr:nth-child(2) { animation-delay: 0.06s; }
-.incident-table tbody tr:nth-child(3) { animation-delay: 0.09s; }
-.incident-table tbody tr:nth-child(4) { animation-delay: 0.12s; }
-.incident-table tbody tr:nth-child(5) { animation-delay: 0.15s; }
-.incident-table tbody tr:nth-child(6) { animation-delay: 0.18s; }
-.incident-table tbody tr:nth-child(7) { animation-delay: 0.21s; }
-.incident-table tbody tr:nth-child(8) { animation-delay: 0.24s; }
-
-/* Timeline entries rise in one after another */
-.timeline li:nth-child(1) { animation-delay: 0.04s; }
-.timeline li:nth-child(2) { animation-delay: 0.08s; }
-.timeline li:nth-child(3) { animation-delay: 0.12s; }
-.timeline li:nth-child(4) { animation-delay: 0.16s; }
-.timeline li:nth-child(5) { animation-delay: 0.20s; }
-.timeline li:nth-child(6) { animation-delay: 0.24s; }
-.timeline li:nth-child(7) { animation-delay: 0.28s; }
-.timeline li:nth-child(8) { animation-delay: 0.32s; }
-
-/* Calendar slots fade in by row and lift under the pointer */
-.calendar-table .slot {
-    animation: fadeInUp 0.35s ease both;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.calendar-table .slot:nth-child(2) { animation-delay: 0.06s; }
-.calendar-table .slot:nth-child(3) { animation-delay: 0.12s; }
-.calendar-table .slot:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.14); }
-
-/* Gold buttons lift a little on hover, settle on press */
-.btn-gold:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); }
-.btn-small:hover { transform: translateY(-1px); }
-
-/* Page titles fade in with their cards */
-.form-header, .detail-head { animation: fadeIn 0.4s ease both; }
-
-/* Turn off animations when the OS reduce-motion setting is on */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation: none !important;

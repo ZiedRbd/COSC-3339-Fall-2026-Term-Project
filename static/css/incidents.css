@@ -1,321 +1,331 @@
-/* ---------- Incident table ---------- */
-.incident-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-    font-size: 15px;
+/* ---------- The ticket ----------
+   The one object in the design that is drawn as a thing: a paper ticket
+   with a numbered stub, a perforation, and two notches punched where the
+   perforation meets the edge. The colour down the stub's edge is the
+   severity. Every other surface stays flat. */
+.sev-low { --sev: #8a8fa8; }
+.sev-medium { --sev: #e09a1a; }
+.sev-high { --sev: #e0483d; }
+.sev-critical { --sev: #8f1711; }
+
+/* The stock a ticket is printed on says where it stands */
+.st-open { --stock: var(--stock-open); }
+.st-assigned { --stock: var(--stock-assigned); }
+.st-in_progress { --stock: var(--stock-in_progress); }
+.st-resolved { --stock: var(--stock-resolved); }
+.st-closed { --stock: var(--stock-closed); }
+
+/* The two notches are holes: whatever is behind the ticket shows through.
+   The stub carries the left half of each, the body the right half. */
+.ticket-table td.ticket-id,
+.ticket-stub,
+.pi-number,
+.sample-stub {
+    -webkit-mask-image:
+        radial-gradient(circle at 100% 0, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px)),
+        radial-gradient(circle at 100% 100%, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px));
+    -webkit-mask-composite: source-in;
+    mask-image:
+        radial-gradient(circle at 100% 0, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px)),
+        radial-gradient(circle at 100% 100%, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px));
+    mask-composite: intersect;
+}
+.ticket-table td.ticket-id + td,
+.ticket-main,
+.pi-main,
+.sample-main {
+    -webkit-mask-image:
+        radial-gradient(circle at 0 0, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px)),
+        radial-gradient(circle at 0 100%, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px));
+    -webkit-mask-composite: source-in;
+    mask-image:
+        radial-gradient(circle at 0 0, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px)),
+        radial-gradient(circle at 0 100%, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px));
+    mask-composite: intersect;
 }
 
-.incident-table th,
-.incident-table td {
-    text-align: left;
-    padding: 12px 10px;
-    border-bottom: 1px solid var(--line);
+/* ---------- Page heading ---------- */
+.page-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    margin-bottom: 18px;
 }
+.page-head .lead { margin: 6px 0 0; }
 
-.incident-table th {
-    color: var(--muted);
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    border-bottom: 2px solid var(--line);
-}
-
-.incident-table tbody tr { transition: background 0.12s; }
-.incident-table tbody tr:hover td { background: #f5f8ff; }
-.incident-table td a { color: var(--navy); font-weight: 600; text-decoration: none; }
-.incident-table td a:hover { text-decoration: underline; }
-
-/* ---------- Incident table filter ---------- */
+/* ---------- Severity filter: a row of toggles above the list ---------- */
 .filter-sidebar {
-  width: 230px;
-  flex-shrink: 0;
-  padding: 24px;
-  background: var(--white);
-  border-radius: 14px;
-  box-shadow: 0 10px 30px rgba(5, 43, 110, 0.18), 0 2px 6px rgba(0,0,0,0.06);
-}
-.filter-sidebar h3 { color: var(--navy); margin: 0 0 18px; font-size: 1.05rem; }
-.filter-sidebar button {
-  width: 100%; margin-top: 4px; font-size: 14px; padding: 8px;
-  background: var(--white); border: 1px solid var(--line); border-radius: 8px;
-  color: var(--ink); cursor: pointer; font-family: var(--font);
-}
-.filter-sidebar button:hover { background: var(--line); }
-
-.filter-group {
-  margin-bottom: 20px;
-}
-
-.group-title {
-  display: block;
-  font-weight: bold;
-  margin-bottom: 8px;
-}
-
-.filter-group label {
-  display: grid;
-  grid-template-columns: 24px 1fr; /* Fixed 24px column for checkbox, rest for text */
-  align-items: center;
-  margin-bottom: 6px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.filter-group label input[type="checkbox"] {
-  margin: 0;
-  justify-self: center; /* Centers the checkbox inside the 24px column */
-  align-self: center;
-  cursor: pointer;
-}
-/* ---------- Badges (priority, status, criticality) ---------- */
-.badge,
-.criticality-badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-    background: var(--line);
-    color: var(--ink);
-    align-self: flex-start;
-    margin-top: 8px;
-}
-
-.badge.low,        .criticality-badge.low        { background: #e8f5e9; color: var(--green); }
-.badge.medium,     .criticality-badge.medium     { background: #fff8e1; color: var(--amber); }
-.badge.high,       .criticality-badge.high       { background: #ffebee; color: var(--red); }
-.badge.critical,   .criticality-badge.critical   { background: var(--red); color: var(--white); }
-.badge.open         { background: #e3f2fd; color: var(--navy); }
-.badge.assigned     { background: #e8f5e9; color: var(--green); }
-.badge.in_progress  { background: #fff8e1; color: var(--amber); }
-.badge.resolved     { background: #e8f5e9; color: var(--green); }
-.badge.closed       { background: #fdecea; color: #b71c1c; }
-
-/* ---------- Services page ---------- */
-.services-container {
-    width: 100%;
-    max-width: 1000px;
-}
-
-.services-header {
-    text-align: center;
-    margin-bottom: 32px;
-}
-
-.team-section {
-    margin-bottom: 40px;
-}
-
-.team-title {
-    font-size: 1.3rem;
-    color: var(--gold);
-    border-bottom: 2px solid var(--gold);
-    padding-bottom: 8px;
-    margin-bottom: 16px;
-}
-
-.services-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 16px;
-}
-
-.service-wrapper {
-    display: flex;
-    flex-direction: column;
-    padding: 18px;
-    border-radius: 8px;
-    background-color: var(--white);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.service-item {
-    margin: 0 0 8px;
-    color: var(--ink);
-}
-
-.service-title {
-    font-weight: bold;
-    font-size: 1.1rem;
-    color: var(--navy);
-}
-
-.no-services {
-    color: var(--gold);
-    text-align: center;
-    font-size: 1.1rem;
-}
-
-/* ---------- Row actions ---------- */
-.row-actions {
-    white-space: nowrap;
-}
-
-.row-actions form {
-    display: inline;
-}
-
-.row-actions .btn-small,
-.modal .btn-small {
-    display: inline-block;
-    font-family: var(--font);
-    font-size: 13px;
-    font-weight: 600;
-    padding: 5px 12px;
-    border-radius: 4px;
-    border: 1px solid var(--navy);
-    color: var(--navy);
-    background: var(--white);
-    text-decoration: none;
-    cursor: pointer;
-    margin-right: 6px;
-    width: auto;
-}
-
-.row-actions .btn-small:hover,
-.modal .btn-small:hover {
-    background: var(--navy);
-    color: var(--white);
-}
-
-.row-actions .btn-small.danger,
-.modal .btn-small.danger {
-    border-color: var(--red);
-    color: var(--red);
-}
-
-.row-actions .btn-small.danger:hover,
-.modal .btn-small.danger:hover {
-    background: var(--red);
-    color: var(--white);
-}
-
-/* ---------- Two fields side by side ---------- */
-.form-row {
-    display: flex;
-    gap: 12px;
-    width: 100%;
-}
-
-.form-row .form-item {
-    flex: 1;
-}
-
-.muted {
-    color: var(--muted);
-    font-style: italic;
-}
-
-/* ---------- Confirm modal ---------- */
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.55);
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin: 0 0 4px;
+}
+.filter-sidebar h3 {
+    font-family: var(--font);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--on-page-muted);
+}
+.filter-group { display: flex; flex-wrap: wrap; gap: 8px; }
+.filter-group label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0;
+    padding: 5px 12px 5px 9px;
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.filter-group label:has(input:checked) { border-color: var(--gold-dark); background: var(--gold); color: var(--navy-dark); }
+.filter-group input { width: 16px; height: 16px; margin: 0; accent-color: var(--navy); }
+.filter-sidebar > button {
+    min-height: 32px;
+    padding: 4px 12px;
+    background: transparent;
+    border: 0;
+    color: var(--on-page);
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* ---------- The list: one ticket per row, lying on the page ---------- */
+.card.ticket-list {
+    background: transparent;
+    border: 0;
+    padding: 0;
+}
+
+.ticket-table {
+    border-collapse: separate;
+    border-spacing: 0 8px;
+    min-width: 900px;
+}
+.ticket-table th {
+    padding: 0 12px;
+    border-bottom: 0;
+    color: var(--on-page-muted);
+}
+.ticket-table td {
+    padding: 12px;
+    border-bottom: 0;
+    background-color: var(--stock, var(--sheet));
+}
+.ticket-table td:first-child { border-radius: 6px 0 0 6px; }
+.ticket-table td:last-child { border-radius: 0 6px 6px 0; }
+.ticket-table tbody tr:hover td { filter: brightness(1.04); }
+
+/* The stub: number, perforation, severity edge, and half of each notch */
+.ticket-table td.ticket-id {
+    width: 78px;
+    padding: 12px 8px 12px 14px;
+    text-align: center;
+    font-family: var(--display);
+    font-size: 23px;
+    font-weight: 700;
+    color: var(--navy-dark);
+    border-right: 2px dashed rgba(27, 29, 58, 0.3);
+    box-shadow: inset 6px 0 0 var(--sev, #8a8fa8);
+}
+.ticket-table td.ticket-id + td { padding-left: 18px; }
+.ticket-table td.ticket-id + td a { font-size: 16px; text-decoration: none; }
+.ticket-table td.ticket-id + td a:hover { text-decoration: underline; }
+
+/* Who holds it, under the status */
+.holder { display: block; margin-top: 4px; font-size: 13px; color: var(--muted); }
+.holder.yours { color: var(--navy-dark); font-weight: 700; }
+.holder.yours::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+    border: 1px solid var(--gold-dark);
+}
+
+.ticket-table td.created { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* A button that moves a ticket to a status is shaped like that status's pill */
+.ticket-table .row-actions { white-space: normal; }
+.move-group { display: flex; align-items: center; gap: 2px; margin-top: 6px; white-space: nowrap; }
+.move-to { margin-right: 6px; font-size: 13px; color: var(--muted); }
+.ticket-table td.ticket-id + td { min-width: 230px; overflow-wrap: anywhere; }
+.ticket-table .transition-form .btn-small { border-radius: 999px; padding-left: 14px; padding-right: 14px; }
+
+/* A ticket whose escalation policy ran out. Nobody owns it, so it is the
+   loudest thing on the page: red stub, red wash, and it sorts first. */
+.ticket-table tr.escalated-row td { background-color: var(--stock-ran-out); }
+.ticket-table tr.escalated-row td.ticket-id {
+    background-color: var(--red);
+    color: #ffffff;
+    border-right-color: rgba(255, 255, 255, 0.55);
+    box-shadow: none;
+}
+
+/* ---------- The ticket page ---------- */
+.ticket-head {
+    display: grid;
+    grid-template-columns: 128px 1fr;
+    margin-bottom: 14px;
+}
+.ticket-head { --notch: 9px; }
+.ticket-stub,
+.ticket-main { background-color: var(--stock, var(--sheet)); }
+.ticket-stub {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
-    z-index: 20;
+    padding: 22px 8px 22px 16px;
+    border-radius: 8px 0 0 8px;
+    border-right: 2px dashed rgba(27, 29, 58, 0.3);
+    box-shadow: inset 8px 0 0 var(--sev, #8a8fa8);
 }
-
-.modal-overlay[hidden] {
-    display: none;
+.stub-no { font-size: 14px; color: #4b4f6c; line-height: 1; }
+.stub-number {
+    font-family: var(--display);
+    font-size: 46px;
+    font-weight: 700;
+    line-height: 1.05;
+    color: var(--navy-dark);
 }
-
-.modal {
-    background: var(--white);
-    border-radius: 10px;
-    padding: 28px;
-    width: 100%;
-    max-width: 420px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+.ticket-main {
+    padding: 22px 28px 22px 30px;
+    border-radius: 0 8px 8px 0;
 }
+.detail-title { font-size: 30px; margin-bottom: 10px; }
+.ticket-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ticket-tags .badge { font-size: 14px; padding: 4px 11px; }
+/* One sentence that says where the ticket stands right now */
+.ticket-now { margin: 10px 0 0; font-size: 17px; color: var(--ink); }
 
-.modal h2 {
-    color: var(--navy);
+.ticket-head.ran-out .ticket-stub { background-color: var(--red); box-shadow: none; border-right-color: rgba(255, 255, 255, 0.55); }
+.ticket-head.ran-out .stub-no,
+.ticket-head.ran-out .stub-number { color: #ffffff; }
+.ticket-head.ran-out .ticket-main { background-color: var(--stock-ran-out); }
+
+/* Facts about the ticket: a quiet label over each value */
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px 24px;
     margin-bottom: 8px;
 }
+.field { display: flex; flex-direction: column; gap: 2px; }
+.field-wide { grid-column: 1 / -1; }
+.field-label { font-size: 14px; color: var(--muted); }
+.field-value { font-size: 16px; }
+.field-wide .field-value { max-width: 80ch; white-space: pre-line; }
 
-.modal .actions {
-    justify-content: flex-end;
+/* What this person can do to the ticket. Each button says what it does,
+   and the line under it says what happens next. */
+.ticket-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 14px 22px;
+    margin: 24px 0 4px;
+    padding: 18px 0 0;
+    border-top: 1px solid var(--rule-soft);
 }
+.ticket-actions .action { max-width: 300px; }
+.ticket-actions form { margin: 0; }
+.action-hint { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+.reassign-form { display: inline-flex; }
 
-.modal .btn-small {
-    font-size: 15px;
-    padding: 8px 18px;
+/* ---------- Timeline: a ruled line with one mark per event ---------- */
+.timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 22px;
+    border-left: 2px solid var(--rule);
 }
+.timeline li { position: relative; padding: 0 0 18px 4px; }
+.timeline li:last-child { padding-bottom: 2px; }
+.timeline li::before {
+    content: "";
+    position: absolute;
+    left: -29px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--sheet);
+    border: 2px solid var(--navy);
+}
+.timeline li.tl-escalation::before { background: var(--red); border-color: var(--red); }
+.timeline li.tl-assignment_failed::before { border-color: var(--red); }
+.timeline li.tl-status_change::before { background: var(--navy); }
+
+.tl-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 14px; }
+.tl-meta strong { font-size: 15px; color: var(--ink); }
+.tl-role { color: var(--muted); }
+.tl-role::before { content: "("; }
+.tl-role::after { content: ")"; }
+.tl-body { margin-top: 3px; }
+.tl-body .badge { font-size: 12px; padding: 2px 9px; }
+
+.tl-tag {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 1px 8px;
+    border-radius: 3px;
+    background: var(--grey-tint);
+    color: #3f4a5e;
+    font-size: 13px;
+    font-weight: 700;
+}
+.tl-tag.created { background: var(--stock-resolved); color: #14532d; }
+.tl-tag.assignment { background: var(--stock-open); color: #1e3a8a; }
+.tl-tag.severity { background: var(--stock-ran-out); color: #8f1711; }
+.tl-tag.note, .tl-tag.comment { background: var(--stock-assigned); color: #5d4a00; }
+
+.comment-form { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; max-width: 720px; }
+
+/* ---------- Schedule ---------- */
+.schedule-table th:nth-child(1), .schedule-table th:nth-child(2) { width: 26%; }
+.schedule-table th:nth-child(3) { width: 28%; }
+.schedule-table td:nth-child(1), .schedule-table td:nth-child(2) { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* The shift form is built from the form's own paragraphs */
+.shift-form p { margin: 0 0 16px; }
+.shift-form select,
+.shift-form input[type="date"],
+.shift-form input[type="number"] { width: auto; min-width: 190px; }
+.shift-form input[type="date"] + select { margin-left: 8px; min-width: 110px; }
+
+/* ---------- Escalation policy: each tier is edited in its own row ---------- */
+.policy-table th:nth-child(1) { width: 8%; }
+.policy-table th:nth-child(2) { width: 46%; }
+.policy-table th:nth-child(3) { width: 20%; }
+.policy-table td:first-child { font-family: var(--display); font-size: 20px; font-weight: 700; color: var(--navy-dark); }
+.policy-table input[type="number"] { max-width: 110px; }
+.policy-table .policy-end td { color: var(--muted); border-bottom: 0; }
+.policy-table .policy-end td:first-child { font-family: var(--font); font-size: 15px; font-weight: 600; color: var(--muted); }
+.policy-table .notice { margin: 0; }
 
 /* ---------- Live password checklist ---------- */
-.pw-rules {
-    list-style: none;
-    margin: 2px 0 0;
-    padding: 0;
-    font-size: 12px;
-    line-height: 1.4;
-    color: var(--muted);
+.pw-rules { list-style: none; margin: 10px 0 0; padding: 0; font-size: 14px; color: var(--muted); }
+.pw-rules li { padding: 1px 0; }
+.pw-rules .mark { display: inline-block; width: 20px; font-weight: 700; color: var(--red); }
+.pw-rules li.ok { color: var(--green); }
+.pw-rules li.ok .mark { color: var(--green); }
+
+@media (max-width: 760px) {
+    .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ticket-head { grid-template-columns: 88px 1fr; }
+    .stub-number { font-size: 32px; }
+    .ticket-main { padding: 16px 16px 16px 20px; }
+    .detail-title { font-size: 24px; }
 }
-
-.pw-rules .mark {
-    display: inline-block;
-    width: 16px;
-    font-weight: 700;
-    color: var(--red);
-}
-
-.pw-rules li.ok {
-    color: var(--green);
-}
-
-.pw-rules li.ok .mark {
-    color: var(--green);
-}
-
-.ticket-id {
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
-    width: 1%;
-}
-
-/* Every column gets a fixed share of the width, so a long title or
-   location wraps inside its own cell and never squeezes the others.
-   Shares add up to 100. */
-.incident-table { table-layout: fixed; width: 100%; }
-.incident-table th,
-.incident-table td { overflow-wrap: anywhere; }
-.incident-list th:nth-child(1) { width: 4%; }
-.incident-list th:nth-child(2) { width: 16%; }
-.incident-list th:nth-child(3) { width: 14%; }
-.incident-list th:nth-child(4) { width: 12%; }
-.incident-list th:nth-child(5) { width: 10%; }
-.incident-list th:nth-child(6) { width: 10%; }
-.incident-list th:nth-child(7) { width: 12%; }
-.incident-list th:nth-child(8) { width: 10%; }
-.incident-list th:nth-child(9) { width: 12%; }
-.incident-table td.row-actions { white-space: normal; }
-
-/* Team schedule: four columns, dates on one line */
-.schedule-table th:nth-child(1), .schedule-table th:nth-child(2) { width: 24%; }
-.schedule-table th:nth-child(3) { width: 30%; }
-.schedule-table th:nth-child(4) { width: 22%; }
-.schedule-table td:nth-child(1), .schedule-table td:nth-child(2) { white-space: nowrap; }
-
-/* Every button in the actions column is the same size: one per line,
-   as wide as the column, whatever its text */
-.incident-table .row-actions form { display: block; }
-.incident-table .row-actions .btn-small {
-    display: block;
-    width: 100%;
-    box-sizing: border-box;
-    margin: 0 0 4px;
-    text-align: center;
-}
-.incident-table .row-actions .btn-small { margin: 2px 0; }
-
-/* Reassign: a dropdown of the team's solvers next to its button */
-.reassign-form { display: inline-flex; align-items: center; gap: 8px; }
-.reassign-form select { width: auto; min-width: 220px; padding: 8px 10px; font-size: 15px; }
-
-/* A ticket whose escalation policy ran out: nobody owns it */
-.badge.escalated { background: var(--red); color: var(--white); margin-left: 6px; }
-tr.escalated-row td { background: #fdecea; }

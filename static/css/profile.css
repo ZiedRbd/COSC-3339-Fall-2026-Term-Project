@@ -1,446 +1,137 @@
-/*------------------------------Profile page layout --------------------------------*/
-.profile-layout{
-    max-width: 1200px;
-    margin: 0 auto;
+/* ---------- Profile: the person on the left, their work on the right ---------- */
+.profile-layout {
     display: grid;
-    grid-template-columns: 1fr 320px;
-    grid-template-areas: "incidents profile";
+    grid-template-columns: 300px minmax(0, 1fr);
     gap: 32px;
     align-items: start;
-
-}
-.incidents{
-    grid-area: incidents;
-    display: flex;
-    flex-direction: column;
-}
-.profile-card{
-    grid-area: profile;
 }
 
-/*Profile card */
-.profile-card{
-    box-sizing: border-box;
-    height: 560px;
-    overflow-y: auto;
-    padding: 32px 28px;
-    background: #0c2d6b;
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    border-radius: 16px;
-    color: #FFFFFF;
-    text-align: center;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+.profile-card {
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 24px;
 }
 
-.avatar{
+.avatar {
     display: block;
-    width: 140px;
-    height: 140px;
-    margin: 0 auto 16px;
+    width: 112px;
+    height: 112px;
     border-radius: 50%;
     object-fit: cover;
-    border: 3px solid #D4B34A;
-    background: #FFFFFF;
+    border: 1px solid var(--rule);
+    background: var(--grey-tint);
+    margin-bottom: 14px;
 }
+.profile-name { font-size: 26px; }
+.profile-card .meta { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
 
-.profile-card h1{
-    margin: 0;
-    color: #D4B34A;
-    font-size: 1.5rem;
-    overflow-wrap: anywhere;
+/* Picture and bio are two small forms, one under the other. The card
+   grows to fit them: it has no fixed height and never scrolls. */
+.profile-card { height: auto; max-height: none; overflow: visible; }
+.avatar-form,
+.bio-form {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule-soft);
 }
-.meta {
-  margin: 6px 0 0;
-  color: rgba(255, 255, 255, 0.75);
-}
-
-/* Bio Form */
-
-.bio-form{
-    display: grid;
-    gap: 8px;
-    margin-top: 24px;
-    text-align: left;
-
-}
-.bio-form lable{
+.avatar-form input[type="file"] { padding: 6px; font-size: 14px; }
+.avatar-form input[type="file"]::file-selector-button {
+    margin-right: 10px;
+    padding: 5px 10px;
+    background: var(--sheet);
+    color: var(--navy);
+    border: 1px solid var(--navy);
+    border-radius: 5px;
+    font-family: var(--font);
+    font-size: 14px;
     font-weight: 600;
+    cursor: pointer;
+}
+.avatar-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.bio-form textarea { min-height: 84px; }
+.bio-form button { margin-top: 10px; }
 
-}
-
-.bio-form textarea{
-    box-sizing: border-box;
-    width: 100%;
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 8px;
-  background: #FFFFFF;
-  color: #12286B;
-  font: inherit;
-  resize: vertical;
-}
-
-.bio-form textarea:focus{
-    outline: 3px solid #D4B34A;
-  outline-offset: 1px;
-}
-
-.bio-form button{
-  padding: 10px 20px;
-  border: 0;
-  border-radius: 8px;
-  background: #D4B34A;
-  color: #12286B;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-.bio-form button:hover {
-  background: #E2C463;
-}
-
-/* Team panel (solvers only) — sits beside the profile card */
-.team-panel {
-    padding: 28px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 16px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
-}
-.team-name {
-    margin: 0;
-    color: #0c2d6b;
-    font-size: 1.4rem;
-    font-weight: 700;
-}
-.team-label {
-    margin: 14px 0 10px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #6b7280;
-}
-.team-members {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+/* ---------- A reporter's tickets ---------- */
+.incident-columns {
     display: grid;
-    gap: 8px;
-}
-.team-members li {
-    padding: 12px 16px;
-    background: #f5f8ff;
-    border: 1px solid #dbe4f3;
-    border-radius: 10px;
-    color: #0c2d6b;
-    font-size: 1rem;
-    font-weight: 500;
-}
-.team-cta {
-    display: inline-block;
-    margin-top: 20px;
-    padding: 12px 22px;
-    background: var(--gold);
-    color: var(--navy-dark);
-    border: 1px solid var(--gold);
-    border-radius: 999px;
-    font-weight: 700;
-    text-decoration: none;
-    transition: background 0.15s ease, transform 0.15s ease;
-}
-.team-cta:hover {
-    background: var(--gold-dark);
-    border-color: var(--gold-dark);
-    transform: translateY(-1px);
-}
-
-/* Incidents remaining*/
-
-.incident-columns{
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px;
-    align-items: stretch;
-}
-@media (max-width: 720px) {
-    .incident-columns { grid-template-columns: 1fr; }
-}
-
-.incident-col{
-    display: flex;
-    flex-direction: column;
-    height: 560px;
-    padding: 20px;
-    background: #0c2d6b;
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    border-radius: 16px;
-    color: #FFFFFF;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px;
 }
 .incident-col h3 {
-    margin: 0 0 16px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-    color: var(--gold);
-    font-size: 1.05rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-}
-.incident-col ul {
-    flex: 1;
-    overflow-y: auto;
-    padding-right: 8px;
-}
-.incident-col ul::-webkit-scrollbar { width: 8px; }
-.incident-col ul::-webkit-scrollbar-thumb {
-    background: rgba(212, 175, 55, 0.5);
-    border-radius: 999px;
-}
-
-.incident-col ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.incident-col li {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-incident-col li span {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.9rem;
-  white-space: nowrap;
-}
-.incident-col .empty {
-  color: rgba(255, 255, 255, 0.6);
-  font-style: italic;
-}
-.incident-col li:last-child {
-  border-bottom: 0;
-}
-
-/* ---------- Timeline (incident detail) ---------- */
-.timeline {
-    list-style: none;
-    margin: 12px 0 28px;
-    padding: 0;
-    border-left: 2px solid var(--line);
-}
-.timeline li {
-    position: relative;
-    padding: 10px 0 10px 22px;
-    font-size: 14px;
-    line-height: 1.5;
-}
-.timeline li::before {
-    content: "";
-    position: absolute;
-    left: -7px;
-    top: 16px;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--gold);
-    border: 2px solid var(--white);
-}
-.timeline .muted { font-size: 12px; }
-
-
-/* ---------- Incident detail redesign ---------- */
-.detail { max-width: 760px; }
-
-.detail-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 16px;
-    padding-bottom: 20px;
-    margin-bottom: 24px;
-    border-bottom: 1px solid var(--line);
-}
-.detail-eyebrow {
-    margin: 0 0 4px;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
-}
-.detail-title { margin: 0; color: var(--navy); font-size: 1.6rem; line-height: 1.2; }
-
-.status-pill {
-    font-size: 14px;
-    padding: 6px 16px;
-    margin-top: 4px;
-    white-space: nowrap;
-}
-
-.detail-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px 28px;
-    margin-bottom: 28px;
-}
-.field { display: flex; flex-direction: column; gap: 5px; }
-.field-wide { grid-column: 1 / -1; }
-.field-label {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--muted);
-}
-.field-value { color: var(--ink); font-size: 15px; }
-.field .badge { align-self: flex-start; margin-top: 0; }
-
-.action-bar {
-    background: #f5f8ff;
-    border: 1px solid #dbe4f3;
-    border-radius: 12px;
-    padding: 18px 20px;
-    margin-bottom: 28px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-.action-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
-.action-buttons form { margin: 0; }
-.action-buttons .btn-gold { text-transform: capitalize; }
-
-.incidents .section-title {
-    color: var(--navy);
-    font-size: 1.15rem;
-    margin: 0 0 14px;
     padding-bottom: 8px;
-    border-bottom: 2px solid var(--line);
+    margin-bottom: 12px;
+    color: var(--on-page);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.4);
 }
+.incident-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.incident-col li.none { color: var(--on-page-muted); padding: 6px 0; }
 
-/* richer timeline */
-.timeline li { padding: 14px 0 14px 24px; border-left: none; }
-.timeline { border-left: 2px solid var(--line); }
-.tl-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-.tl-meta strong { color: var(--ink); font-size: 14px; }
-.tl-role {
-    font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
-    background: var(--line); color: var(--muted);
-    padding: 2px 7px; border-radius: 999px; font-weight: 700;
-}
-.tl-body { font-size: 14px; color: var(--ink); line-height: 1.5; }
-.tl-body .badge { font-size: 11px; margin-top: 0; }
-.tl-tag {
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
-    padding: 2px 8px; border-radius: 999px; margin-right: 4px;
-}
-.tl-tag.note { background: #ede7f6; color: #5e35b1; }
-.tl-tag.comment { background: #e3f2fd; color: var(--navy); }
-/* dot color by event type */
-.timeline li::before { top: 18px; }
-.tl-status_change::before { background: var(--gold); }
-.tl-solver_note::before { background: #5e35b1; }
-.tl-comment::before { background: var(--navy); }
-
-.comment-form { max-width: 100%; padding: 0; background: none; }
-.comment-form textarea { margin-bottom: 10px; }
-.comment-form .btn-gold { align-self: flex-start; }
-
-.back-link {
-    display: inline-block;
-    margin-top: 24px;
-    color: var(--navy);
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 14px;
-}
-.back-link:hover { text-decoration: underline; }
-
-@media (max-width: 560px) {
-    .detail-grid { grid-template-columns: 1fr; }
-    .detail-head { flex-direction: column; }
-}
-
-.tl-tag.created    { background: #e8f5e9; color: var(--green); }
-.tl-tag.assignment { background: #e3f2fd; color: var(--navy); }
-.tl-tag.severity   { background: #fff8e1; color: var(--amber); }
-.tl-tag.edit       { background: var(--line); color: var(--muted); }
-.tl-created::before    { background: var(--green); }
-.tl-assignment::before { background: var(--navy); }
-.tl-severity::before   { background: var(--amber); }
-.tl-edit::before       { background: var(--muted); }
-
-/* ---------- Profile incident rows ---------- */
-/* align-content keeps cards at their natural height instead of stretching
-   to fill the column when there are only one or two of them */
-.incident-col ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 10px;
-    align-content: start;
-}
-
+/* Each one is a small ticket: stub on the left, the rest on the right */
 .profile-incident {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+}
+.profile-incident { --notch: 6px; }
+.pi-number,
+.pi-main { background-color: var(--stock, var(--sheet)); }
+.pi-number {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 18px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
-}
-.profile-incident:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
-}
-.pi-title { color: #0c2d6b; font-weight: 700; line-height: 1.4; font-size: 1.05rem; }
-.pi-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.pi-date { font-size: 13px; color: #6b7280; }
-.pi-meta .badge { margin-top: 0; }
-.pi-actions { display: flex; gap: 8px; }
-.pi-btn {
-    display: inline-block;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 5px 14px;
-    border-radius: 999px;
-    text-decoration: none;
-    background: var(--gold);
+    align-items: center;
+    justify-content: center;
+    padding-left: 6px;
+    font-family: var(--display);
+    font-size: 21px;
+    font-weight: 700;
     color: var(--navy-dark);
-    border: 1px solid var(--gold);
-    transition: all 0.15s ease;
+    border-radius: 6px 0 0 6px;
+    border-right: 2px dashed rgba(27, 29, 58, 0.3);
+    box-shadow: inset 6px 0 0 var(--sev, #8a8fa8);
 }
-.pi-btn:hover { background: var(--gold-dark); border-color: var(--gold-dark); transform: translateY(-1px); }
-.pi-btn.edit { background: transparent; color: var(--navy); border-color: var(--navy); }
-.pi-btn.edit:hover { background: var(--navy); color: #ffffff; }
-
-/* empty-state list items (plain text, not cards) */
-.incident-col li:not(.profile-incident) {
-    list-style: none;
-    color: rgba(255, 255, 255, 0.55);
-    font-style: italic;
-    padding: 8px 0;
+.pi-main {
+    padding: 12px 14px 12px 18px;
+    border-radius: 0 6px 6px 0;
 }
-
-/* Delete, next to Edit on the reporter's own open tickets */
-.pi-btn.danger { background: transparent; color: #c62828; border-color: #c62828; }
-.pi-btn.danger:hover { background: #c62828; color: #ffffff; border-color: #c62828; }
-
-/* Ticket cards on the profile: room between the text and the card edge */
-.incident-col li.profile-incident {
+.pi-meta { color: #4b4f6c; }
+.pi-title { display: block; font-weight: 700; font-size: 16px; color: var(--ink); }
+.pi-meta {
     display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    gap: 12px;
-    padding: 18px 20px;
-    margin-bottom: 14px;
-    border-bottom: 1px solid #e5e7eb;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    margin-top: 5px;
+    font-size: 14px;
+    color: var(--muted);
 }
-.incident-col li.profile-incident .pi-actions { padding-top: 4px; }
+.pi-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.pi-actions form { margin: 0; }
+
+/* ---------- A solver's teams ---------- */
+.team-panel {
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 22px 24px;
+    margin-bottom: 16px;
+}
+.team-name { margin-bottom: 10px; }
+.team-label { margin: 0 0 4px; font-size: 14px; color: var(--muted); }
+.team-members { margin: 0 0 16px; padding: 0; list-style: none; columns: 2; column-gap: 24px; }
+.team-members li { padding: 3px 0; break-inside: avoid; }
+.team-cta {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 7px 14px;
+    border: 1px solid var(--navy);
+    border-radius: 6px;
+    color: var(--navy);
+    font-weight: 600;
+    text-decoration: none;
+}
+.team-cta:hover { background: var(--navy); color: #ffffff; }
+
+@media (max-width: 900px) {
+    .profile-layout { grid-template-columns: 1fr; }
+    .incident-columns { grid-template-columns: 1fr; }
+}

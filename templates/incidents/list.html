@@ -9,30 +9,34 @@
 {% endblock %}
 
 {% block content %}
-<aside class="filter-sidebar">
-    <h3>Filter Tickets</h3>
-    <div class="filter-group">
-      <span class="group-title">Severity</span>
-      <label>Critical<input type="checkbox" class="filter-priority" value="critical" onchange="filterTable()"></label>
-      <label>High<input type="checkbox" class="filter-priority" value="high" onchange="filterTable()"></label>
-      <label>Medium<input type="checkbox" class="filter-priority" value="medium" onchange="filterTable()"></label>
-      <label>Low<input type="checkbox" class="filter-priority" value="low" onchange="filterTable()"></label>
-    </div>
-    <button type="button" onclick="clearFilters()">Reset</button>
+<div class="page-head">
+  <div>
+    <h1 class="form-header">Team incidents</h1>
+    <p class="lead">Every ticket for your teams, newest first. A ticket nobody started in time is unassigned, in red, at the top.</p>
+  </div>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+    <p class="notice {{ message.tags }}">{{ message }}</p>
+  {% endfor %}
+{% endif %}
+
+<aside class="filter-sidebar" aria-label="Filter by severity">
+  <h3>Show only</h3>
+  <div class="filter-group">
+    <label><input type="checkbox" class="filter-priority" value="critical" onchange="filterTable()">Critical</label>
+    <label><input type="checkbox" class="filter-priority" value="high" onchange="filterTable()">High</label>
+    <label><input type="checkbox" class="filter-priority" value="medium" onchange="filterTable()">Medium</label>
+    <label><input type="checkbox" class="filter-priority" value="low" onchange="filterTable()">Low</label>
+  </div>
+  <button type="button" onclick="clearFilters()">Show all</button>
 </aside>
 
-<div class="card wide">
-  <h1 class="form-header">Active Incidents</h1>
-  
-  {% if messages %}
-    {% for message in messages %}
-      <p class="notice {{ message.tags }}">{{ message }}</p>
-    {% endfor %}
-  {% endif %}
-
-  
+<div class="card wide ticket-list">
   {% if incidents %}
-    <table class="incident-table incident-list">
+    <div class="table-scroll">
+    <table class="incident-table incident-list ticket-table">
       <thead>
         <tr>
           <th>#</th>
@@ -48,18 +52,22 @@
       </thead>
       <tbody>
         {% for incident in incidents %}
-          <tr class="incident-list-item{% if incident.is_unassigned_after_escalation %} escalated-row{% endif %}">
+          <tr class="incident-list-item sev-{{ incident.priority }} st-{{ incident.status }}{% if incident.is_unassigned_after_escalation %} escalated-row{% endif %}">
             <td class="ticket-id">{{ incident.pk }}</td>
             <td><a href="{% url 'incident_detail' incident.pk %}">{{ incident.title|truncatechars:70 }}</a>
               {% if incident.is_unassigned_after_escalation %}<span class="badge escalated">Unassigned: escalation ran out</span>{% endif %}</td>
             <td>{% if incident.building or incident.room %}{{ incident.building|truncatechars:40 }}{% if incident.building and incident.room %}, {% endif %}{{ incident.room|truncatechars:24 }}{% else %}<span class="muted">Not given</span>{% endif %}</td>
             <td>{{ incident.service.name }}</td>
             <td><span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></td>
-            <td><span class="badge {{ incident.status }}">{{ incident.get_status_display }}</span></td>
+            <td><span class="badge {{ incident.status }}">{{ incident.get_status_display }}</span>
+              {% if incident.assigned_to_id == user.id %}<span class="holder yours">Yours</span>{% elif incident.assigned_to_id %}<span class="holder">{{ incident.assigned_to.first_name }} {{ incident.assigned_to.last_name }}</span>{% endif %}</td>
             <td>{{ incident.reported_by.first_name }} {{ incident.reported_by.last_name }}</td>
-            <td>{{ incident.created_at|date:"M j, Y g:i A" }}</td>
+            <td class="created">{{ incident.created_at|date:"M j, g:i A" }}</td>
             <td class="row-actions">
-              {% if incident.can_transition %}
+              <a href="{% url 'incident_detail' incident.pk %}" class="btn-small">View</a>
+              {% if incident.can_transition and incident.next_states %}
+                <div class="move-group">
+                <span class="move-to">Move to</span>
                 {% for state in incident.next_states %}
                   <form method="post" action="{% url 'incident_transition' incident.pk %}" style="display:inline"
                         class="transition-form" data-label="{{ state|status_label }}">
@@ -68,15 +76,16 @@
                     <button type="submit" class="btn-small">{{ state|status_label }}</button>
                   </form>
                 {% endfor %}
+                </div>
               {% endif %}
-              <a href="{% url 'incident_detail' incident.pk %}" class="btn-small">View</a>
             </td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
+    </div>
   {% else %}
-    <p class="empty">No active incidents.</p>
+    <p class="empty">No active incidents for your teams. New tickets appear here as soon as they are filed.</p>
   {% endif %}
 </div>
 

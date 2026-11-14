@@ -1,56 +1,57 @@
-{% extends "base.html"%}
+{% extends "base.html" %}
 {% load static %}
-{%block title%}Registration form{%endblock%}
+{% block title %}Registration form{% endblock %}
 {% block extra_js %}
   <script src="{% static 'js/password.js' %}?v=3" defer></script>
 {% endblock %}
-{%block content%}
-<div>
 
-  <div class="form-layout">
+{% block content %}
+<div class="form-layout">
+  <h1 class="form-header">Create an account</h1>
 
-    <h1 class="form-header">Registration</h1>
-
-    <form method="POST" class="stacked">
-      {% csrf_token %}
+  <form method="POST" class="stacked">
+    {% csrf_token %}
+    <div class="form-row">
       <div class="form-item">
-        <label for="{{ form.first_name.id_for_label}}" class="form-label"></label>
+        <label for="{{ form.first_name.id_for_label }}" class="form-label">First name</label>
         {{ form.first_name }}
         {% if form.first_name.errors %}<div class="error">{{ form.first_name.errors }}</div>{% endif %}
       </div>
       <div class="form-item">
-        <label for="{{ form.last_name.id_for_label}}" class="form-label"></label>
-        {{ form.last_name}}
-        {% if form.last_name.errors %}<div class="error">{{ form.last_name.errors}}</div>{% endif %}
+        <label for="{{ form.last_name.id_for_label }}" class="form-label">Last name</label>
+        {{ form.last_name }}
+        {% if form.last_name.errors %}<div class="error">{{ form.last_name.errors }}</div>{% endif %}
       </div>
-      <div class="form-item">
-        <label for="{{ form.email.id_for_label}}" class="form-label"></label>
-        {{ form.email}}
-        {% if form.email.errors %}<div class="error">{{ form.email.errors}}</div>{% endif %}
-      </div>
-      <div class="form-item">
-        <label for="{{ form.password.id_for_label}}" class="form-label"></label>
-        {{ form.password }}
-        {% if form.password.errors %}<div class="error">{{ form.password.errors}}</div>{% endif %}
-      </div>
-      <div class="form-item">
-        <label for="{{ form.password2.id_for_label}}" class="form-label"></label>
-        {{ form.password2}}
+    </div>
+    <div class="form-item">
+      <label for="{{ form.email.id_for_label }}" class="form-label">Email</label>
+      {{ form.email }}
+      {% if form.email.errors %}<div class="error">{{ form.email.errors }}</div>{% endif %}
+    </div>
+    <div class="form-item">
+      <label for="{{ form.password.id_for_label }}" class="form-label">Password</label>
+      {{ form.password }}
+      {% if form.password.errors %}<div class="error">{{ form.password.errors }}</div>{% endif %}
+    </div>
+    <div class="form-item">
+      <label for="{{ form.password2.id_for_label }}" class="form-label">Password again</label>
+      <div class="password-row">
+        {{ form.password2 }}
         <button type="button" id="togglePasswordBtn" onclick="togglePasswordVisibility()" class="password">Show</button>
-        {% if form.password2.errors %}<div class="error">{{ form.password2.errors}}</div>{% endif %}
-        <ul class="pw-rules">
-          <li data-rule="length"><span class="mark">✗</span>At least 8 characters</li>
-          <li data-rule="upper"><span class="mark">✗</span>An uppercase letter</li>
-          <li data-rule="lower"><span class="mark">✗</span>A lowercase letter</li>
-          <li data-rule="digit"><span class="mark">✗</span>A number</li>
-          <li data-rule="symbol"><span class="mark">✗</span>A symbol</li>
-          <li data-rule="match"><span class="mark">✗</span>Passwords match</li>
-        </ul>
       </div>
-      <button type="submit">Register</button>
-    </form>
+      {% if form.password2.errors %}<div class="error">{{ form.password2.errors }}</div>{% endif %}
+      <ul class="pw-rules">
+        <li data-rule="length"><span class="mark">✗</span>At least 8 characters</li>
+        <li data-rule="upper"><span class="mark">✗</span>An uppercase letter</li>
+        <li data-rule="lower"><span class="mark">✗</span>A lowercase letter</li>
+        <li data-rule="digit"><span class="mark">✗</span>A number</li>
+        <li data-rule="symbol"><span class="mark">✗</span>A symbol</li>
+        <li data-rule="match"><span class="mark">✗</span>Passwords match</li>
+      </ul>
+    </div>
+    <button type="submit">Create account</button>
+  </form>
 
-
-  <a href="{% url 'login' %}" class = "btn-link">Already have an account? Log in</a>
-
-{%endblock%}
+  <a href="{% url 'login' %}" class="btn-link">Already have an account? Log in</a>
+</div>
+{% endblock %}

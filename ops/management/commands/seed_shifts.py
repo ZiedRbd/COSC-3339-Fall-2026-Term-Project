@@ -4,13 +4,16 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from ops.models import Shift, Team, TeamMember
-from ops.scheduling import assign_waiting
+from ops.scheduling import assign_waiting, validate_secondary
 
 
 # Fills every team's on-call schedule from now until a week ahead, 24 hours a
 # day in three blocks (00:00, 08:00, 16:00), rotating through the team's
-# solvers so each day shows a different name per block. Pass --short-team to
-# stop one team at the end of today, to show the "schedule ran out" case.
+# solvers so each day shows a different name per block. Each day also gets
+# one secondary shift, 08:00 to 16:00, for the first solver the secondary
+# rules allow; a day where they allow nobody has no secondary. Pass
+# --short-team to stop one team at the end of today, to show the "schedule
+# ran out" case.
 # Safe to run again: it replaces current and future shifts only, never past
 # ones, and never touches which ticket belongs to whom.
 # Run with: python manage.py seed_shifts
@@ -58,6 +61,31 @@ class Command(BaseCommand):
                 i += 1
                 total += 1
             self.stdout.write(f"{team.name}: covered until {timezone.localtime(end):%a %b %d %H:%M}")
+
+        # Secondaries go in after every team's primaries, so a solver who is
+        # primary on another team at that hour is never picked.
+        for team in Team.objects.order_by("name"):
+            solvers = [
+                m.user for m in TeamMember.objects.filter(team=team, user__role="solver", user__is_active=True)
+                .select_related("user").order_by("user__id")
+            ]
+            if not solvers:
+                continue
+            end = tonight if team.name == options["short_team"] else week_end
+            day_start = local_now.replace(hour=8, minute=0, second=0, microsecond=0)
+            added = []
+            while day_start < end:
+                day_end = day_start + block
+                if day_end > now:
+                    for solver in solvers:
+                        shift = Shift(team=team, solver=solver, on_call_role="secondary",
+                                      created_by=team.lead or solvers[0], starts_at=day_start, ends_at=day_end)
+                        if not validate_secondary(team, added + [shift], now):
+                            shift.save()
+                            added.append(shift)
+                            total += 1
+                            break
+                day_start += timedelta(days=1)
 
         picked = sum(assign_waiting(team) for team in Team.objects.all())
         self.stdout.write(self.style.SUCCESS(f"Seeded {total} shifts, {picked} waiting tickets assigned"))

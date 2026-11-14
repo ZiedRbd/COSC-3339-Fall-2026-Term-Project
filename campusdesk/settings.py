@@ -145,14 +145,40 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# Files users upload, such as profile pictures. They live outside the
+# code, in media/, and are served at /media/: by Django while DEBUG is on
+# and by nginx on the server.
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    "default": {
-        "BACKEND": "django.core.mail.backends.console.EmailBackend",
+# Notification emails go out through Gmail when EMAIL_HOST_USER and
+# EMAIL_HOST_PASSWORD are set. Without them the same emails are printed
+# in the terminal, so the site runs with no mail account.
+MAIL_ACCOUNT = os.getenv("EMAIL_HOST_USER", "")
+MAIL_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = MAIL_ACCOUNT or "campusdesk@localhost"
+
+CONSOLE_MAILER = {"BACKEND": "django.core.mail.backends.console.EmailBackend"}
+GMAIL_MAILER = {
+    "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+    "OPTIONS": {
+        "host": "smtp.gmail.com",
+        "port": 587,
+        "use_tls": True,
+        "username": MAIL_ACCOUNT,
+        "password": MAIL_PASSWORD,
+        # A mail server that does not answer must not hold a request open
+        "timeout": 5,
     },
+}
+
+MAILERS = {
+    "default": CONSOLE_MAILER,
+    "notifications": GMAIL_MAILER if MAIL_ACCOUNT and MAIL_PASSWORD else CONSOLE_MAILER,
 }
 
 # Tests create hundreds of users. The real hasher is deliberately slow, so a

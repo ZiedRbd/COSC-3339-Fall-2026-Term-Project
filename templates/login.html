@@ -1,36 +1,38 @@
-{%extends "base.html"%}
-{%block title%}Login{%endblock%}
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
 {% load static %}
 {% block extra_js %}
   <script src="{% static 'js/password.js' %}?v=2" defer></script>
 {% endblock %}
 
-
-
-{%block content%}
-
-
+{% block content %}
 <div class="login-field">
-  <h1 class="form-header">Login</h1>
+  <h1 class="form-header">Log in</h1>
   <div class="stacked">
     {% if messages %}
-        <div class="error-popup">
-            {% for message in messages %}
-                <p class="{{ message.tags }}">{{ message }}</p>
-            {% endfor %}
-        </div>
+      <div class="error-popup">
+        {% for message in messages %}
+          <p class="{{ message.tags }}">{{ message }}</p>
+        {% endfor %}
+      </div>
     {% endif %}
     <form method="post">
       {% csrf_token %}
-      {{ form.email }}
-      <div>
-        {{ form.password }}
-        <button type="button" id="togglePasswordBtn" onclick="togglePasswordVisibility()" class="password">Show</button>
+      <div class="form-item">
+        <label for="{{ form.email.id_for_label }}">Email</label>
+        {{ form.email }}
+      </div>
+      <div class="form-item">
+        <label for="{{ form.password.id_for_label }}">Password</label>
+        <div class="password-row">
+          {{ form.password }}
+          <button type="button" id="togglePasswordBtn" onclick="togglePasswordVisibility()" class="password">Show</button>
+        </div>
       </div>
       <button type="submit">Log in</button>
     </form>
 
-    <a href="{% url 'register' %}" class="btn-link">Need an account? Register</a>
+    <a href="{% url 'register' %}" class="btn-link">Need an account? Create one</a>
   </div>
 </div>
-{%endblock%}
+{% endblock %}

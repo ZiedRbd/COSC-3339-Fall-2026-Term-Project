@@ -1,100 +1,81 @@
-/* ---------- On-call calendar ---------- */
-.calendar-card { max-width: 1200px; }
-.calendar-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-    margin-bottom: 16px;
-}
-.calendar-nav { display: flex; gap: 8px; }
+/* ---------- On-call calendar: a row per team, a column per day ---------- */
+.calendar-nav { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .calendar-table {
     width: 100%;
+    min-width: 860px;
     border-collapse: collapse;
     table-layout: fixed;
 }
 .calendar-table th,
 .calendar-table td {
-    border: 1px solid var(--line);
     padding: 8px;
+    border: 1px solid var(--rule-soft);
     vertical-align: top;
-    font-size: 13px;
+    text-align: left;
 }
 .calendar-table thead th {
-    background: #f5f8ff;
-    color: var(--navy);
-    text-align: center;
-}
-.calendar-table thead th.today { background: var(--gold); color: var(--navy-dark); }
-.cal-date { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
-.calendar-table thead th.today .cal-date { color: var(--navy-dark); }
-
-.team-cell {
-    width: 130px;
-    text-align: left;
-    color: var(--navy);
+    font-size: 15px;
     font-weight: 700;
-    background: #f5f8ff;
+    color: var(--navy-dark);
+    border-top: 0;
+    border-bottom: 2px solid var(--navy-dark);
 }
-.cal-edit {
-    display: block;
-    margin-top: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--navy);
+.calendar-table thead th:first-child { width: 132px; }
+.cal-date { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
+
+/* Today is the column you are in: the same gold bar the nav uses */
+.calendar-table thead th.today { box-shadow: inset 0 4px 0 var(--gold); }
+
+.calendar-table .team-cell {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--navy-dark);
+    background: #efeff7;
 }
-
-.slot {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 6px 8px;
-    margin-bottom: 6px;
-    background: #e8f5e9;
-    border-left: 3px solid var(--green);
-    border-radius: 6px;
-}
-.slot-when { font-size: 11px; color: var(--muted); }
-.slot-who { font-weight: 600; color: var(--ink); }
-.slot-none { color: var(--muted); font-style: italic; font-size: 12px; }
-
-@media (max-width: 900px) {
-    .calendar-table { display: block; overflow-x: auto; }
-}
-
-/* Tighter cells: one line for the hours, one for the name */
-.calendar-table thead th { padding: 10px 6px; }
-.calendar-table td { padding: 6px; }
-.slot { margin-bottom: 4px; padding: 5px 7px; }
-.slot-when { display: block; }
-.slot-who { display: block; }
-.calendar-nav .btn-small { font-size: 12px; }
-
-/* Shift form: label on its own line, date picker and hour dropdown side by side */
-.shift-form label { display: block; margin-bottom: 4px; font-weight: 600; }
-.shift-form p { margin: 0 0 14px; }
-.shift-form input, .shift-form select { width: auto; min-width: 150px; margin-right: 8px; }
-
-/* Schedule page: the heading with its Add button, and the shift form popup */
-.section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 24px 0 12px; }
-.section-head .section-title { margin: 0; }
-.modal.wide { max-width: 560px; text-align: left; }
-.modal.wide .shift-form input, .modal.wide .shift-form select { width: auto; min-width: 150px; }
-.modal.wide .actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px; }
-
-/* A slot that already ended is history: greyed out, nothing to edit */
-.slot.past { opacity: 0.45; }
-
-/* The lead's edit link on the calendar reads as a button */
 .cal-edit {
     display: inline-block;
-    margin-top: 10px;
-    padding: 5px 12px;
+    margin-top: 8px;
+    padding: 4px 10px;
+    background: var(--sheet);
     border: 1px solid var(--navy);
-    border-radius: 999px;
-    font-size: 12px;
+    border-radius: 6px;
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--navy);
     text-decoration: none;
 }
 .cal-edit:hover { background: var(--navy); color: #ffffff; }
+
+/* One shift. A solid edge is the primary; a dashed outline is the
+   secondary, who is the backup. */
+.slot {
+    margin-bottom: 6px;
+    padding: 6px 8px;
+    background: var(--stock-open);
+    border-left: 4px solid var(--navy);
+    border-radius: 0 4px 4px 0;
+}
+.slot:last-child { margin-bottom: 0; }
+.slot-when { display: block; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.slot-who { display: block; font-size: 14px; font-weight: 700; color: var(--ink); }
+
+.slot:has(.slot-role) {
+    background: var(--sheet);
+    border: 1px dashed #8b96a9;
+    border-radius: 4px;
+}
+.slot-role {
+    display: inline-block;
+    margin-left: 2px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.slot.past { background: var(--grey-tint); border-left-color: #a9b2c2; }
+.slot.past .slot-who { color: var(--muted); font-weight: 600; }
+
+.slot-none { font-size: 14px; color: #8b96a9; }
