@@ -4,7 +4,7 @@ title Solver Begins Work on an Assigned Incident
 actor Solver
 participant "Browser\n(incident page)" as Browser
 participant "nginx" as Nginx
-participant "Django view\nincident_transition" as View
+participant "Django views\nincident_detail,\nincident_transition" as View
 participant "ALLOWED_TRANSITIONS" as Rules
 database "PostgreSQL" as DB
 
@@ -22,16 +22,18 @@ Browser --> Solver : Show ticket, timeline,\nand "Move to In Progress" button
 
 == Start work ==
 Solver -> Browser : Click "Move to In Progress"
+Browser --> Solver : Ask "Move this ticket to In Progress?"
+Solver -> Browser : Click "Move" to confirm
 Browser -> Nginx : POST /incidents/12/transition/\nnew_status=in_progress
 Nginx -> View : forward request
 View -> DB : SELECT incident 12 FOR UPDATE\n(the escalation timer waits for this row)
 DB --> View : incident row (status = assigned)
-View -> View : Verify solver role and\nteam access again
+View -> View : _can_access_incident again, then\n_can_transition: the assigned solver\nor the team lead
 View -> Rules : is "in_progress" allowed from "assigned"?
 Rules --> View : allowed
 View -> DB : UPDATE incident\nSET status = in_progress
 View -> DB : INSERT IncidentUpdate\n(incident, author, type = status_change,\nold = assigned, new = in_progress, timestamp)
-View -> DB : INSERT Notification for the reporter\n("Work has started on your ticket"),\nalso sent by email
+View -> DB : INSERT Notification for the reporter\n("Work has started on your ticket #12 (<title>)."),\nalso sent by email
 DB --> View : committed
 View --> Browser : 302 redirect to /incidents/12/\nwith success message
 Browser -> Nginx : GET /incidents/12/

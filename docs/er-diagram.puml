@@ -25,7 +25,8 @@ entity "USER" as user {
   * last_name : varchar
   * role : varchar = 'reporter'
     bio : text
-  * is_active : bool
+    avatar : varchar
+  * is_active : bool = true
   * created_at : datetime
 }
 
@@ -56,7 +57,7 @@ entity "SERVICE" as service {
     description : text
     owning_team_id : int <<FK>>
   * criticality : varchar = 'medium'
-  * is_active : bool
+  * is_active : bool = true
   * created_at : datetime
 }
 
@@ -91,7 +92,7 @@ entity "INCIDENT_UPDATE" as upd {
   --
   * incident_id : int <<FK>>
   * author_id : int <<FK>>
-  * update_type : varchar
+  * update_type : varchar = 'note'
   * body : text
     old_status : varchar
     new_status : varchar
@@ -119,6 +120,8 @@ user     |o--o{ incident : assigned to
 team     |o--o{ incident : assigned team
 incident ||--o{ upd      : has
 user     ||--o{ upd      : writes
+user     |o--o{ upd      : old assignee
+user     |o--o{ upd      : new assignee
 
 
 entity "SHIFT" as shift {
@@ -136,7 +139,7 @@ entity "SHIFT" as shift {
 team ||--o{ shift : "has"
 user ||--o{ shift : "covers"
 user |o--o{ team : "leads"
-user |o--o{ shift : "scheduled by"
+user ||--o{ shift : "scheduled by"
 
 entity "ESCALATION_TIER" as tier {
   * id : int <<PK>>
@@ -146,8 +149,9 @@ entity "ESCALATION_TIER" as tier {
   * escalate_to : varchar
   escalate_to_user_id : int <<FK>>
   * wait_minutes : int
-  created_at : datetime
-  updated_at : datetime
+  * created_at : datetime
+  * updated_at : datetime
+  unique (team_id, tier_number)
 }
 
 entity "NOTIFICATION" as note {
@@ -157,7 +161,7 @@ entity "NOTIFICATION" as note {
   incident_id : int <<FK>>
   * event : varchar
   * message : text
-  created_at : datetime
+  * created_at : datetime
   read_at : datetime
   emailed_at : datetime
 }

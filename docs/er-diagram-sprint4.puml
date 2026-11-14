@@ -1,0 +1,108 @@
+@startuml CampusDesk ER changes in Sprint 4
+hide circle
+hide empty members
+skinparam nodesep 70
+skinparam ranksep 80
+skinparam padding 6
+skinparam roundCorner 8
+skinparam shadowing false
+skinparam ArrowColor #555555
+skinparam ArrowFontColor #555555
+skinparam class {
+  BackgroundColor #FAFAFA
+  BorderColor #444444
+  HeaderBackgroundColor #E4E5EA
+}
+
+title ER diagram: what changed between Sprint 3 and Sprint 4
+
+legend top left
+  |<#C9ECD3>          | New table |
+  |<#FBEFAE>          | Table with new columns, marked **new** |
+  |<#E4E5EA>          | Unchanged table, name only |
+endlegend
+
+' ── Unchanged since Sprint 3 ────────────────────
+
+entity "TEAM" as team
+entity "TEAM_MEMBER" as tm
+entity "SERVICE" as service
+entity "INCIDENT_UPDATE" as upd
+
+' ── Changed in Sprint 4 ─────────────────────────
+
+entity "USER" as user #FBEFAE {
+  * id : int <<PK>>
+  --
+  columns of Sprint 3, unchanged
+  --
+    avatar : varchar  **new**
+}
+
+entity "INCIDENT" as incident #FBEFAE {
+  * id : int <<PK>>
+  --
+  columns of Sprint 3, unchanged
+  (escalation_level and escalated_at
+  existed and are now written)
+  --
+    escalation_timer_started_at : datetime  **new**
+  * is_unassigned_after_escalation : bool = false  **new**
+}
+
+entity "SHIFT" as shift #FBEFAE {
+  * id : int <<PK>>
+  --
+  columns of Sprint 3, unchanged
+  --
+  * on_call_role : varchar = 'primary'  **new**
+}
+
+' ── New in Sprint 4 ─────────────────────────────
+
+entity "ESCALATION_TIER" as tier #C9ECD3 {
+  * id : int <<PK>>
+  --
+  * team_id : int <<FK>>
+  * tier_number : int
+  * escalate_to : varchar
+    escalate_to_user_id : int <<FK>>
+  * wait_minutes : int
+  * created_at : datetime
+  * updated_at : datetime
+  unique (team_id, tier_number)
+  check (wait_minutes > 0)
+}
+
+entity "NOTIFICATION" as note #C9ECD3 {
+  * id : int <<PK>>
+  --
+  * user_id : int <<FK>>
+    incident_id : int <<FK>>
+  * event : varchar
+  * message : text
+  * created_at : datetime
+    read_at : datetime
+    emailed_at : datetime
+}
+
+' ── Relationships ───────────────────────────────
+
+user     ||--o{ tm       : belongs to
+team     ||--o{ tm       : has
+user     |o--o{ team     : leads
+team     |o--o{ service  : owns
+service  ||--o{ incident : has
+user     ||--o{ incident : reports
+user     |o--o{ incident : assigned to
+team     |o--o{ incident : assigned team
+incident ||--o{ upd      : has
+user     ||--o{ upd      : writes
+team     ||--o{ shift    : has
+user     ||--o{ shift    : covers
+team     ||--o{ tier     : has
+user     |o--o{ tier     : named in
+user     ||--o{ note     : receives
+incident |o--o{ note     : is about
+
+@enduml

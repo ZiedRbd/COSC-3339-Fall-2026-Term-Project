@@ -11,7 +11,7 @@ InProgress --> Resolved : solver resolves
 Resolved --> Closed : solver closes
 Resolved --> Open : reopened,\nassigned again automatically
 Closed --> Open : reopened,\nassigned again automatically
-Assigned --> Assigned : not started in time,\nescalated to the next tier
+Assigned --> Assigned : not started in time,\nescalated to the next tier\nthat has somebody to take it
 Assigned --> Open : escalation policy ran out,\nmarked unassigned
 
 note right of Open
@@ -21,6 +21,10 @@ note right of Open
   timeline records why. It is assigned
   automatically as soon as someone on call
   has room, or a lead can hand it over.
+  A ticket whose escalation ran out is the
+  exception: it is not assigned again
+  automatically and stays Open until the
+  team lead hands it to a solver on call.
 end note
 
 note right of Assigned
@@ -33,7 +37,11 @@ note right of Assigned
 end note
 
 note bottom of Closed
-  Every successful transition writes an
+  Assignment, reassignment and escalation
+  each write an IncidentUpdate row that
+  records the change of solver. Starting
+  work, resolving, closing and reopening
+  a ticket each write an
   IncidentUpdate row with the user, the
   old state, the new state, and the time.
   Reopening returns the ticket to Open.

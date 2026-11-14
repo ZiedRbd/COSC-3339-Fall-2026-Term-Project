@@ -18,7 +18,7 @@ View -> DB : INSERT IncidentUpdate ("created")
 View -> Assign : assign_on_creation(incident)
 
 alt service has no owning team
-  Assign -> DB : INSERT IncidentUpdate ("assignment_failed",\n"Nobody is on call for <service> right now")
+  Assign -> DB : INSERT IncidentUpdate ("assignment_failed",\n"Nobody is on call for <service> right now,\nso this ticket is waiting to be assigned")
   Assign --> View : ticket stays Open
 else team found
   Assign -> Assign : assign_waiting(team, skip = this ticket)\nolder waiting tickets go first
@@ -28,7 +28,7 @@ else team found
   Pick --> Assign : the primary if they hold fewer than 3,\nelse the secondary if they do, else None
 
   alt nobody on call
-    Assign -> DB : INSERT IncidentUpdate ("assignment_failed",\n"Nobody is on call for <team> right now")
+    Assign -> DB : INSERT IncidentUpdate ("assignment_failed",\n"Nobody is on call for <team> right now,\nso this ticket is waiting to be assigned")
     Assign --> View : ticket stays Open
   else everyone on call holds 3
     Assign -> DB : INSERT IncidentUpdate ("assignment_failed",\n"Everyone on call for <team> is full,\nso this ticket is waiting in the queue")
@@ -38,7 +38,7 @@ else team found
     Assign --> View : ticket stays Open
   else a solver has room
     Assign -> Hand : _hand_to(incident, solver, ...)
-    Hand -> DB : UPDATE incident SET assigned_to = solver,\nstatus = assigned, escalation_level = 0,\nescalation_timer_started_at = now
+    Hand -> DB : UPDATE incident SET assigned_to = solver,\nstatus = assigned, escalation_level = 0,\nescalation_timer_started_at = incident.created_at
     Hand -> DB : INSERT IncidentUpdate ("assignment",\n"Assigned to <solver>, on call for <team>")
     Hand -> Notify : notify(solver, incident, "assigned",\nticket number, service, severity, what to do)
     Notify -> DB : INSERT Notification
@@ -54,6 +54,8 @@ note over Assign, DB
   A waiting ticket is handed out, oldest first, as soon as
   a solver on call has room: every minute by the escalate
   command, and right after a ticket is resolved, closed,
-  deleted or reassigned, or a schedule changes.
+  deleted or reassigned, or a schedule changes. The same
+  happens when a solver opens the incident list and when
+  the page of a waiting ticket is opened.
 end note
 @enduml
