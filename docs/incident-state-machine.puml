@@ -11,13 +11,16 @@ InProgress --> Resolved : solver resolves
 Resolved --> Closed : solver closes
 Resolved --> Open : reopened,\nassigned again automatically
 Closed --> Open : reopened,\nassigned again automatically
+Assigned --> Assigned : not started in time,\nescalated to the next tier
+Assigned --> Open : escalation policy ran out,\nmarked unassigned
 
 note right of Open
   A ticket stays Open when the service has
-  no team or nobody is on call. The timeline
-  records why. It is assigned automatically
-  as soon as someone is on call, or a lead
-  can hand it over.
+  no team, nobody is on call, or everyone on
+  call already holds three tickets. The
+  timeline records why. It is assigned
+  automatically as soon as someone on call
+  has room, or a lead can hand it over.
 end note
 
 note right of Assigned

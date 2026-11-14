@@ -135,4 +135,33 @@ user ||--o{ shift : "covers"
 user |o--o{ team : "leads"
 user |o--o{ shift : "scheduled by"
 
+entity "ESCALATION_TIER" as tier {
+  * id : int <<PK>>
+  --
+  * team_id : int <<FK>>
+  * tier_number : int
+  * escalate_to : varchar
+  escalate_to_user_id : int <<FK>>
+  * wait_minutes : int
+  created_at : datetime
+  updated_at : datetime
+}
+
+entity "NOTIFICATION" as note {
+  * id : int <<PK>>
+  --
+  * user_id : int <<FK>>
+  incident_id : int <<FK>>
+  * event : varchar
+  * message : text
+  created_at : datetime
+  read_at : datetime
+  emailed_at : datetime
+}
+
+team ||--o{ tier : "has"
+user |o--o{ tier : "named in"
+user ||--o{ note : "receives"
+incident |o--o{ note : "is about"
+
 @enduml

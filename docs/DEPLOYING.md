@@ -14,11 +14,20 @@ sudo venv/bin/python manage.py collectstatic --noinput
 sudo systemctl restart campusdesk
 ```
 
-To refresh the demo data, run these before the restart. Both are safe to run again.
+To refresh the demo data, run these before the restart. Both are safe to run again. Tickets they assign notify their solvers, by email too when a mail account is configured.
 
 ```bash
 sudo venv/bin/python manage.py seed
 sudo venv/bin/python manage.py seed_shifts
+```
+
+## Email
+
+Notification emails need two lines in `/srv/campusdesk/.env`, then a restart. Without them emails are written to the service log instead of being sent.
+
+```
+EMAIL_HOST_USER=the mail account
+EMAIL_HOST_PASSWORD=its app password
 ```
 
 ## Escalation timer

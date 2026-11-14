@@ -50,7 +50,7 @@ class TeamMember(models.Model):
 # Something the campus supports, such as Wi-Fi or restroom plumbing.
 # A service is usually owned by one team. It can have no team, in which
 # case tickets filed against it cannot be assigned to a solver.
-# Criticality is reserved for escalation rules in later sprints.
+# Criticality describes the service; escalation uses the ticket's severity.
 class Service(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -65,7 +65,8 @@ class Service(models.Model):
 
 # A ticket filed by a user about a service. On creation it is routed to
 # the team that owns the service and, when someone is on call, assigned
-# to that solver. Escalation and SLA fields are for later sprints.
+# to that solver. The escalation fields record where the ticket stands
+# in its team's policy.
 class Incident(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
