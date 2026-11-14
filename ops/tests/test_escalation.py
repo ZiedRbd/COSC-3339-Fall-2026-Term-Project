@@ -7,7 +7,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from ops.models import EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team, TeamMember, User
-from ops.scheduling import assign_on_creation, assign_waiting, escalate_due, reassign
+from ops.scheduling import assign_on_creation, assign_waiting, ensure_policy, escalate_due, reassign
 from ops.tests.helpers import GOOD_PASSWORD
 
 
@@ -95,7 +95,7 @@ class EscalationTests(TestCase):
         self.assertTrue(inc.is_unassigned_after_escalation)
         self.assertEqual(inc.escalation_level, 2)
         last = IncidentUpdate.objects.filter(incident=inc, update_type="escalation").latest("id")
-        self.assertIn("Escalated to administration", last.body)
+        self.assertIn("Escalation ran out", last.body)
         self.assertTrue(Notification.objects.filter(user=self.lead, event="final_escalation").exists())
         self.assertEqual(escalate_due(self.later(600)), 0, "a ticket that ran out stays put")
 
@@ -124,9 +124,9 @@ class EscalationTests(TestCase):
         self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
         resp = self.client.get("/incidents/list")
         self.assertEqual([i.pk for i in resp.context["incidents"]], [old.pk, newer.pk])
-        self.assertContains(resp, "Unassigned: escalated to administration")
+        self.assertContains(resp, "Unassigned: escalation ran out")
         resp = self.client.get(f"/incidents/{old.pk}/")
-        self.assertContains(resp, "it was escalated to administration")
+        self.assertContains(resp, "escalation policy ran out")
 
     def test_reopen_restarts_from_tier_one(self):
         inc = self.file()
@@ -294,7 +294,7 @@ class EscalationEdgeTests(TestCase):
         self.policy(("on_call", 5), (bob, 5), ("lead", 10))
         inc = self.file()
         escalate_due(self.later(5))
-        self.assertIn("Tiers 2 and 3 had nobody available. Escalated to administration", self.last_entry(inc))
+        self.assertIn("Tiers 2 and 3 had nobody available. Escalation ran out", self.last_entry(inc))
 
     def test_an_administrator_is_not_told_to_reassign_a_ticket_they_cannot_reassign(self):
         admin = User.objects.create_superuser(username="admin@x.com", email="admin@x.com", password=GOOD_PASSWORD)
@@ -303,12 +303,7 @@ class EscalationEdgeTests(TestCase):
         escalate_due(self.later(15))
         self.assertIn("reassign it to a solver on call",
                       Notification.objects.get(user=self.lead, event="final_escalation").message)
-        told = Notification.objects.get(user=admin, event="final_escalation").message
-        self.assertIn("escalated to administration and is unassigned", told)
-        self.assertIn("Nobody on Plumbing started work on it in time", told)
-        self.assertNotIn("Open it and reassign", told)
-        self.assertNotIn("no active lead", told)
-        Notification.objects.all().delete()
+        self.assertFalse(Notification.objects.filter(user=admin).exists())
         self.team.lead = None
         self.team.save()
         other = self.file()
@@ -317,27 +312,102 @@ class EscalationEdgeTests(TestCase):
         self.assertIn("Plumbing has no active lead to reassign it", message)
         self.assertNotIn("Open it and reassign", message)
 
-    def test_administration_is_the_last_tier_and_tells_the_administrator_and_the_lead(self):
-        admin = User.objects.create_superuser(username="admin@x.com", email="admin@x.com", password=GOOD_PASSWORD)
-        inc = self.file("high")
+    # ---- administration, the last tier a lead can tick on the policy page
+
+    def with_administration(self):
+        """The lead ticked Administration: one more row, after the last tier."""
+        ensure_policy(self.team)
+        EscalationTier.objects.create(team=self.team, tier_number=self.team.escalation_tiers.count() + 1,
+                                      escalate_to="administration", wait_minutes=1)
+
+    def run_to_the_end(self, priority="medium"):
+        inc = self.file(priority)
         escalate_due(self.later(5))
         escalate_due(self.later(15))
         inc.refresh_from_db()
+        return inc
+
+    def test_a_team_does_not_have_administration_until_its_lead_ticks_it(self):
+        admin = User.objects.create_superuser(username="admin@x.com", email="admin@x.com", password=GOOD_PASSWORD)
+        self.assertFalse(EscalationTier.objects.filter(escalate_to="administration").exists())
+        inc = self.run_to_the_end()
+        self.assertIn("Escalation ran out", self.last_entry(inc))
+        self.assertFalse(Notification.objects.filter(event="administration").exists())
+        self.assertFalse(Notification.objects.filter(user=admin).exists())
+
+    def test_with_administration_ticked_the_ticket_is_escalated_to_it_and_both_are_told(self):
+        admin = User.objects.create_superuser(username="admin@x.com", email="admin@x.com", password=GOOD_PASSWORD)
+        self.with_administration()
+        inc = self.run_to_the_end("high")
         self.assertEqual((inc.status, inc.assigned_to, inc.is_unassigned_after_escalation), ("open", None, True))
         self.assertIn("Escalated to administration: this ticket is unassigned and needs attention",
                       self.last_entry(inc))
         for person in (admin, self.lead):
-            note = Notification.objects.get(user=person, event="final_escalation")
-            self.assertIn(f"Ticket #{inc.pk} (Pipes, high) escalated to administration", note.message)
+            note = Notification.objects.get(user=person, event="administration")
+            self.assertIn(f"Ticket #{inc.pk} for Pipes, high severity, escalated to administration", note.message)
             self.assertEqual(note.get_event_display(), "Escalated to administration")
+        self.assertIn("Open it and reassign it to a solver on call",
+                      Notification.objects.get(user=self.lead, event="administration").message)
+        told = Notification.objects.get(user=admin, event="administration").message
+        self.assertIn("Nobody on Plumbing started work on it in time", told)
+        self.assertNotIn("Open it and reassign", told)
+        self.assertFalse(Notification.objects.filter(event="final_escalation").exists())
 
-    def test_a_lead_who_is_also_an_administrator_is_told_once(self):
+    def test_with_administration_ticked_a_lead_who_is_also_an_administrator_is_told_once(self):
         self.lead.is_superuser = True
         self.lead.save()
+        self.with_administration()
+        self.run_to_the_end()
+        self.assertEqual(Notification.objects.filter(user=self.lead, event="administration").count(), 1)
+
+    def test_with_administration_ticked_and_no_lead_the_administrator_hears_there_is_no_lead(self):
+        admin = User.objects.create_superuser(username="admin@x.com", email="admin@x.com", password=GOOD_PASSWORD)
+        self.with_administration()
+        self.team.lead = None
+        self.team.save()
         self.file()
         escalate_due(self.later(5))
-        escalate_due(self.later(15))
-        self.assertEqual(Notification.objects.filter(user=self.lead, event="final_escalation").count(), 1)
+        self.assertIn("Plumbing has no active lead to reassign it",
+                      Notification.objects.get(user=admin, event="administration").message)
+
+    def test_with_administration_ticked_the_list_and_the_ticket_page_say_so(self):
+        self.with_administration()
+        inc = self.run_to_the_end()
+        self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
+        self.assertContains(self.client.get("/incidents/list"), "Unassigned: escalated to administration")
+        page = self.client.get(f"/incidents/{inc.pk}/")
+        self.assertContains(page, "so it was escalated to administration")
+        self.assertNotContains(page, "escalation policy ran out")
+
+    def test_administration_adds_no_wait_of_its_own(self):
+        """With it ticked the ticket still leaves the lead after the lead's ten minutes, not a minute later."""
+        self.with_administration()
+        inc = self.file()
+        escalate_due(self.later(5))
+        self.assertEqual(escalate_due(self.later(14)), 0)
+        self.assertEqual(escalate_due(self.later(15)), 1)
+        inc.refresh_from_db()
+        self.assertTrue(inc.is_unassigned_after_escalation)
+        self.assertEqual(escalate_due(self.later(600)), 0, "a ticket at administration stays put")
+
+    def test_a_policy_that_is_only_administration_gets_the_default_tiers_before_it(self):
+        EscalationTier.objects.filter(team=self.team).delete()
+        EscalationTier.objects.create(team=self.team, tier_number=1, escalate_to="administration", wait_minutes=1)
+        inc = self.file()
+        self.assertEqual(escalate_due(self.later(5)), 1)
+        inc.refresh_from_db()
+        self.assertEqual(inc.assigned_to, self.lead)
+        self.assertEqual(list(self.team.escalation_tiers.values_list("tier_number", "escalate_to")),
+                         [(1, "on_call"), (2, "lead"), (3, "administration")])
+
+    def test_a_ticket_at_administration_is_reassigned_by_the_lead_like_any_other(self):
+        self.with_administration()
+        inc = self.run_to_the_end()
+        self.assertEqual(assign_waiting(self.team), 0)
+        self.assertIsNone(reassign(inc, self.tim, self.lead))
+        inc.refresh_from_db()
+        self.assertEqual((inc.status, inc.assigned_to, inc.is_unassigned_after_escalation),
+                         ("assigned", self.tim, False))
 
     def test_an_edit_made_while_the_timer_runs_does_not_undo_the_escalation(self):
         """The reporter saves an edit after the ticket moved to the lead. The lead still has it."""

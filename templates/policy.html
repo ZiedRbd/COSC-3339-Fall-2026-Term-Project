@@ -20,7 +20,7 @@
   <div class="table-scroll">
   <table class="incident-table policy-table">
     <thead>
-      <tr><th>Tier</th><th>Escalate to</th><th>Wait (minutes)</th><th>Actions</th></tr>
+      <tr><th>Tier</th><th>Escalate to</th><th>Wait in minutes</th><th>Actions</th></tr>
     </thead>
     <tbody>
       {% for tier, form in rows %}
@@ -28,7 +28,7 @@
           <td>{{ tier.tier_number }}</td>
           <td>
             {% if tier.tier_number == 1 %}
-              On-call solver <span class="muted">(whoever first gets the ticket)</span>
+              On-call solver<span class="muted">, whoever first gets the ticket</span>
             {% else %}
               {{ form.target }}
             {% endif %}
@@ -60,13 +60,33 @@
           </tr>
         {% endif %}
       {% endfor %}
-      <tr class="policy-end">
-        <td>Last</td>
-        <td colspan="3"><strong>Administration</strong> <span class="muted">(always the last tier, no wait)</span>. Nobody is left to escalate to: the ticket is marked unassigned, shown in red at the top of the incident list, and the administrator and the lead are notified.</td>
-      </tr>
+      {% if has_administration %}
+        <tr class="policy-end">
+          <td>Last</td>
+          <td>Administration</td>
+          <td>None</td>
+          <td>Always last</td>
+        </tr>
+      {% else %}
+        <tr class="policy-end">
+          <td>End</td>
+          <td colspan="3">The ticket turns red and unassigned, and you are notified to reassign it.</td>
+        </tr>
+      {% endif %}
     </tbody>
   </table>
   </div>
+
+  <form method="post" class="policy-admin">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="administration">
+    <label class="policy-admin-check">
+      <input type="checkbox" name="administration"{% if has_administration %} checked{% endif %}>
+      <span>Escalate to Administration after the last tier</span>
+    </label>
+    <button type="submit" class="btn-small">Save</button>
+    <p class="policy-admin-hint">The ticket still turns red and unassigned for you to reassign. With this ticked, the administrator is notified too.</p>
+  </form>
 
   <h2 class="section-title">Add tier {{ next_number }}</h2>
   <form method="post" class="shift-form">

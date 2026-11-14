@@ -35,16 +35,19 @@ document.addEventListener("DOMContentLoaded", function () {
         return text.charAt(0).toUpperCase() + text.slice(1);
     }
 
-    // A solver's message reads "Ticket #6 (Power Outlets, medium) what happened. What to do."
+    // A solver's message reads "Ticket #6 for Power Outlets, medium severity, what happened. What to do."
     // The number is already on the stub, so the service and severity get a line of their own
     // and the rest follows as one quiet sentence. When what happened only repeats the heading
     // ("Assigned to you" over "was assigned to you"), it is said once, in the heading.
-    // A message worded any other way is left as it is.
-    const SOLVER_MESSAGE = /^Ticket #\d+ \(([^()]+), (low|medium|high|critical)\) ([\s\S]+)$/;
+    // A message worded any other way is left as it is. Notifications saved before the
+    // wording changed name the service and severity in brackets, and are read the same way.
+    const SOLVER_MESSAGE = /^Ticket #\d+ for (.+), (low|medium|high|critical) severity, ([\s\S]+)$/;
+    const OLDER_MESSAGE = /^Ticket #\d+ \(([^()]+), (low|medium|high|critical)\) ([\s\S]+)$/;
     dropdown.querySelectorAll(".notification-item").forEach(function (item) {
         const text = item.querySelector(".notification-text");
         const kind = item.querySelector(".notification-kind");
-        const match = text ? text.textContent.trim().match(SOLVER_MESSAGE) : null;
+        const written = text ? text.textContent.trim() : "";
+        const match = written.match(SOLVER_MESSAGE) || written.match(OLDER_MESSAGE);
         if (!match) return;
         const service = match[1], severity = match[2], rest = match[3];
         const cut = rest.indexOf(". ");

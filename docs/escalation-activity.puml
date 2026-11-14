@@ -37,7 +37,11 @@ while (Every minute the server runs\n**manage.py escalate**.\nIs the ticket stil
     if (Does a later tier name a person who is active,\non the team, holds fewer than 3 tickets\nand is not the current holder?) then (yes)
       :Assign to that tier's person\nClock starts again\nTimeline records who and how long\nOnly the new solver is notified;
     else (no)
-      #FFCFCA:Escalated to administration, the last tier of every policy\nStatus = Open, unassigned, flagged\nShown in red, first in the incident list\nAdministrators and the team lead notified;
+      if (Did the lead tick Administration\nas the team's last tier?) then (yes)
+        #FFCFCA:Escalated to administration\nStatus = Open, unassigned, flagged\nShown in red, first in the incident list\nAdministrators and the team lead notified;
+      else (no)
+        #FFCFCA:Policy ran out\nStatus = Open, unassigned, flagged\nShown in red, first in the incident list\nTeam lead notified\n(administrators if the team has no active lead);
+      endif
       stop
     endif
   else (no)
@@ -53,7 +57,7 @@ floating note right
   Severity factor on every wait:
   critical 0.5, high 0.75, medium 1, low 2
 
-  A reopened ticket, and a ticket at administration
+  A reopened ticket, and an unassigned ticket
   that the lead reassigns, start again at tier 1
   with a fresh clock.
 end note

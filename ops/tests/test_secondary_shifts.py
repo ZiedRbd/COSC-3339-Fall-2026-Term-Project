@@ -175,7 +175,7 @@ class SecondaryShiftTests(TestCase):
 
     def test_the_page_lists_secondary_shifts_under_their_own_heading(self):
         html = self.client.get(self.url).content.decode()
-        self.assertIn("Secondary on call (optional)", html)
+        self.assertIn("Secondary on call, optional", html)
         self.assertIn("No secondary shifts", html)
         self.add(self.jane, 0, 8)
         html = self.client.get(self.url).content.decode()

@@ -315,6 +315,22 @@
 .policy-table .policy-end td:first-child { font-family: var(--font); font-size: 15px; font-weight: 600; color: var(--muted); }
 .policy-table .notice { margin: 0; }
 
+/* The tick that adds Administration as the last tier, with its Save beside it */
+.policy-admin {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-top: 16px;
+    padding: 14px 16px;
+    background: #ffffff;
+    border: 1px solid var(--rule-soft);
+    border-radius: 8px;
+}
+.policy-admin-check { display: inline-flex; align-items: center; gap: 10px; margin: 0; font-weight: 600; cursor: pointer; }
+.policy-admin-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--navy); }
+.policy-admin-hint { flex-basis: 100%; margin: 0; font-size: 14px; color: var(--muted); }
+
 /* ---------- Live password checklist ---------- */
 .pw-rules { list-style: none; margin: 10px 0 0; padding: 0; font-size: 14px; color: var(--muted); }
 .pw-rules li { padding: 1px 0; }
