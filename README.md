@@ -54,7 +54,7 @@ COSC-3339-Fall-2026-Term-Project/
 │   ├── migrations/             Database schema history
 │   └── management/commands/
 │       ├── seed.py             Loads demo data
-│       ├── seed_shifts.py      Seeds a week of 24/7 on-call shifts
+│       ├── seed_shifts.py      Seeds 24/7 on-call shifts, for a week or up to a chosen day
 │       └── escalate.py         One pass of the escalation timer, run every minute on the server
 ├── templates/                  HTML pages
 │   ├── base.html               Shared layout and navigation
@@ -175,7 +175,7 @@ Only legal moves are accepted; an illegal move (skipping a step, or going backwa
 
 **Reassignment.** A team lead can hand an active ticket to the primary or the secondary on call for the team right now, and to nobody else. A solver who already holds three tickets is refused. The timeline records the time, who did it, and the previous and new solver. Assignment and status changes are recorded with timestamps in the `IncidentUpdate` table.
 
-**Seeding.** `python manage.py seed_shifts` fills every team's schedule from now until a week ahead, around the clock, rotating the team's solvers. It also adds one secondary shift a day, 08:00 to 16:00, wherever the secondary rules allow one. It replaces current and future shifts only. It never takes a ticket from the solver who holds it, and it hands the tickets that were waiting to whoever on call has room. Pass `--short-team Electrical` to stop one team at midnight tonight so the no-cover case can be shown.
+**Seeding.** `python manage.py seed_shifts` fills every team's schedule from now until a week ahead, around the clock, rotating the team's solvers. Pass `--until 2026-11-30` to cover every team to the end of that day instead. A solver who belongs to two teams is never put on call for both in the same hours. It also adds one secondary shift a day, 08:00 to 16:00, wherever the secondary rules allow one. It replaces current and future shifts only. It never takes a ticket from the solver who holds it, and it hands the tickets that were waiting to whoever on call has room. Pass `--short-team Electrical` to stop one team at midnight tonight so the no-cover case can be shown.
 
 ## Escalation and Notifications
 
