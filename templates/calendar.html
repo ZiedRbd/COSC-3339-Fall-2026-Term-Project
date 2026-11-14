@@ -37,7 +37,8 @@
           <tr>
             <th class="team-cell">
               {{ row.team.name }}
-              {% if row.can_edit %}<a href="{% url 'schedule' row.team.pk %}" class="cal-edit">Edit schedule</a>{% endif %}
+              {% if row.can_edit %}<a href="{% url 'schedule' row.team.pk %}" class="cal-edit">Edit schedule</a>
+              <a href="{% url 'team_policy' row.team.pk %}" class="cal-edit">Escalation policy</a>{% endif %}
             </th>
             {% for cell in row.cells %}
               <td>
