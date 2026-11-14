@@ -254,7 +254,7 @@ label.hint { margin: 0; }
 .badge.closed { background: var(--stock-closed); }
 
 /* On a ticket the pill sits on its own colour, so there it turns white */
-:is(.ticket-table, .profile-incident, .ticket-head, .sample-top) .badge:is(.open, .assigned, .in_progress, .resolved, .closed) {
+:is(.ticket-table, .profile-incident, .ticket-head) .badge:is(.open, .assigned, .in_progress, .resolved, .closed) {
     background: rgba(255, 255, 255, 0.78);
 }
 
