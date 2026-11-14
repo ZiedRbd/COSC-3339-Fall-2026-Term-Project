@@ -20,7 +20,7 @@
 .ticket-table td.ticket-id,
 .ticket-stub,
 .pi-number,
-.sample-stub {
+.key-stub {
     -webkit-mask-image:
         radial-gradient(circle at 100% 0, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px)),
         radial-gradient(circle at 100% 100%, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px));
@@ -33,7 +33,7 @@
 .ticket-table td.ticket-id + td,
 .ticket-main,
 .pi-main,
-.sample-main {
+.key-main {
     -webkit-mask-image:
         radial-gradient(circle at 0 0, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px)),
         radial-gradient(circle at 0 100%, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px));
