@@ -131,7 +131,7 @@ def incident_list(request):
     incidents = (
         Incident.objects.filter(is_deleted=False)
         .filter(Q(assigned_team_id__in=team_ids) | Q(assigned_team_id__in=led_ids))
-        .select_related("service", "reported_by", "assigned_team")
+        .select_related("service", "reported_by", "assigned_team", "assigned_to")
         .order_by("-is_unassigned_after_escalation", "-created_at")
     )
     for i in incidents:
@@ -400,10 +400,10 @@ def incident_transition(request, pk):
         assign_now(incident, request.user)
     elif new_status == "in_progress":
         notify(incident.reported_by, incident, "work_started",
-               f"Work has started on your ticket #{incident.pk} ({incident.title})")
+               f"Work has started on your ticket #{incident.pk} ({incident.title}).")
     elif new_status == "resolved":
         notify(incident.reported_by, incident, "resolved",
-               f"Your ticket #{incident.pk} ({incident.title}) was resolved")
+               f"Your ticket #{incident.pk} ({incident.title}) was resolved.")
     if new_status in ("resolved", "closed"):
         # Its solver has room again for a ticket that was waiting, on any team they cover
         assign_all_waiting()
