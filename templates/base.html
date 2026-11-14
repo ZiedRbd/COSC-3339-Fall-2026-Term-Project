@@ -9,13 +9,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&family=Zilla+Slab:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=31">
-    <link rel="stylesheet" href="{% static 'css/components.css' %}?v=31">
-    <link rel="stylesheet" href="{% static 'css/incidents.css' %}?v=31">
-    <link rel="stylesheet" href="{% static 'css/profile.css' %}?v=31">
-    <link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=31">
-    <link rel="stylesheet" href="{% static 'css/pages.css' %}?v=31">
-    <link rel="stylesheet" href="{% static 'css/animations.css' %}?v=31">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=34">
+    <link rel="stylesheet" href="{% static 'css/components.css' %}?v=34">
+    <link rel="stylesheet" href="{% static 'css/incidents.css' %}?v=34">
+    <link rel="stylesheet" href="{% static 'css/profile.css' %}?v=34">
+    <link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=34">
+    <link rel="stylesheet" href="{% static 'css/pages.css' %}?v=34">
+    <link rel="stylesheet" href="{% static 'css/animations.css' %}?v=34">
     <script src="{% static 'js/notifications.js' %}?v=3" defer></script>
     {% block extra_js %}{% endblock %}
 </head>
@@ -70,8 +70,8 @@
         <div class="nav-user-section">
         {% if user.is_authenticated %}
             {% if user.role != "solver" and here != 'form' and here != 'landing' %}
-                <a href="{% url 'form' %}" class="nav-btn nav-cta">
-                    <span class="nav-label">Report a problem</span>
+                <a href="{% url 'form' %}" class="nav-btn nav-cta" title="Report a problem">
+                    <span class="cta-long">Report a problem</span><span class="cta-short">Report</span>
                 </a>
             {% endif %}
             <div class="nav-notification-wrapper">
@@ -132,8 +132,8 @@
                 </svg>
                 <span class="nav-label">Log in</span>
             </a>
-            <a href="{% url 'register' %}" class="nav-btn nav-cta">
-                <span class="nav-label">Create an account</span>
+            <a href="{% url 'register' %}" class="nav-btn nav-cta" title="Create an account">
+                <span class="cta-long">Create an account</span><span class="cta-short">Register</span>
             </a>
         {% endif %}
         </div>

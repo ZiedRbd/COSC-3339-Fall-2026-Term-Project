@@ -72,8 +72,9 @@
     display: grid;
     grid-template-columns: 64px minmax(0, 1fr);
 }
+.profile-incident { --notch: 6px; }
 .pi-number,
-.pi-main { background-color: var(--sheet); background-repeat: no-repeat; }
+.pi-main { background-color: var(--stock, var(--sheet)); }
 .pi-number {
     display: flex;
     align-items: center;
@@ -84,19 +85,14 @@
     font-weight: 700;
     color: var(--navy-dark);
     border-radius: 6px 0 0 6px;
-    border-right: 2px dashed var(--rule);
-    box-shadow: inset 6px 0 0 var(--sev, #7c8799);
-    background-image:
-        radial-gradient(circle at 100% 0, var(--paper) 6px, transparent 6.5px),
-        radial-gradient(circle at 100% 100%, var(--paper) 6px, transparent 6.5px);
+    border-right: 2px dashed rgba(27, 29, 58, 0.3);
+    box-shadow: inset 6px 0 0 var(--sev, #8a8fa8);
 }
 .pi-main {
     padding: 12px 14px 12px 18px;
     border-radius: 0 6px 6px 0;
-    background-image:
-        radial-gradient(circle at 0 0, var(--paper) 6px, transparent 6.5px),
-        radial-gradient(circle at 0 100%, var(--paper) 6px, transparent 6.5px);
 }
+.pi-meta { color: #4b4f6c; }
 .pi-title { display: block; font-weight: 700; font-size: 16px; color: var(--ink); }
 .pi-meta {
     display: flex;

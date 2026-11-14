@@ -82,7 +82,7 @@
     transition: background 0.12s;
 }
 .btn-gold:hover,
-:where(main, .modal) :where(button[type="submit"]):hover { background: #e3c355; }
+:where(main, .modal) :where(button[type="submit"]):hover { background: #f0c95f; }
 .btn-gold:active,
 :where(main, .modal) :where(button[type="submit"]):active { background: var(--gold-dark); }
 
@@ -220,32 +220,43 @@ label.hint { margin: 0; }
     vertical-align: middle;
 }
 
+/* Severity: a white tag with a bar, so it reads on any colour of ticket.
+   Critical is the one that is filled. */
 .badge.low,
 .badge.medium,
 .badge.high,
 .badge.critical {
     border-radius: 3px;
-    border-left: 4px solid;
+    border-left: 5px solid;
+    background: #ffffff;
+    color: var(--ink);
 }
-.badge.low { background: var(--grey-tint); color: #3f4a5e; border-left-color: #7c8799; }
-.badge.medium { background: var(--amber-tint); color: var(--amber); border-left-color: #d98a1f; }
-.badge.high { background: var(--red-tint); color: var(--red); border-left-color: var(--red); }
+.badge.low { border-left-color: #8a8fa8; }
+.badge.medium { border-left-color: #e09a1a; }
+.badge.high { border-left-color: #e0483d; }
 .badge.critical { background: var(--red); color: #ffffff; border-left-color: #7a120d; }
 
+/* Status: a pill in the colour of the stock that status is printed on */
 .badge.open,
 .badge.assigned,
 .badge.in_progress,
 .badge.resolved,
 .badge.closed {
     border-radius: 999px;
-    border: 1px solid transparent;
+    border: 1px solid rgba(27, 29, 58, 0.28);
     padding: 3px 11px;
+    color: var(--ink);
 }
-.badge.open { background: var(--blue-tint); color: var(--navy); }
-.badge.assigned { background: var(--sheet); color: var(--navy); border-color: var(--navy); }
-.badge.in_progress { background: var(--gold-tint); color: #5d4a00; border-color: #d9c36a; }
-.badge.resolved { background: var(--green-tint); color: var(--green); }
-.badge.closed { background: var(--grey-tint); color: #3f4a5e; }
+.badge.open { background: var(--stock-open); }
+.badge.assigned { background: var(--stock-assigned); }
+.badge.in_progress { background: var(--stock-in_progress); }
+.badge.resolved { background: var(--stock-resolved); }
+.badge.closed { background: var(--stock-closed); }
+
+/* On a ticket the pill sits on its own colour, so there it turns white */
+:is(.ticket-table, .profile-incident, .ticket-head, .sample-top) .badge:is(.open, .assigned, .in_progress, .resolved, .closed) {
+    background: rgba(255, 255, 255, 0.78);
+}
 
 .badge.escalated {
     margin-left: 6px;

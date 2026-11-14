@@ -52,7 +52,7 @@
       </thead>
       <tbody>
         {% for incident in incidents %}
-          <tr class="incident-list-item sev-{{ incident.priority }}{% if incident.is_unassigned_after_escalation %} escalated-row{% endif %}">
+          <tr class="incident-list-item sev-{{ incident.priority }} st-{{ incident.status }}{% if incident.is_unassigned_after_escalation %} escalated-row{% endif %}">
             <td class="ticket-id">{{ incident.pk }}</td>
             <td><a href="{% url 'incident_detail' incident.pk %}">{{ incident.title|truncatechars:70 }}</a>
               {% if incident.is_unassigned_after_escalation %}<span class="badge escalated">Unassigned: escalation ran out</span>{% endif %}</td>

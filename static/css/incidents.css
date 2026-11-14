@@ -3,10 +3,46 @@
    with a numbered stub, a perforation, and two notches punched where the
    perforation meets the edge. The colour down the stub's edge is the
    severity. Every other surface stays flat. */
-.sev-low { --sev: #7c8799; }
-.sev-medium { --sev: #d98a1f; }
-.sev-high { --sev: #d2453b; }
+.sev-low { --sev: #8a8fa8; }
+.sev-medium { --sev: #e09a1a; }
+.sev-high { --sev: #e0483d; }
 .sev-critical { --sev: #8f1711; }
+
+/* The stock a ticket is printed on says where it stands */
+.st-open { --stock: var(--stock-open); }
+.st-assigned { --stock: var(--stock-assigned); }
+.st-in_progress { --stock: var(--stock-in_progress); }
+.st-resolved { --stock: var(--stock-resolved); }
+.st-closed { --stock: var(--stock-closed); }
+
+/* The two notches are holes: whatever is behind the ticket shows through.
+   The stub carries the left half of each, the body the right half. */
+.ticket-table td.ticket-id,
+.ticket-stub,
+.pi-number,
+.sample-stub {
+    -webkit-mask-image:
+        radial-gradient(circle at 100% 0, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px)),
+        radial-gradient(circle at 100% 100%, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px));
+    -webkit-mask-composite: source-in;
+    mask-image:
+        radial-gradient(circle at 100% 0, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px)),
+        radial-gradient(circle at 100% 100%, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px));
+    mask-composite: intersect;
+}
+.ticket-table td.ticket-id + td,
+.ticket-main,
+.pi-main,
+.sample-main {
+    -webkit-mask-image:
+        radial-gradient(circle at 0 0, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px)),
+        radial-gradient(circle at 0 100%, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px));
+    -webkit-mask-composite: source-in;
+    mask-image:
+        radial-gradient(circle at 0 0, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px)),
+        radial-gradient(circle at 0 100%, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px));
+    mask-composite: intersect;
+}
 
 /* ---------- Page heading ---------- */
 .page-head {
@@ -47,7 +83,7 @@
     font-weight: 600;
     cursor: pointer;
 }
-.filter-group label:has(input:checked) { border-color: var(--navy); background: var(--blue-tint); color: var(--navy-dark); }
+.filter-group label:has(input:checked) { border-color: var(--gold-dark); background: var(--gold); color: var(--navy-dark); }
 .filter-group input { width: 16px; height: 16px; margin: 0; accent-color: var(--navy); }
 .filter-sidebar > button {
     min-height: 32px;
@@ -82,12 +118,11 @@
 .ticket-table td {
     padding: 12px;
     border-bottom: 0;
-    background-color: var(--sheet);
-    background-repeat: no-repeat;
+    background-color: var(--stock, var(--sheet));
 }
 .ticket-table td:first-child { border-radius: 6px 0 0 6px; }
 .ticket-table td:last-child { border-radius: 0 6px 6px 0; }
-.ticket-table tbody tr:hover td { background-color: #ffffff; }
+.ticket-table tbody tr:hover td { filter: brightness(1.04); }
 
 /* The stub: number, perforation, severity edge, and half of each notch */
 .ticket-table td.ticket-id {
@@ -98,19 +133,10 @@
     font-size: 23px;
     font-weight: 700;
     color: var(--navy-dark);
-    border-right: 2px dashed var(--rule);
-    box-shadow: inset 6px 0 0 var(--sev, #7c8799);
-    background-image:
-        radial-gradient(circle at 100% 0, var(--paper) 7px, transparent 7.5px),
-        radial-gradient(circle at 100% 100%, var(--paper) 7px, transparent 7.5px);
+    border-right: 2px dashed rgba(27, 29, 58, 0.3);
+    box-shadow: inset 6px 0 0 var(--sev, #8a8fa8);
 }
-/* The other half of each notch, on the cell next to the stub */
-.ticket-table td.ticket-id + td {
-    background-image:
-        radial-gradient(circle at 0 0, var(--paper) 7px, transparent 7.5px),
-        radial-gradient(circle at 0 100%, var(--paper) 7px, transparent 7.5px);
-    padding-left: 18px;
-}
+.ticket-table td.ticket-id + td { padding-left: 18px; }
 .ticket-table td.ticket-id + td a { font-size: 16px; text-decoration: none; }
 .ticket-table td.ticket-id + td a:hover { text-decoration: underline; }
 
@@ -135,16 +161,15 @@
 .move-group { display: flex; align-items: center; gap: 2px; margin-top: 6px; white-space: nowrap; }
 .move-to { margin-right: 6px; font-size: 13px; color: var(--muted); }
 .ticket-table td.ticket-id + td { min-width: 230px; overflow-wrap: anywhere; }
-.transition-form .btn-small { border-radius: 999px; padding-left: 14px; padding-right: 14px; }
+.ticket-table .transition-form .btn-small { border-radius: 999px; padding-left: 14px; padding-right: 14px; }
 
 /* A ticket whose escalation policy ran out. Nobody owns it, so it is the
    loudest thing on the page: red stub, red wash, and it sorts first. */
-.ticket-table tr.escalated-row td { background-color: var(--red-tint); }
-.ticket-table tr.escalated-row:hover td { background-color: #f8dcd8; }
+.ticket-table tr.escalated-row td { background-color: var(--stock-ran-out); }
 .ticket-table tr.escalated-row td.ticket-id {
     background-color: var(--red);
     color: #ffffff;
-    border-right-color: #e9a7a1;
+    border-right-color: rgba(255, 255, 255, 0.55);
     box-shadow: none;
 }
 
@@ -154,11 +179,9 @@
     grid-template-columns: 128px 1fr;
     margin-bottom: 14px;
 }
+.ticket-head { --notch: 9px; }
 .ticket-stub,
-.ticket-main {
-    background-color: var(--sheet);
-    background-repeat: no-repeat;
-}
+.ticket-main { background-color: var(--stock, var(--sheet)); }
 .ticket-stub {
     display: flex;
     flex-direction: column;
@@ -166,13 +189,10 @@
     justify-content: center;
     padding: 22px 8px 22px 16px;
     border-radius: 8px 0 0 8px;
-    border-right: 2px dashed var(--rule);
-    box-shadow: inset 8px 0 0 var(--sev, #7c8799);
-    background-image:
-        radial-gradient(circle at 100% 0, var(--paper) 9px, transparent 9.5px),
-        radial-gradient(circle at 100% 100%, var(--paper) 9px, transparent 9.5px);
+    border-right: 2px dashed rgba(27, 29, 58, 0.3);
+    box-shadow: inset 8px 0 0 var(--sev, #8a8fa8);
 }
-.stub-no { font-size: 14px; color: var(--muted); line-height: 1; }
+.stub-no { font-size: 14px; color: #4b4f6c; line-height: 1; }
 .stub-number {
     font-family: var(--display);
     font-size: 46px;
@@ -183,9 +203,6 @@
 .ticket-main {
     padding: 22px 28px 22px 30px;
     border-radius: 0 8px 8px 0;
-    background-image:
-        radial-gradient(circle at 0 0, var(--paper) 9px, transparent 9.5px),
-        radial-gradient(circle at 0 100%, var(--paper) 9px, transparent 9.5px);
 }
 .detail-title { font-size: 30px; margin-bottom: 10px; }
 .ticket-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -193,10 +210,10 @@
 /* One sentence that says where the ticket stands right now */
 .ticket-now { margin: 10px 0 0; font-size: 17px; color: var(--ink); }
 
-.ticket-head.ran-out .ticket-stub { background-color: var(--red); box-shadow: none; border-right-color: #e9a7a1; }
+.ticket-head.ran-out .ticket-stub { background-color: var(--red); box-shadow: none; border-right-color: rgba(255, 255, 255, 0.55); }
 .ticket-head.ran-out .stub-no,
 .ticket-head.ran-out .stub-number { color: #ffffff; }
-.ticket-head.ran-out .ticket-main { background-color: var(--red-tint); }
+.ticket-head.ran-out .ticket-main { background-color: var(--stock-ran-out); }
 
 /* Facts about the ticket: a quiet label over each value */
 .detail-grid {
@@ -269,10 +286,10 @@
     font-size: 13px;
     font-weight: 700;
 }
-.tl-tag.created { background: var(--green-tint); color: var(--green); }
-.tl-tag.assignment { background: var(--blue-tint); color: var(--navy); }
-.tl-tag.severity { background: var(--red-tint); color: var(--red); }
-.tl-tag.note, .tl-tag.comment { background: var(--gold-tint); color: #5d4a00; }
+.tl-tag.created { background: var(--stock-resolved); color: #14532d; }
+.tl-tag.assignment { background: var(--stock-open); color: #1e3a8a; }
+.tl-tag.severity { background: var(--stock-ran-out); color: #8f1711; }
+.tl-tag.note, .tl-tag.comment { background: var(--stock-assigned); color: #5d4a00; }
 
 .comment-form { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; max-width: 720px; }
 

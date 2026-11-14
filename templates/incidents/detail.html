@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="ticket-head sev-{{ incident.priority }}{% if incident.is_unassigned_after_escalation %} ran-out{% endif %}">
+<div class="ticket-head sev-{{ incident.priority }} st-{{ incident.status }}{% if incident.is_unassigned_after_escalation %} ran-out{% endif %}">
   <div class="ticket-stub">
     <span class="stub-no">No.</span>
     <span class="stub-number">{{ incident.pk }}</span>

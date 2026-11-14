@@ -79,7 +79,7 @@
         <h3>Active</h3>
         <ul>
           {% for incident in active_incidents %}
-            <li class="profile-incident sev-{{ incident.priority }}">
+            <li class="profile-incident sev-{{ incident.priority }} st-{{ incident.status }}">
               <span class="pi-number">{{ incident.pk }}</span>
               <div class="pi-main">
                 <span class="pi-title">{{ incident.title }}</span>
@@ -109,7 +109,7 @@
         <h3>Closed and resolved</h3>
         <ul>
           {% for incident in closed_incidents %}
-            <li class="profile-incident sev-{{ incident.priority }}">
+            <li class="profile-incident sev-{{ incident.priority }} st-{{ incident.status }}">
               <span class="pi-number">{{ incident.pk }}</span>
               <div class="pi-main">
                 <span class="pi-title">{{ incident.title }}</span>

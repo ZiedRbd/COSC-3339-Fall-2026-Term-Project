@@ -3,8 +3,7 @@
    ticket and what happened to it, which is the whole product in a glance. */
 .home-band {
     margin-top: var(--bar-height);
-    background: var(--band);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
     color: #ffffff;
 }
 .home-band-inner {
@@ -26,14 +25,14 @@
     max-width: 52ch;
     margin-bottom: 26px;
     font-size: 18px;
-    color: #d7e0f3;
+    color: #dfe3f8;
 }
 .btn-on-navy {
     display: inline-flex;
     align-items: center;
     min-height: 42px;
     padding: 9px 18px;
-    border: 1px solid #9fb4dd;
+    border: 1px solid rgba(255, 255, 255, 0.6);
     border-radius: 6px;
     color: #ffffff;
     font-weight: 600;
@@ -44,11 +43,11 @@
 
 /* The example ticket. Same stub, perforation and notches as a real one;
    the notches show the navy behind it. */
-.sample-ticket { color: var(--ink); }
+.sample-ticket { color: var(--ink); --notch: 9px; }
 .sample-top { display: grid; grid-template-columns: 104px minmax(0, 1fr); }
 .sample-stub,
-.sample-main,
-.sample-trail { background-color: var(--sheet); background-repeat: no-repeat; }
+.sample-main { background-color: var(--stock, var(--sheet)); }
+.sample-trail { background-color: var(--sheet); }
 .sample-stub {
     display: flex;
     flex-direction: column;
@@ -56,18 +55,12 @@
     justify-content: center;
     padding: 18px 6px 18px 14px;
     border-radius: 8px 0 0 0;
-    border-right: 2px dashed var(--rule);
+    border-right: 2px dashed rgba(27, 29, 58, 0.3);
     box-shadow: inset 8px 0 0 #8f1711;
-    background-image:
-        radial-gradient(circle at 100% 0, var(--band) 9px, transparent 9.5px),
-        radial-gradient(circle at 100% 100%, var(--band) 9px, transparent 9.5px);
 }
 .sample-main {
     padding: 18px 22px 18px 26px;
     border-radius: 0 8px 0 0;
-    background-image:
-        radial-gradient(circle at 0 0, var(--band) 9px, transparent 9.5px),
-        radial-gradient(circle at 0 100%, var(--band) 9px, transparent 9.5px);
 }
 .sample-main h2 { font-size: 23px; margin-bottom: 10px; }
 .sample-trail {
@@ -176,7 +169,7 @@
 .choice:hover { border-color: var(--navy); }
 .choice.primary { background: var(--gold); border-color: var(--gold-dark); }
 .choice.primary span { color: #4a3d0a; }
-.choice.primary:hover { background: #e3c355; }
+.choice.primary:hover { background: #f0c95f; }
 
 @media (max-width: 900px) {
     .home-band-inner { grid-template-columns: 1fr; gap: 36px; padding: 40px 16px 48px; }

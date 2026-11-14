@@ -1,25 +1,35 @@
 /* ---------- Tokens ----------
-   Navy and gold are the campus colours. Navy carries the bar and the
-   headings. Gold means "act here" or "you are here" and nothing else,
-   and is never used as text on white, where it is too faint to read. */
+   The ground is the sky over the hilltop at dusk: indigo running into
+   deep teal. Brass gold, the colour of the desk bell, means "act here"
+   or "you are here" and nothing else. The rest of the colour belongs to
+   the tickets, which are printed on coloured stock by status, the way
+   the copies of a paper work order are. */
 :root {
-    --navy: #07388e;
-    --navy-dark: #052b6e;
-    --gold: #d4af37;
-    --gold-dark: #b8962e;
-    /* The page is deep navy, so the eye rests. Content sits on soft-white
+    --navy: #2c318f;
+    --navy-dark: #1a1c4f;
+    --gold: #e6b53c;
+    --gold-dark: #b98b1d;
+
+    /* Ticket stock, one colour per status */
+    --stock-open: #cfe4fb;
+    --stock-assigned: #fbefae;
+    --stock-in_progress: #ffd6a3;
+    --stock-resolved: #c9ecd3;
+    --stock-closed: #e3e4ec;
+    --stock-ran-out: #ffcfca;
+    /* The page is dark, so the eye rests. Content sits on soft-white
        sheets, a little off pure white so they do not glare against it. */
-    --paper: #0a2a61;
-    --bar: #041c45;
-    --band: #072252;
+    --ground: linear-gradient(140deg, #201d5e 0%, #1b2d75 42%, #0f4d63 100%);
+    --paper: #1b2d75;
+    --bar: #121238;
     --on-page: #ffffff;
-    --on-page-muted: #b9c6e2;
-    --sheet: #f6f8fb;
+    --on-page-muted: #c3cbea;
+    --sheet: #f7f7fb;
     --field: #ffffff;
-    --rule: #c9d1de;
-    --rule-soft: #e2e7ef;
-    --ink: #18233a;
-    --muted: #566178;
+    --rule: #c9cbe0;
+    --rule-soft: #e3e4ef;
+    --ink: #1b1d3a;
+    --muted: #595d7b;
 
     --red: #b3261e;
     --red-tint: #fbe9e7;
@@ -27,9 +37,9 @@
     --amber-tint: #fdf0dc;
     --green: #1e7b34;
     --green-tint: #e4f3e7;
-    --blue-tint: #e3ebfa;
-    --grey-tint: #e9edf3;
-    --gold-tint: #fbf3d6;
+    --blue-tint: #e4e6fb;
+    --grey-tint: #e9eaf2;
+    --gold-tint: #fbf1cf;
 
     /* Names the older rules used, kept so nothing falls back to nothing */
     --white: var(--sheet);
@@ -51,6 +61,8 @@
     margin: 0;
     min-height: 100vh;
     background: var(--paper);
+    background-image: var(--ground);
+    background-attachment: fixed;
     color: var(--ink);
     font-family: var(--font);
     font-size: 16px;
@@ -165,7 +177,7 @@ a { color: var(--navy); }
     background: transparent;
     border: 0;
     border-radius: 6px;
-    color: #d7e0f3;
+    color: #d9dcf5;
     font-family: var(--font);
     font-size: 15px;
     font-weight: 500;
@@ -206,7 +218,9 @@ a { color: var(--navy); }
     font-weight: 700;
     margin-right: 6px;
 }
-.navbar .nav-cta:hover { background: #e3c355; color: var(--navy-dark); }
+.navbar .nav-cta:hover { background: #f0c95f; color: var(--navy-dark); }
+/* On a phone the button says the same thing in one word, so Log out still fits */
+.cta-short { display: none; }
 
 .nav-avatar {
     width: 26px;
@@ -279,7 +293,7 @@ a { color: var(--navy); }
     line-height: 1.4;
 }
 .notification-item:last-child { border-bottom: 0; }
-.notification-item:hover { background: #f5f7fb; }
+.notification-item:hover { background: #ffffff; }
 .notification-item.notification-assigned { border-left-color: var(--navy); }
 .notification-item.notification-escalated { border-left-color: var(--amber); }
 .notification-item.notification-final_escalation,
@@ -302,7 +316,17 @@ a { color: var(--navy); }
     .logout-btn .nav-label { display: none; }
 }
 @media (max-width: 640px) {
+    /* On a phone the bell's list spans the screen instead of hanging off its edge */
+    .notification-dropdown {
+        position: fixed;
+        top: calc(var(--bar-height) + 6px);
+        left: 10px;
+        right: 10px;
+        width: auto;
+    }
     .page { padding: calc(var(--bar-height) + 20px) 14px 56px; }
     h1 { font-size: 27px; }
     .navbar .nav-cta { padding: 0 10px; font-size: 14px; }
+    .cta-long { display: none; }
+    .cta-short { display: inline; }
 }

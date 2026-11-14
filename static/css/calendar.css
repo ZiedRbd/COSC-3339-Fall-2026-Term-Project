@@ -32,7 +32,7 @@
     font-size: 18px;
     font-weight: 700;
     color: var(--navy-dark);
-    background: #f6f8fb;
+    background: #efeff7;
 }
 .cal-edit {
     display: inline-block;
@@ -54,7 +54,7 @@
 .slot {
     margin-bottom: 6px;
     padding: 6px 8px;
-    background: var(--blue-tint);
+    background: var(--stock-open);
     border-left: 4px solid var(--navy);
     border-radius: 0 4px 4px 0;
 }
