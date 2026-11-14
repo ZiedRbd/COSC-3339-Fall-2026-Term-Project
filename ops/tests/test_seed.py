@@ -2,12 +2,13 @@
 import io
 
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from datetime import timedelta
 from django.utils import timezone
 from django.test import TestCase
 
 from ops.models import Incident, Service, Shift, Team, TeamMember, User
-from ops.scheduling import assign_on_creation, who_is_on_call
+from ops.scheduling import assign_on_creation, validate_schedule, validate_secondary, who_is_on_call
 
 
 class SeedLeadsTests(TestCase):
@@ -130,3 +131,61 @@ class ShiftSeederRotationTests(TestCase):
             clash = Shift.objects.filter(solver=shift.solver, starts_at__lt=shift.ends_at,
                                          ends_at__gt=shift.starts_at).exclude(team=shift.team)
             self.assertFalse(clash.exists(), f"{shift} clashes with {clash.first()}")
+
+
+class ShiftSeederUntilTests(TestCase):
+    """seed_shifts --until covers every team to the end of a chosen day, and the result passes the schedule rules."""
+
+    def setUp(self):
+        call_command("seed", stdout=io.StringIO())
+        self.last_day = timezone.localdate() + timedelta(days=16)
+
+    def seed_until(self, day):
+        call_command("seed_shifts", "--until", str(day), stdout=io.StringIO())
+
+    def future(self, team, role):
+        return list(Shift.objects.filter(team=team, on_call_role=role, ends_at__gt=timezone.now()))
+
+    def test_every_team_is_covered_to_the_end_of_that_day(self):
+        self.seed_until(self.last_day)
+        for team in Team.objects.all():
+            last = Shift.objects.filter(team=team, on_call_role="primary").order_by("starts_at").last()
+            end = timezone.localtime(last.ends_at)
+            self.assertEqual((end.date(), end.hour, end.minute), (self.last_day + timedelta(days=1), 0, 0), team)
+
+    def test_the_whole_schedule_passes_the_rules_a_lead_is_held_to(self):
+        """No gap, no double booking, no shift over 12 hours, nobody twice in a row, and legal secondaries."""
+        self.seed_until(self.last_day)
+        for team in Team.objects.all():
+            self.assertEqual(validate_schedule(team, self.future(team, "primary")), [], team)
+            self.assertEqual(validate_secondary(team, self.future(team, "secondary")), [], team)
+            self.assertGreaterEqual(len(self.future(team, "secondary")), 5, team)
+
+    def test_a_solver_on_two_teams_is_never_on_call_for_both_at_once(self):
+        jack = User.objects.get(email="jack.miller.solver@campusdesk.edu")
+        it = Team.objects.get(name="IT Support")
+        TeamMember.objects.create(user=jack, team=it)
+        self.seed_until(self.last_day)
+        teams_jack_covers = set(Shift.objects.filter(solver=jack, on_call_role="primary")
+                                .values_list("team__name", flat=True))
+        self.assertEqual(teams_jack_covers, {"Electrical", "IT Support"})
+        for shift in Shift.objects.all():
+            clash = Shift.objects.filter(solver=shift.solver, starts_at__lt=shift.ends_at,
+                                         ends_at__gt=shift.starts_at).exclude(pk=shift.pk)
+            self.assertFalse(clash.exists(), f"{shift} clashes with {clash.first()}")
+        for team in Team.objects.all():
+            self.assertEqual(validate_schedule(team, self.future(team, "primary")), [], team)
+
+    def test_a_day_that_passed_or_is_not_a_date_is_refused_and_nothing_is_replaced(self):
+        call_command("seed_shifts", stdout=io.StringIO())
+        before = list(Shift.objects.values_list("pk", flat=True))
+        with self.assertRaisesMessage(CommandError, "already passed"):
+            self.seed_until(timezone.localdate() - timedelta(days=1))
+        with self.assertRaisesMessage(CommandError, "YYYY-MM-DD"):
+            self.seed_until("the end of November")
+        self.assertEqual(list(Shift.objects.values_list("pk", flat=True)), before)
+
+    def test_today_is_a_legal_last_day(self):
+        self.seed_until(timezone.localdate())
+        for team in Team.objects.all():
+            self.assertIsNotNone(who_is_on_call(team), team)

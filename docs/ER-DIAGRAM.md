@@ -79,7 +79,7 @@ erDiagram
         int escalation_level "how many tiers the ticket has left behind"
         datetime escalated_at "nullable"
         datetime escalation_timer_started_at "nullable, when the wait at the current tier began"
-        bool is_unassigned_after_escalation "true once the policy ran out"
+        bool is_unassigned_after_escalation "true once the ticket was escalated to administration"
         datetime sla_due_at "nullable"
         datetime resolved_at "nullable"
         bool is_deleted
