@@ -79,7 +79,7 @@ erDiagram
         int escalation_level "how many tiers the ticket has left behind"
         datetime escalated_at "nullable"
         datetime escalation_timer_started_at "nullable, when the wait at the current tier began"
-        bool is_unassigned_after_escalation "true once the ticket was escalated to administration"
+        bool is_unassigned_after_escalation "true once the policy ran out or the ticket was escalated to administration"
         datetime sla_due_at "nullable"
         datetime resolved_at "nullable"
         bool is_deleted
@@ -115,7 +115,7 @@ erDiagram
         int id PK
         int team_id FK
         int tier_number "unique per team, tier 1 is the on-call solver"
-        string escalate_to "on_call, lead, or user"
+        string escalate_to "on_call, lead, user, or administration for the optional last row"
         int escalate_to_user_id FK "nullable, set when escalate_to is user"
         int wait_minutes "above zero"
         datetime created_at

@@ -12,7 +12,7 @@ Resolved --> Closed : solver closes
 Resolved --> Open : reopened,\nassigned again automatically
 Closed --> Open : reopened,\nassigned again automatically
 Assigned --> Assigned : not started in time,\nescalated to the next tier\nthat has somebody to take it
-Assigned --> Open : escalated to administration,\nmarked unassigned
+Assigned --> Open : policy ran out, or escalated\nto administration: marked unassigned
 
 note right of Open
   A ticket stays Open when the service has
@@ -21,7 +21,7 @@ note right of Open
   timeline records why. It is assigned
   automatically as soon as someone on call
   has room, or a lead can hand it over.
-  A ticket escalated to administration is the
+  A ticket nobody started by the end of the policy is the
   exception: it is not assigned again
   automatically and stays Open until the
   team lead hands it to a solver on call.
