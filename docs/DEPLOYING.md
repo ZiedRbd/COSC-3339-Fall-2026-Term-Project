@@ -22,6 +22,12 @@ sudo venv/bin/python manage.py seed
 sudo venv/bin/python manage.py seed_shifts
 ```
 
+`seed_shifts` covers one week. To cover every team to the end of a chosen day, name the day:
+
+```bash
+sudo venv/bin/python manage.py seed_shifts --until 2026-11-30
+```
+
 ## Profile pictures
 
 Uploaded pictures are files in `/srv/campusdesk/media/avatars/`. The application writes them, so the folder belongs to the user gunicorn runs as. Create it once:

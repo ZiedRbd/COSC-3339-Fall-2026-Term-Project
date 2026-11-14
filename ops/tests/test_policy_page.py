@@ -70,11 +70,20 @@ class PolicyPageTests(TestCase):
         self.assertIn("Team lead (Pat Lee)", html)
         self.assertIn("Tim Diaz", html)
         self.assertNotIn("Ola Ng", html)
-        self.assertNotIn("dministration", html)
+        # Administration ends every policy by itself, so it is never a choice in the dropdown
+        choices = html[html.index('<select name="target"'):html.index("</select>")]
+        self.assertNotIn("dministration", choices)
         self.assertNotIn("policy.js", html)
 
     def test_the_page_says_how_a_policy_ends(self):
         self.assertContains(self.client.get(self.url), "the ticket is marked unassigned")
+
+    def test_administration_is_shown_as_the_last_tier_of_every_policy(self):
+        page = self.client.get(self.url)
+        self.assertContains(page, "<strong>Administration</strong>")
+        self.assertContains(page, "always the last tier, no wait")
+        self.add("lead", 10)
+        self.assertContains(self.client.get(self.url), "<strong>Administration</strong>")
 
     def test_each_team_has_its_own_policy(self):
         self.add("lead", 10)

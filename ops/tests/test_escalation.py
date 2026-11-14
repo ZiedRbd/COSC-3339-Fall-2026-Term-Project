@@ -95,7 +95,7 @@ class EscalationTests(TestCase):
         self.assertTrue(inc.is_unassigned_after_escalation)
         self.assertEqual(inc.escalation_level, 2)
         last = IncidentUpdate.objects.filter(incident=inc, update_type="escalation").latest("id")
-        self.assertIn("Escalation ran out", last.body)
+        self.assertIn("Escalated to administration", last.body)
         self.assertTrue(Notification.objects.filter(user=self.lead, event="final_escalation").exists())
         self.assertEqual(escalate_due(self.later(600)), 0, "a ticket that ran out stays put")
 
@@ -124,9 +124,9 @@ class EscalationTests(TestCase):
         self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
         resp = self.client.get("/incidents/list")
         self.assertEqual([i.pk for i in resp.context["incidents"]], [old.pk, newer.pk])
-        self.assertContains(resp, "Unassigned: escalation ran out")
+        self.assertContains(resp, "Unassigned: escalated to administration")
         resp = self.client.get(f"/incidents/{old.pk}/")
-        self.assertContains(resp, "escalation policy ran out")
+        self.assertContains(resp, "it was escalated to administration")
 
     def test_reopen_restarts_from_tier_one(self):
         inc = self.file()
@@ -294,7 +294,7 @@ class EscalationEdgeTests(TestCase):
         self.policy(("on_call", 5), (bob, 5), ("lead", 10))
         inc = self.file()
         escalate_due(self.later(5))
-        self.assertIn("Tiers 2 and 3 had nobody available. Escalation ran out", self.last_entry(inc))
+        self.assertIn("Tiers 2 and 3 had nobody available. Escalated to administration", self.last_entry(inc))
 
     def test_an_administrator_is_not_told_to_reassign_a_ticket_they_cannot_reassign(self):
         admin = User.objects.create_superuser(username="admin@x.com", email="admin@x.com", password=GOOD_PASSWORD)
@@ -303,7 +303,12 @@ class EscalationEdgeTests(TestCase):
         escalate_due(self.later(15))
         self.assertIn("reassign it to a solver on call",
                       Notification.objects.get(user=self.lead, event="final_escalation").message)
-        self.assertFalse(Notification.objects.filter(user=admin).exists())
+        told = Notification.objects.get(user=admin, event="final_escalation").message
+        self.assertIn("escalated to administration and is unassigned", told)
+        self.assertIn("Nobody on Plumbing started work on it in time", told)
+        self.assertNotIn("Open it and reassign", told)
+        self.assertNotIn("no active lead", told)
+        Notification.objects.all().delete()
         self.team.lead = None
         self.team.save()
         other = self.file()
@@ -311,6 +316,28 @@ class EscalationEdgeTests(TestCase):
         message = Notification.objects.get(user=admin, event="final_escalation").message
         self.assertIn("Plumbing has no active lead to reassign it", message)
         self.assertNotIn("Open it and reassign", message)
+
+    def test_administration_is_the_last_tier_and_tells_the_administrator_and_the_lead(self):
+        admin = User.objects.create_superuser(username="admin@x.com", email="admin@x.com", password=GOOD_PASSWORD)
+        inc = self.file("high")
+        escalate_due(self.later(5))
+        escalate_due(self.later(15))
+        inc.refresh_from_db()
+        self.assertEqual((inc.status, inc.assigned_to, inc.is_unassigned_after_escalation), ("open", None, True))
+        self.assertIn("Escalated to administration: this ticket is unassigned and needs attention",
+                      self.last_entry(inc))
+        for person in (admin, self.lead):
+            note = Notification.objects.get(user=person, event="final_escalation")
+            self.assertIn(f"Ticket #{inc.pk} (Pipes, high) escalated to administration", note.message)
+            self.assertEqual(note.get_event_display(), "Escalated to administration")
+
+    def test_a_lead_who_is_also_an_administrator_is_told_once(self):
+        self.lead.is_superuser = True
+        self.lead.save()
+        self.file()
+        escalate_due(self.later(5))
+        escalate_due(self.later(15))
+        self.assertEqual(Notification.objects.filter(user=self.lead, event="final_escalation").count(), 1)
 
     def test_an_edit_made_while_the_timer_runs_does_not_undo_the_escalation(self):
         """The reporter saves an edit after the ticket moved to the lead. The lead still has it."""
