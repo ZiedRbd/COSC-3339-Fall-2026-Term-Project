@@ -21,7 +21,11 @@ elseif (Secondary on call holds\nfewer than 3 tickets?) then (yes)
   :Assign to the secondary;
 else (no)
   :Ticket waits: Open, unassigned;
-  :Notify the team lead (first waiting ticket)\nor the administrator (second and later);
+  if (Is anybody on call?) then (yes, all hold 3)
+    :Notify the team lead (first waiting ticket)\nor the administrator (second and later);
+  else (nobody)
+    :Nobody is notified\nThe reason is on the timeline;
+  endif
   :Wait until someone on call has room\n(checked every minute, oldest ticket first);
   :Assign to that solver;
 endif

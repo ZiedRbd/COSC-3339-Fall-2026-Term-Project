@@ -26,7 +26,7 @@ A plain Ubuntu virtual machine, as required by the course. It gives full control
 
 ## HTTPS: DuckDNS and Let's Encrypt
 
-Certificate authorities do not issue TLS certificates for bare IP addresses, so a domain name was required. DuckDNS provides a free subdomain that points at the droplet. certbot obtained a free certificate from Let's Encrypt, rewrote the nginx configuration to use it, and set up automatic renewal. HTTP requests redirect to HTTPS, so credentials are never sent in plain text.
+The TLS certificate is issued for a domain name, not for the server's bare IP address, so a domain name was required. DuckDNS provides a free subdomain that points at the droplet. certbot obtained a free certificate from Let's Encrypt, rewrote the nginx configuration to use it, and set up automatic renewal. HTTP requests redirect to HTTPS, so credentials are never sent in plain text.
 
 ## Scheduled task: systemd timer
 
@@ -42,7 +42,7 @@ Django's `ImageField` requires Pillow and uses it to open every uploaded profile
 
 ## Configuration: environment variables
 
-The secret key, debug flag, allowed hosts, mail account, and database credentials are read from a `.env` file that exists only on the server and is excluded from version control. The same codebase behaves differently per machine without any code changes. An `.env.example` in the repository documents the variable names.
+The secret key, debug flag, allowed hosts, mail account, and database credentials are read from a `.env` file that is excluded from version control; the server has one and local development runs without it. The same codebase behaves differently per machine without any code changes. An `.env.example` in the repository documents the variable names.
 
 ## Front end: Django templates
 

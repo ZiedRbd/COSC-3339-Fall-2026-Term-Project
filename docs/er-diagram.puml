@@ -27,6 +27,7 @@ entity "USER" as user {
     bio : text
     avatar : varchar
   * is_active : bool = true
+  * is_superuser : bool = false
   * created_at : datetime
 }
 

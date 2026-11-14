@@ -35,6 +35,7 @@ erDiagram
         string bio
         string avatar "optional, path of the profile picture file under media/"
         bool is_active
+        bool is_superuser "administrator flag, false by default"
         datetime created_at
     }
 
