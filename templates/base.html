@@ -3,65 +3,84 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}CampusDesk{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=20">
-    <link rel="stylesheet" href="{% static 'css/components.css' %}?v=21">
-    <link rel="stylesheet" href="{% static 'css/incidents.css' %}?v=23">
-    <link rel="stylesheet" href="{% static 'css/profile.css' %}?v=22">
-    <link rel="stylesheet" href="{% static 'css/animations.css' %}?v=21">
-    <link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=6">
-    <script src="{% static 'js/notifications.js' %}"></script>
-    <script src="{% static 'js/animations.js' %}" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&family=Zilla+Slab:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=34">
+    <link rel="stylesheet" href="{% static 'css/components.css' %}?v=34">
+    <link rel="stylesheet" href="{% static 'css/incidents.css' %}?v=34">
+    <link rel="stylesheet" href="{% static 'css/profile.css' %}?v=34">
+    <link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=34">
+    <link rel="stylesheet" href="{% static 'css/pages.css' %}?v=34">
+    <link rel="stylesheet" href="{% static 'css/animations.css' %}?v=34">
+    <script src="{% static 'js/notifications.js' %}?v=3" defer></script>
     {% block extra_js %}{% endblock %}
 </head>
 <body class="base-body">
-    <nav class="navbar">
-        <div class="nav-links">
-            <a href="{% url 'home' %}" class="nav-btn nav-icon" title = "Home" aria-label="Home">
-            <svg width = "22" height="22" viewBox = "0 0 24 24" fill = "none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <a class="skip-link" href="#content">Skip to the page content</a>
+    {% with here=request.resolver_match.url_name %}
+    <header class="navbar">
+        <a href="{% url 'home' %}" class="brand" aria-label="CampusDesk home">
+            <svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle cx="60" cy="33" r="6"/>
+                <path d="M57 36h6v10h-6z"/>
+                <path d="M26 80a34 34 0 0 1 68 0z"/>
+                <path class="brand-base" d="M23 84h74a5 5 0 0 1 0 10H23a5 5 0 0 1 0-10z"/>
+            </svg>
+            <span class="brand-name">CampusDesk</span>
+        </a>
+        <nav class="nav-links" aria-label="Main">
+            <a href="{% url 'home' %}" class="nav-btn" title="Home"{% if here == 'home' %} aria-current="page"{% endif %}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M3 10.5 12 3l9 7.5"/>
                     <path d="M5 9.5V21h5v-6h4v6h5V9.5"/>
-            </svg>
-            Home
-        </a>
-            <a href="{% url 'services' %}" class="nav-btn nav-icon" title="services" aria-label="services">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                </svg>
+                <span class="nav-label">Home</span>
+            </a>
+            <a href="{% url 'services' %}" class="nav-btn" title="Services"{% if here == 'services' %} aria-current="page"{% endif %}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M14.7 6.3a4 4 0 0 0 5 5L21 13l-8 8-3-3 8-8-1.3-1.3a4 4 0 0 1-5-5L13 2z"/>
                     <path d="M3 21l6-6"/>
-            </svg>
-            Services
-        </a>
-            <a href="{% url 'landing' %}" class="nav-btn nav-icon" title="Incidents" aria-label="incidents">
-            <svg width ="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                </svg>
+                <span class="nav-label">Services</span>
+            </a>
+            <a href="{% if user.role == 'solver' %}{% url 'incidents' %}{% else %}{% url 'landing' %}{% endif %}" class="nav-btn" title="Incidents"{% if here == 'landing' or here == 'incidents' or here == 'form' or here == 'incident_detail' or here == 'incident_edit' %} aria-current="page"{% endif %}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 3 2 20h20L12 3z"/>
                     <path d="M12 10v4"/>
                     <path d="M12 17h.01"/>
                 </svg>
-                Incidents
+                <span class="nav-label">Incidents</span>
             </a>
             {% if user.role == "solver" %}
-                <a href="{% url 'calendar' %}" class="nav-btn">Calendar</a>
+                <a href="{% url 'calendar' %}" class="nav-btn" title="Calendar"{% if here == 'calendar' or here == 'schedule' or here == 'shift_edit' or here == 'team_policy' %} aria-current="page"{% endif %}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="3" y="4" width="18" height="18" rx="2"/>
+                        <path d="M16 2v4"/>
+                        <path d="M8 2v4"/>
+                        <path d="M3 10h18"/>
+                    </svg>
+                    <span class="nav-label">Calendar</span>
+                </a>
             {% endif %}
-            
-
-        </div>
+        </nav>
         <div class="nav-user-section">
         {% if user.is_authenticated %}
-            <!-- Notification System Skeleton -->
+            {% if user.role != "solver" and here != 'form' and here != 'landing' %}
+                <a href="{% url 'form' %}" class="nav-btn nav-cta" title="Report a problem">
+                    <span class="cta-long">Report a problem</span><span class="cta-short">Report</span>
+                </a>
+            {% endif %}
             <div class="nav-notification-wrapper">
-                <button type="button" class=" nav-btn nav-notification-btn" id="notificationBtn" aria-label="Notifications">
-                    <svg class="notification-icon" viewBox="0 0 24 24">
-                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                <button type="button" class="nav-btn nav-notification-btn" id="notificationBtn" aria-label="Notifications" aria-haspopup="true">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                     </svg>
-                    Alerts
-                    
+                    <span class="nav-label">Alerts</span>
                     {% if unread_count %}
                         <span class="notification-badge">{{ unread_count }}</span>
                     {% endif %}
@@ -89,45 +108,42 @@
                 </div>
             </div>
 
-            <a href="{% url  'profile' %}" class="nav-btn nav-icon">
-                <svg width ="22" height ="22" viewBox = "0 0 24 24"fill="none" stroke="currentColor"
-         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="8" r="4"/>
-        <path d="M4 21c0-4 4-6 8-6s8 2 8 6"/> </svg>
-        Profile
-        </a>
-            <span class="info">Logged in as: <strong>{{ user.username }}</strong></span>
+            <a href="{% url 'profile' %}" class="nav-btn nav-user"{% if here == 'profile' %} aria-current="page"{% endif %} title="Signed in as {{ user.username }}">
+                <img class="nav-avatar" src="{% if user.avatar %}{{ user.avatar.url }}{% else %}{% static 'images/profile_icon.jpeg' %}{% endif %}" alt="">
+                <span class="nav-label">{% if user.first_name %}{{ user.first_name }}{% else %}Profile{% endif %}</span>
+            </a>
             <form action="{% url 'logout' %}" method="POST" class="logout-form">
                 {% csrf_token %}
-                <button type="submit" class="nav-btn logout-btn">Log out</button>
+                <button type="submit" class="nav-btn logout-btn" title="Log out">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <path d="M16 17l5-5-5-5"/>
+                        <path d="M21 12H9"/>
+                    </svg>
+                    <span class="nav-label">Log out</span>
+                </button>
             </form>
-            {%elif not user.is_authenticated and request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'register'%}
-                <a href="{% url 'login' %}" class="nav-btn nav-icon">
-                    <svg width="22" height="22" viewBox = "0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                <path d="M10 17l5-5-5-5"/>
-                <path d="M15 12H3"/>
-                </svg>     
-                    Log in
-                </a>
-                <a href="{% url 'register' %}" class="nav-btn nav-icon">
-                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="9" cy="8" r="4"/>
-                <path d="M2 21c0-4 3-6 7-6s7 2 7 6"/>
-                <path d="M19 8v6"/>
-                <path d="M16 11h6"/>
+        {% elif here != 'login' and here != 'register' %}
+            <a href="{% url 'login' %}" class="nav-btn" title="Log in">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                    <path d="M10 17l5-5-5-5"/>
+                    <path d="M15 12H3"/>
                 </svg>
-                Register</a>
+                <span class="nav-label">Log in</span>
+            </a>
+            <a href="{% url 'register' %}" class="nav-btn nav-cta" title="Create an account">
+                <span class="cta-long">Create an account</span><span class="cta-short">Register</span>
+            </a>
         {% endif %}
         </div>
-    </nav>
+    </header>
+    {% endwith %}
 
-    <main class="page">
+    {% block hero %}{% endblock %}
+
+    <main class="page" id="content">
     {% block content %}{% endblock %}
     </main>
 </body>
 </html>
-
-

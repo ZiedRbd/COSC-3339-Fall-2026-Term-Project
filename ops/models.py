@@ -10,6 +10,9 @@ class User(AbstractUser):
     role = models.CharField(max_length=20, default="reporter")
     created_at = models.DateTimeField(auto_now_add=True)
     bio = models.TextField(blank=True)
+    # Profile picture. The database holds only the file's path under
+    # MEDIA_ROOT; the image itself is a file in media/avatars/.
+    avatar = models.ImageField(upload_to="avatars/", blank=True)
 
 
     def __str__(self):
@@ -50,7 +53,7 @@ class TeamMember(models.Model):
 # Something the campus supports, such as Wi-Fi or restroom plumbing.
 # A service is usually owned by one team. It can have no team, in which
 # case tickets filed against it cannot be assigned to a solver.
-# Criticality is reserved for escalation rules in later sprints.
+# Criticality describes the service; escalation uses the ticket's severity.
 class Service(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -65,7 +68,8 @@ class Service(models.Model):
 
 # A ticket filed by a user about a service. On creation it is routed to
 # the team that owns the service and, when someone is on call, assigned
-# to that solver. Escalation and SLA fields are for later sprints.
+# to that solver. The escalation fields record where the ticket stands
+# in its team's policy.
 class Incident(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
@@ -87,8 +91,10 @@ class Incident(models.Model):
     priority = models.CharField(max_length=20, default="medium")
     escalation_level = models.IntegerField(default=0)
     escalated_at = models.DateTimeField(null=True, blank=True)
-    # When the escalation stopwatch started: creation, or the last reopen.
-    # The minute timer compares now minus this against the tier's wait.
+    # When the wait at the current tier began: the moment the ticket was
+    # given to its solver, by assignment, hand-out from the queue,
+    # reassignment, reopening or escalation. The minute timer compares
+    # now minus this against the tier's wait.
     escalation_timer_started_at = models.DateTimeField(null=True, blank=True)
     # True once every tier of the team's policy has run out. The ticket
     # is then shown unassigned at the top of the list until someone takes it.
@@ -157,16 +163,16 @@ class Shift(models.Model):
         return f"{self.solver} {self.on_call_role} on call for {self.team}"
 
 
-# One step of a team's escalation policy. Tier 1 is the on-call solver
-# who first got the ticket. When the solver at a tier has not started
-# work within wait_minutes, the ticket moves to the next tier. The last
-# tier has no wait: reaching it marks the ticket unassigned.
+# One step of a team's escalation policy. Tier 1 is always the on-call
+# solver who first got the ticket. Each later tier names a role (the team
+# lead) or a user (one person on the team). When the person at a tier has
+# not started work within wait_minutes, the ticket moves to the next
+# tier. After the last tier it is marked unassigned.
 class EscalationTier(models.Model):
     ESCALATE_TO_CHOICES = [
         ("on_call", "The on-call solver"),
         ("lead", "The team lead"),
         ("user", "A specific person on the team"),
-        ("administration", "Administration"),
     ]
     team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="escalation_tiers")
     tier_number = models.PositiveIntegerField()
@@ -175,8 +181,8 @@ class EscalationTier(models.Model):
     escalate_to_user = models.ForeignKey(
         User, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
     )
-    # Empty on the last tier only
-    wait_minutes = models.PositiveIntegerField(null=True, blank=True)
+    # How long the person at this tier has before the ticket moves on
+    wait_minutes = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -195,7 +201,8 @@ class EscalationTier(models.Model):
 
 
 # One message to one person about one ticket. The bell counts rows with
-# no read_at. The minute timer emails rows with no emailed_at.
+# no read_at. emailed_at is when the same message went out by email, and
+# stays empty when the mail server refused it.
 class Notification(models.Model):
     EVENT_CHOICES = [
         ("assigned", "Assigned to you"),

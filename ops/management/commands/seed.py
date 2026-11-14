@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from ops.models import User, Team, TeamMember, Service, Incident, EscalationTier
-from ops.scheduling import assign_on_creation
+from ops.scheduling import assign_on_creation, ensure_policy
 from ops.timeline import log_event
 
 PASSWORD = "Demo!Pass1"
@@ -9,8 +9,9 @@ PASSWORD = "Demo!Pass1"
 
 # Loads demo data. Safe to run more than once, existing rows are reused.
 # Every account's email ends with its role, so it is obvious who is who:
-# name.reporter@, name.solver@, name.leadsolver@. All share one password.
-# Creates six reporters and ten solvers, three per team, two of them leads,
+# name.reporter@, name.solver@, name.leadsolver@, demo.admin@. All share
+# one password. Creates six reporters, one administrator and ten solvers,
+# three per team, two of them leads,
 # and two dozen tickets in every state. Run with: python manage.py seed
 # Follow with: python manage.py seed_shifts, which lays a week of cover and
 # hands out every ticket that is still waiting.
@@ -26,16 +27,11 @@ class Command(BaseCommand):
         ]:
             teams[name], _ = Team.objects.get_or_create(name=name, defaults={"description": desc})
 
-        # Every team starts with the same three-step escalation policy:
-        # the on-call solver has five minutes, then the lead has ten, then
-        # the ticket is marked unassigned. Leads change it on the policy page.
+        # Every team starts with the same escalation policy: the on-call
+        # solver has five minutes, then the lead has ten, then the ticket
+        # is marked unassigned. Leads change it on the policy page.
         for team in teams.values():
-            if not team.escalation_tiers.exists():
-                EscalationTier.objects.bulk_create([
-                    EscalationTier(team=team, tier_number=1, escalate_to="on_call", wait_minutes=5),
-                    EscalationTier(team=team, tier_number=2, escalate_to="lead", wait_minutes=10),
-                    EscalationTier(team=team, tier_number=3, escalate_to="administration", wait_minutes=None),
-                ])
+            ensure_policy(team)
 
         services = {}
         for name, desc, team, crit in [
@@ -99,6 +95,13 @@ class Command(BaseCommand):
             ],
         }
         maya = make_user("maya.ortiz.leadsolver@campusdesk.edu", "Maya", "Ortiz", "solver")
+
+        # The administrator hears about a team's second waiting ticket and
+        # every one after it. Signs in to the site like anyone else; it has
+        # no access to the Django admin.
+        admin = make_user("demo.admin@campusdesk.edu", "Demo", "Admin", "reporter")
+        admin.is_superuser = True
+        admin.save()
         for team_name, lead in [
             ("Plumbing", members["Plumbing"][0]),
             ("Electrical", members["Plumbing"][0]),
@@ -185,7 +188,8 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f"Seeded: {Team.objects.count()} teams, {EscalationTier.objects.count()} escalation tiers, "
             f"{Service.objects.count()} services, "
-            f"{User.objects.filter(role='reporter').count()} reporters, "
+            f"{User.objects.filter(role='reporter', is_superuser=False).count()} reporters, "
+            f"{User.objects.filter(is_superuser=True).count()} administrator, "
             f"{User.objects.filter(role='solver').count()} solvers, "
             f"{Incident.objects.count()} incidents"
         ))

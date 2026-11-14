@@ -14,7 +14,7 @@ Browser -> Nginx : GET /incidents/12/
 Nginx -> View : forward request
 View -> DB : SELECT incident 12
 DB --> View : incident row (status = assigned)
-View -> View : _can_access_incident:\nreporter, team member, or lead
+View -> View : _can_access_incident:\nreporter, team member, or lead\n(an administrator may read any ticket)
 View -> DB : SELECT updates for incident 12
 DB --> View : timeline rows
 View --> Browser : Render page with allowed next actions
@@ -24,13 +24,14 @@ Browser --> Solver : Show ticket, timeline,\nand "Move to In Progress" button
 Solver -> Browser : Click "Move to In Progress"
 Browser -> Nginx : POST /incidents/12/transition/\nnew_status=in_progress
 Nginx -> View : forward request
-View -> DB : SELECT incident 12
+View -> DB : SELECT incident 12 FOR UPDATE\n(the escalation timer waits for this row)
 DB --> View : incident row (status = assigned)
 View -> View : Verify solver role and\nteam access again
 View -> Rules : is "in_progress" allowed from "assigned"?
 Rules --> View : allowed
 View -> DB : UPDATE incident\nSET status = in_progress
 View -> DB : INSERT IncidentUpdate\n(incident, author, type = status_change,\nold = assigned, new = in_progress, timestamp)
+View -> DB : INSERT Notification for the reporter\n("Work has started on your ticket"),\nalso sent by email
 DB --> View : committed
 View --> Browser : 302 redirect to /incidents/12/\nwith success message
 Browser -> Nginx : GET /incidents/12/
@@ -52,5 +53,7 @@ Browser --> Solver : "Cannot move from Assigned\nto Resolved"
 note over View, DB
   The timeline row is written only after a transition is
   accepted, so the timeline never shows a refused move.
+  Moving to In Progress is how a solver takes responsibility:
+  from then on the ticket no longer escalates.
 end note
 @enduml

@@ -13,7 +13,16 @@ if (formModal) {
     formModal.hidden = false;
   };
 
+  // The role is chosen when a shift is added and fixed afterwards
+  const setRole = (value, locked) => {
+    const role = field("on_call_role");
+    if (!role) return;
+    role.value = value;
+    role.disabled = locked;
+  };
+
   document.getElementById("add-shift").addEventListener("click", () => {
+    setRole("primary", false);
     field("solver").selectedIndex = 0;
     field("starts_at_0").value = "";
     field("starts_at_1").value = "00:00";
@@ -25,6 +34,7 @@ if (formModal) {
   document.querySelectorAll(".shift-edit").forEach(link => {
     link.addEventListener("click", e => {
       e.preventDefault();
+      setRole(link.dataset.role, true);
       field("solver").value = link.dataset.solver;
       field("starts_at_0").value = link.dataset.startDate;
       field("starts_at_1").value = link.dataset.startHour;
@@ -64,7 +74,9 @@ if (sModal) {
       sForm = form;
       const who = form.querySelector("select[name=solver]");
       const name = who && who.selectedIndex >= 0 ? who.options[who.selectedIndex].text : "?";
-      sText.textContent = name + ": " + when(value(form, "starts_at_0"), value(form, "starts_at_1"))
+      const role = form.querySelector("select[name=on_call_role]");
+      const label = role && role.value === "secondary" ? "Secondary, " : "";
+      sText.textContent = label + name + ": " + when(value(form, "starts_at_0"), value(form, "starts_at_1"))
         + " to " + when(value(form, "ends_at_0"), value(form, "ends_at_1"));
       sModal.hidden = false;
     });

@@ -1,17 +1,22 @@
-{% extends "base.html"%}
-{%block title%}Services{%endblock%}
-{% load static %}
+{% extends "base.html" %}
+{% block title %}Services{% endblock %}
 
-{%block content%}
+{% block content %}
 <div class="services-container">
-  <h1 class="services-header">Our Services</h1>
+  <div class="page-head">
+    <div>
+      <h1 class="services-header">Services</h1>
+      <p class="lead">What each team looks after. Pick the service when you report a problem and the ticket goes to that team.</p>
+    </div>
+    {% if user.is_authenticated and user.role != "solver" %}
+      <a href="{% url 'form' %}" class="btn-gold">Report a problem</a>
+    {% endif %}
+  </div>
 
   {% for team in teams %}
-    <!-- Only render team section if they have active services -->
     {% if team.active_services %}
       <section class="team-section">
         <h2 class="team-title">{{ team.name }}</h2>
-        
         <div class="services-grid">
           {% for service in team.active_services %}
             <div class="service-wrapper">
@@ -23,8 +28,7 @@
       </section>
     {% endif %}
   {% empty %}
-    <p class="no-services">No services available at this time.</p>
+    <p class="no-services">No services are listed yet.</p>
   {% endfor %}
 </div>
-
-{%endblock%}
+{% endblock %}

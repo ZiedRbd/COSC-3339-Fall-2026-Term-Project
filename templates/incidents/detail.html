@@ -7,16 +7,36 @@
 {% endblock %}
 
 {% block content %}
-<div class="card wide detail">
-
-  <div class="detail-head">
-    <div>
-      <p class="detail-eyebrow">Ticket #{{ incident.pk }}</p>
-      <h1 class="detail-title">{{ incident.title }}</h1>
-    </div>
-    <span class="badge status-pill {{ incident.status }}">{{ incident.get_status_display }}</span>
+<div class="ticket-head sev-{{ incident.priority }} st-{{ incident.status }}{% if incident.is_unassigned_after_escalation %} ran-out{% endif %}">
+  <div class="ticket-stub">
+    <span class="stub-no">No.</span>
+    <span class="stub-number">{{ incident.pk }}</span>
   </div>
+  <div class="ticket-main">
+    <h1 class="detail-title">{{ incident.title }}</h1>
+    <div class="ticket-tags">
+      <span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span>
+      <span class="badge status-pill {{ incident.status }}">{{ incident.get_status_display }}</span>
+    </div>
+    <p class="ticket-now">
+      {% if incident.is_unassigned_after_escalation %}
+        Nobody holds this ticket right now. The team lead has been told.
+      {% elif incident.status == "open" %}
+        Waiting for a solver on call to have room for it.
+      {% elif incident.status == "assigned" %}
+        With {{ incident.assigned_to.first_name }} {{ incident.assigned_to.last_name }}, who has not started on it yet.
+      {% elif incident.status == "in_progress" %}
+        {{ incident.assigned_to.first_name }} {{ incident.assigned_to.last_name }} is working on it.
+      {% elif incident.status == "resolved" %}
+        Resolved{% if incident.assigned_to %} by {{ incident.assigned_to.first_name }} {{ incident.assigned_to.last_name }}{% endif %}.
+      {% else %}
+        Closed.
+      {% endif %}
+    </p>
+  </div>
+</div>
 
+<div class="card wide detail">
   {% if messages %}
     {% for message in messages %}
       <p class="notice {{ message.tags }}">{{ message }}</p>
@@ -28,8 +48,6 @@
   {% endif %}
 
   <div class="detail-grid">
-    <div class="field"><span class="field-label">Severity</span>
-      <span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></div>
     <div class="field"><span class="field-label">Service</span>
       <span class="field-value">{{ incident.service.name }}</span></div>
     <div class="field"><span class="field-label">Location</span>
@@ -42,39 +60,48 @@
       <span class="field-value">{{ incident.description }}</span></div>
   </div>
 
-  {% if can_transition and incident.next_states %}
-    <div class="action-bar">
-      <span class="field-label">Next step</span>
-      <div class="action-buttons">
+  {% if can_transition and incident.next_states or can_edit or reassign_targets %}
+    <div class="ticket-actions">
+      {% if can_transition %}
         {% for state in incident.next_states %}
-          <form method="post" action="{% url 'incident_transition' incident.pk %}"
-                class="transition-form" data-label="{{ state|status_label }}">
-            {% csrf_token %}
-            <input type="hidden" name="new_status" value="{{ state }}">
-            <button type="submit" class="btn-gold">Move to {{ state|status_label }}</button>
-          </form>
+          <div class="action">
+            <form method="post" action="{% url 'incident_transition' incident.pk %}"
+                  class="transition-form" data-label="{{ state|status_label }}">
+              {% csrf_token %}
+              <input type="hidden" name="new_status" value="{{ state }}">
+              <button type="submit" class="{% if forloop.first %}btn-gold{% else %}btn-small{% endif %}">Move to {{ state|status_label }}</button>
+            </form>
+            <p class="action-hint">
+              {% if state == "in_progress" %}You take responsibility for it. It stops escalating and the reporter is told work has started.
+              {% elif state == "resolved" %}The problem is fixed. The reporter is told.
+              {% elif state == "closed" %}Files the ticket away. It can still be reopened.
+              {% else %}Reopens it and assigns it again to whoever is on call.{% endif %}
+            </p>
+          </div>
         {% endfor %}
-      </div>
-    </div>
-  {% endif %}
-
-  {% if can_edit or can_reassign or on_call_holds %}
-    <div class="action-bar">
-      <span class="field-label">Ticket</span>
-      <div class="action-buttons">
-        {% if can_edit %}
-          <a href="{% url 'incident_edit' incident.pk %}" class="btn-gold">Edit details</a>
-        {% endif %}
-        {% if can_reassign %}
-          <form method="post" action="{% url 'incident_reassign' incident.pk %}" class="reassign-form">
-            {% csrf_token %}
-            <button type="submit" class="btn-gold">Reassign to {{ on_call.first_name }} {{ on_call.last_name }} (on call now)</button>
-          </form>
-        {% endif %}
-        {% if on_call_holds %}
-          <p class="muted">{{ on_call.first_name }} {{ on_call.last_name }} is on call and already has this ticket</p>
-        {% endif %}
-      </div>
+      {% endif %}
+      {% for target in reassign_targets %}
+        <div class="action">
+          {% if target.holds %}
+            <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }} is on call and already has this ticket</p>
+          {% elif target.full %}
+            <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }} ({{ target.role }} on call) already holds {{ max_tickets }} tickets</p>
+          {% else %}
+            <form method="post" action="{% url 'incident_reassign' incident.pk %}" class="reassign-form">
+              {% csrf_token %}
+              <input type="hidden" name="solver" value="{{ target.solver.pk }}">
+              <button type="submit" class="btn-small">Reassign to {{ target.solver.first_name }} {{ target.solver.last_name }} ({{ target.role }} on call)</button>
+            </form>
+            <p class="action-hint">They are notified, and the wait before it escalates starts again.</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+      {% if can_edit %}
+        <div class="action">
+          <a href="{% url 'incident_edit' incident.pk %}" class="btn-small">Edit details</a>
+          <p class="action-hint">Change the title, description, place or severity.</p>
+        </div>
+      {% endif %}
     </div>
   {% endif %}
 
@@ -89,9 +116,9 @@
         </div>
         <div class="tl-body">
           {% if entry.update_type == "status_change" %}
-            Changed status
+            Changed status from
             <span class="badge {{ entry.old_status }}">{{ entry.old_status|status_label }}</span>
-            &rarr;
+            to
             <span class="badge {{ entry.new_status }}">{{ entry.new_status|status_label }}</span>
           {% elif entry.update_type == "created" %}
             <span class="tl-tag created">Created</span> {{ entry.body }}
@@ -115,18 +142,19 @@
         </div>
       </li>
     {% empty %}
-      <li class="muted">No activity yet.</li>
+      <li class="muted">Nothing has happened to this ticket yet.</li>
     {% endfor %}
   </ul>
 
   <h2 class="section-title">{% if user.role == "solver" %}Add a note{% else %}Add a comment{% endif %}</h2>
   <form method="post" action="{% url 'incident_comment' incident.pk %}" class="comment-form">
     {% csrf_token %}
-    <textarea name="body" rows="3" maxlength="1000" class="form-input" placeholder="{% if user.role == 'solver' %}Add a note for the reporter...{% else %}Add a comment for the team...{% endif %}" required></textarea>
-    <button type="submit" class="btn-gold">Post</button>
+    <label for="comment-body" class="hint">{% if user.role == "solver" %}The reporter sees your note on this timeline.{% else %}The team sees your comment on this timeline.{% endif %}</label>
+    <textarea id="comment-body" name="body" rows="3" maxlength="1000" class="form-input" required></textarea>
+    <button type="submit" class="btn-small">{% if user.role == "solver" %}Post note{% else %}Post comment{% endif %}</button>
   </form>
 
-  <a href="{% url 'incidents' %}" class="back-link">&larr; Back to incidents</a>
+  <a href="{% url 'incidents' %}" class="back-link">{% if user.role == "solver" %}Back to the incident list{% else %}Back to my tickets{% endif %}</a>
 </div>
 
 <div id="transition-modal" class="modal-overlay" hidden>

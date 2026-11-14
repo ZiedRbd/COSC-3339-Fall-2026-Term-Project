@@ -1,9 +1,10 @@
 """Who is on call, checking a schedule, and handing tickets to people."""
 from datetime import timedelta
 
+from django.db import transaction
 from django.utils import timezone
 
-from .models import Incident, Notification, Shift, TeamMember, User
+from .models import EscalationTier, Incident, Shift, Team, TeamMember, User
 from .notifications import notify
 from .timeline import log_event
 
@@ -74,24 +75,19 @@ def pick_solver(team, at=None):
     return None
 
 
-def on_call_roster(team, window_start, window_end):
+def on_call_roster(team, window_start, window_end, on_call_role="primary"):
     """
     All shifts for a team that fall inside a time window, for example one
     week of the calendar. A shift counts if any part of it is inside the
     window, so a shift that starts before the window but ends inside it
     is included. The list is sorted by start time, so the first item is
-    the shift that starts soonest.
+    the shift that starts soonest. Primary shifts by default; pass
+    on_call_role=None for both roles.
     """
-    return (
-        Shift.objects.filter(
-            team=team,
-            on_call_role="primary",
-            starts_at__lt=window_end,
-            ends_at__gt=window_start,
-        )
-        .select_related("solver")
-        .order_by("starts_at", "id")
-    )
+    shifts = Shift.objects.filter(team=team, starts_at__lt=window_end, ends_at__gt=window_start)
+    if on_call_role:
+        shifts = shifts.filter(on_call_role=on_call_role)
+    return shifts.select_related("solver").order_by("starts_at", "id")
 
 
 def assign_now(incident, by, at=None):
@@ -109,59 +105,100 @@ def assign_now(incident, by, at=None):
                   f"Nobody is on call for {incident.service.name} right now, so this ticket is waiting to be assigned")
         return None
     incident.assigned_team = team
+    # Anything already waiting is older and goes first, in case a slot
+    # opened that nothing has handed out yet
+    assign_waiting(team, skip=incident)
     solver = pick_solver(team, at)
     if solver is None:
         incident.save()
         if on_call_solvers(team, at):
             log_event(incident, by, "assignment_failed",
                       f"Everyone on call for {team.name} is full, so this ticket is waiting in the queue")
-            _notify_about_queue(team, incident)
+            _notify_about_queue(team, incident,
+                                f"everyone on call for {team.name} holds {MAX_ACTIVE_TICKETS} tickets")
         else:
             log_event(incident, by, "assignment_failed",
                       f"Nobody is on call for {team.name} right now, so this ticket is waiting to be assigned")
         return None
-    incident.assigned_to = solver
-    incident.status = "assigned"
-    _start_clock(incident, at)
-    incident.save()
-    log_event(incident, by, "assignment",
-              f"Assigned to {_full_name(solver)}, on call for {team.name}",
-              new_assignee=solver)
-    notify(solver, incident, "assigned",
-           f"Ticket #{incident.pk} ({incident.service.name}, {incident.priority}) was assigned to you")
+    _hand_to(incident, solver, by, "assignment", f"Assigned to {_full_name(solver)}, on call for {team.name}",
+             "assigned", "was assigned to you", at)
     return solver
 
 
-def _start_clock(incident, at=None):
+def _start_clock(incident, at=None, level=0):
     """
-    The ticket has a new owner: the escalation stopwatch starts from zero
-    at tier 1. Called on assignment, reassignment and reopen. Does not save.
+    The ticket has a new owner: the escalation stopwatch starts from zero.
+    A fresh assignment, a reassignment and a reopen start at tier 1,
+    which is level 0; an escalation passes the level it moved to. Does
+    not save.
     """
     incident.escalation_timer_started_at = at or timezone.now()
-    incident.escalation_level = 0
+    incident.escalation_level = level
     incident.is_unassigned_after_escalation = False
 
 
-def _notify_about_queue(team, incident):
+def _ticket_label(incident):
+    """How a notification names a ticket: its number, service and severity."""
+    return f"Ticket #{incident.pk} ({incident.service.name}, {incident.priority})"
+
+
+# What every assignment notification asks the solver to do
+TAKE_IT = "Open it and move it to In Progress to take responsibility, or it escalates"
+
+
+def _hand_to(incident, solver, by, update_type, body, event, happened, at=None, level=0):
     """
-    A ticket just joined the queue because everyone on call is full. The
-    lead hears about the first one waiting; every superuser hears about
-    the second and each one after it.
+    The one place a ticket gets an owner. Sets the solver, starts the
+    escalation clock, saves, writes the timeline entry and notifies the
+    solver with the ticket number, service, severity and what to do next.
     """
-    waiting = Incident.objects.filter(
+    old = incident.assigned_to
+    incident.assigned_to = solver
+    if incident.status == "open":
+        incident.status = "assigned"
+    _start_clock(incident, at, level)
+    incident.save()
+    log_event(incident, by or solver, update_type, body, old_assignee=old, new_assignee=solver)
+    action = TAKE_IT if incident.status == "assigned" else "It is already In Progress, so carry on with the work"
+    notify(solver, incident, event, f"{_ticket_label(incident)} {happened}. {action}.")
+
+
+def _waiting(team):
+    """A team's Open tickets that nobody holds and that can be handed out, oldest first."""
+    return Incident.objects.filter(
         assigned_team=team, status="open", assigned_to__isnull=True, is_deleted=False,
-    ).count()
-    if waiting == 1 and team.lead is not None:
-        Notification.objects.create(
-            user=team.lead, incident=incident, event="queued",
-            message=f"Everyone on call for {team.name} is full and a ticket is waiting",
-        )
-    elif waiting >= 2:
-        for admin in User.objects.filter(is_superuser=True, is_active=True):
-            Notification.objects.create(
-                user=admin, incident=incident, event="queued",
-                message=f"Everyone on call for {team.name} is full and {waiting} tickets are waiting",
-            )
+        is_unassigned_after_escalation=False,
+    ).order_by("created_at", "id")
+
+
+def _admins():
+    return list(User.objects.filter(is_superuser=True, is_active=True))
+
+
+def _lead_or_admins(team):
+    """The team's lead, or the administrators when the team has no active lead."""
+    if team.lead is not None and team.lead.is_active:
+        return [team.lead]
+    return _admins()
+
+
+def _notify_about_queue(team, incident, why):
+    """
+    A ticket just started waiting. The lead hears about the first one
+    waiting; the administrators hear about the second and each one after
+    it. A team with no lead tells the administrators, and a site with no
+    administrator tells the lead, so a waiting ticket is never silent.
+    Tickets whose escalation ran out are not part of the queue.
+    """
+    waiting = _waiting(team).count()
+    if waiting <= 1:
+        people, count = _lead_or_admins(team), ""
+    else:
+        people, count = _admins() or _lead_or_admins(team), f" {waiting} tickets are waiting for {team.name}."
+    for person in people:
+        notify(person, incident, "queued",
+               f"{_ticket_label(incident)} is waiting because {why}.{count} "
+               f"It is assigned as soon as a solver on call has room.")
 
 
 def assign_on_creation(incident):
@@ -169,36 +206,39 @@ def assign_on_creation(incident):
     return assign_now(incident, incident.reported_by, incident.created_at)
 
 
-def assign_waiting(team, by=None):
+def assign_waiting(team, by=None, skip=None):
     """
-    Every Open, unassigned ticket of this team gets another chance at the
-    solver on call right now. Runs when a schedule changes, when a solver
-    opens the list, when a ticket is opened, and when shifts are seeded, so
-    a ticket filed while nobody was on call is picked up as soon as someone
-    is. Oldest ticket first, each one to whoever on call has room, stopping
-    when nobody does. Quiet when it cannot assign: the ticket already says
-    it is waiting. Returns how many tickets were assigned.
+    Every waiting ticket of this team gets another chance at the solvers
+    on call right now. Runs every minute from the escalate command, and
+    straight away whenever a slot may have opened: a ticket is resolved,
+    closed, deleted or reassigned, a schedule changes, or a solver opens
+    the list. Oldest ticket first, each one to whoever on call has room,
+    stopping when nobody does. Quiet when it cannot assign: the ticket
+    already says it is waiting. Pass the lead whose schedule change set
+    this off as `by`; with nobody, the timeline says it was automatic.
+    `skip` leaves one ticket out, for the caller that is assigning it
+    itself. Returns how many tickets were assigned.
     """
-    waiting = Incident.objects.filter(
-        assigned_team=team, status="open", assigned_to__isnull=True, is_deleted=False,
-        is_unassigned_after_escalation=False,
-    ).order_by("created_at", "id")
+    how = "Assigned" if by else "Assigned automatically"
+    waiting = _waiting(team).exclude(pk=skip.pk) if skip is not None else _waiting(team)
     count = 0
     for incident in waiting:
         solver = pick_solver(team)
         if solver is None:
             break
-        incident.assigned_to = solver
-        incident.status = "assigned"
-        _start_clock(incident)
-        incident.save()
-        log_event(incident, by or solver, "assignment",
-                  f"Assigned to {_full_name(solver)}, on call for {team.name}",
-                  new_assignee=solver)
-        notify(solver, incident, "assigned",
-               f"Ticket #{incident.pk} ({incident.service.name}, {incident.priority}) was assigned to you")
+        _hand_to(incident, solver, by, "assignment", f"{how} to {_full_name(solver)}, on call for {team.name}",
+                 "assigned", "was assigned to you")
         count += 1
     return count
+
+
+def assign_all_waiting():
+    """Every team with a waiting ticket gets its queue handed out. Returns how many were assigned."""
+    waiting_teams = Incident.objects.filter(
+        status="open", assigned_to__isnull=True, is_deleted=False, is_unassigned_after_escalation=False,
+        assigned_team__isnull=False,
+    ).values("assigned_team_id")
+    return sum(assign_waiting(team) for team in Team.objects.filter(id__in=waiting_teams))
 
 
 def is_lead(user, team):
@@ -240,16 +280,36 @@ def _problem(what, a, b, from_now=False):
 
 
 MAX_SHIFT = timedelta(hours=12)
+MAX_SECONDARY_SHIFT = timedelta(hours=24)
+SECONDARY_BREAK = timedelta(hours=24)
+
+
+def _solver_problems(shift, team):
+    """Why this person cannot take a shift on this team at all, as a list."""
+    errors = []
+    if shift.solver.role != "solver":
+        errors.append(f"{_full_name(shift.solver)} is a reporter and cannot take a shift")
+    if not TeamMember.objects.filter(user=shift.solver, team=team).exists():
+        errors.append(f"{_full_name(shift.solver)} is not on {team.name}")
+    return errors
+
+
+def _already_on_call(clash):
+    """The sentence for a person who is on call somewhere else in the same hours."""
+    role = "secondary on call" if clash.on_call_role == "secondary" else "on call"
+    return (f"{_full_name(clash.solver)} is already {role} for {clash.team.name} "
+            f"{_window(clash.starts_at, clash.ends_at)}")
 
 
 def validate_schedule(team, proposed, now=None):
     """
-    Check a team's whole future schedule and return the list of problems,
-    empty when it is fine. Shifts that already ended are ignored. Cover
-    must run from now to the last shift with no gap and no overlap, one
-    person may not cover two teams at once, and only solvers who are on
-    the team may take a shift. A shift is at most 12 hours and nobody
-    takes two shifts in a row.
+    Check a team's whole future primary schedule and return the list of
+    problems, empty when it is fine. Shifts that already ended are
+    ignored. Cover must run from now to the last shift with no gap and no
+    overlap, one person may not be on call twice at once (another team,
+    or secondary on this one), and only solvers who are on the team may
+    take a shift. A shift is at most 12 hours and nobody takes two shifts
+    in a row.
     """
     if now is None:
         now = timezone.now()
@@ -266,20 +326,17 @@ def validate_schedule(team, proposed, now=None):
         if shift.ends_at - shift.starts_at > MAX_SHIFT:
             errors.append(f"{_full_name(shift.solver)}'s shift on {timezone.localtime(shift.starts_at):%A} "
                           f"is longer than 12 hours")
-        if shift.solver.role != "solver":
-            errors.append(f"{_full_name(shift.solver)} is a reporter and cannot take a shift")
-        if not TeamMember.objects.filter(user=shift.solver, team=team).exists():
-            errors.append(f"{_full_name(shift.solver)} is not on {team.name}")
+        errors += _solver_problems(shift, team)
+        # This team's other primary shifts are checked by the walk below
         clash = (
             Shift.objects.filter(solver=shift.solver, starts_at__lt=shift.ends_at, ends_at__gt=shift.starts_at)
-            .exclude(team=team)
+            .exclude(team=team, on_call_role="primary")
             .exclude(id=shift.id)
-            .select_related("team")
+            .select_related("team", "solver")
             .first()
         )
         if clash:
-            errors.append(f"{_full_name(shift.solver)} is already on call for {clash.team.name} "
-                          f"{_window(clash.starts_at, clash.ends_at)}")
+            errors.append(_already_on_call(clash))
 
     # Nobody works two shifts in a row: the person who just finished cannot
     # be the one who starts the next shift on the same team.
@@ -300,6 +357,53 @@ def validate_schedule(team, proposed, now=None):
             errors.append(_problem("double booked", start, min(cursor, shift.ends_at)))
         cursor = max(cursor, shift.ends_at)
     return errors
+
+
+def validate_secondary(team, proposed, now=None):
+    """
+    Check a team's future secondary shifts and return the list of
+    problems, empty when it is fine. A secondary is optional, so hours
+    with nobody are fine. A secondary shift is at most 24 hours, a team
+    has one secondary at a time, nobody is on call twice at once in any
+    role on any team, and a person rests 24 hours between their secondary
+    shifts.
+    """
+    if now is None:
+        now = timezone.now()
+    errors = []
+    shifts = sorted([s for s in proposed if s.ends_at > s.starts_at and s.ends_at > now],
+                    key=lambda s: s.starts_at)
+    saved_ids = [s.id for s in proposed if s.id]
+
+    for shift in shifts:
+        name = _full_name(shift.solver)
+        if shift.ends_at - shift.starts_at > MAX_SECONDARY_SHIFT:
+            errors.append(f"{name}'s secondary shift on {timezone.localtime(shift.starts_at):%A} "
+                          f"is longer than 24 hours")
+        errors += _solver_problems(shift, team)
+        # Everything this person already has that is not one of the shifts being checked
+        elsewhere = Shift.objects.filter(solver=shift.solver).exclude(id__in=saved_ids).select_related("team", "solver")
+        clash = elsewhere.filter(starts_at__lt=shift.ends_at, ends_at__gt=shift.starts_at).first()
+        if clash:
+            errors.append(_already_on_call(clash))
+        # 24 hours of rest between this person's secondary shifts, on any team
+        others = [s for s in shifts if s is not shift and s.solver_id == shift.solver_id]
+        others += list(elsewhere.filter(on_call_role="secondary"))
+        for other in others:
+            first, second = sorted((shift, other), key=lambda s: s.starts_at)
+            rest = second.starts_at - first.ends_at
+            if timedelta(0) <= rest < SECONDARY_BREAK:
+                errors.append(f"{name} needs a 24 hour break between secondary shifts: one ends "
+                              f"{timezone.localtime(first.ends_at):%A %H:%M} and the next starts "
+                              f"{timezone.localtime(second.starts_at):%A %H:%M}")
+
+    # One secondary at a time on a team
+    for before, after in zip(shifts, shifts[1:]):
+        if after.starts_at < before.ends_at:
+            errors.append(_problem("double booked for the secondary", after.starts_at,
+                                   min(before.ends_at, after.ends_at)))
+    # A pair of shifts is seen from both sides, so say each thing once
+    return list(dict.fromkeys(errors))
 
 
 def reassign(incident, new_solver, by):
@@ -326,95 +430,141 @@ def reassign(incident, new_solver, by):
         return f"{_full_name(new_solver)} already has this ticket"
     if active_ticket_count(new_solver) >= MAX_ACTIVE_TICKETS:
         return f"{_full_name(new_solver)} already holds {MAX_ACTIVE_TICKETS} tickets"
-    incident.assigned_to = new_solver
-    if incident.status == "open":
-        incident.status = "assigned"
-    _start_clock(incident)
-    incident.save()
-    log_event(incident, by, "reassignment",
-              f"Reassigned from {_full_name(old) if old else 'nobody'} to {_full_name(new_solver)}",
-              old_assignee=old, new_assignee=new_solver)
-    notify(new_solver, incident, "assigned",
-           f"Ticket #{incident.pk} ({incident.service.name}, {incident.priority}) was reassigned to you")
+    _hand_to(incident, new_solver, by, "reassignment",
+             f"Reassigned from {_full_name(old) if old else 'nobody'} to {_full_name(new_solver)}",
+             "assigned", "was reassigned to you")
+    # The solver who let go may now have room for a ticket that was waiting, on any team they cover
+    assign_all_waiting()
     return None
+
+
+def ensure_policy(team):
+    """
+    Every team has a policy. A team that has none gets the default one:
+    the on-call solver has 5 minutes, then the lead has 10.
+    """
+    if not team.escalation_tiers.exists():
+        EscalationTier.objects.bulk_create([
+            EscalationTier(team=team, tier_number=1, escalate_to="on_call", wait_minutes=5),
+            EscalationTier(team=team, tier_number=2, escalate_to="lead", wait_minutes=10),
+        ])
 
 
 def escalate_due(now=None):
     """
     Runs once a minute. Looks at every Assigned ticket, works out how long
     it may wait at its current tier, and moves the ones that waited too
-    long. Returns how many moved.
+    long. Each ticket is read again and locked just before it is judged,
+    so a solver who starts work while the job runs keeps the ticket.
+    Returns how many moved.
     """
     now = now or timezone.now()
     moved = 0
-    tickets = Incident.objects.filter(
-        status="assigned", is_deleted=False, assigned_team__isnull=False,
-        escalation_timer_started_at__isnull=False,
-    ).select_related("assigned_team", "assigned_to", "service")
-    for incident in tickets:
-        tier = _tier(incident.assigned_team, incident.escalation_level + 1)
-        if tier is None or tier.wait_minutes is None:
-            continue
-        allowed = timedelta(minutes=tier.wait_minutes * SEVERITY_FACTOR.get(incident.priority, 1))
-        waited = now - incident.escalation_timer_started_at
-        if waited >= allowed:
-            _move_up(incident, tier, now)
-            moved += 1
+    due = Incident.objects.filter(status="assigned", is_deleted=False, assigned_team__isnull=False)
+    for pk in list(due.values_list("pk", flat=True)):
+        with transaction.atomic():
+            incident = (
+                Incident.objects.select_for_update(of=("self",))
+                .select_related("assigned_team", "assigned_to", "service")
+                .filter(pk=pk, status="assigned", is_deleted=False, assigned_team__isnull=False)
+                .first()
+            )
+            if incident is not None and _escalate_if_overdue(incident, now):
+                moved += 1
     return moved
 
 
-def _tier(team, number):
-    """Tier number 1, 2, 3... of a team's policy, or None if there is no such tier."""
-    return team.escalation_tiers.filter(tier_number=number).select_related("escalate_to_user").first()
+def _minutes(amount):
+    """A wait in words: 7.5 is "7.5 minutes", 5.0 is "5 minutes", 1 is "1 minute"."""
+    return f"{amount:g} minute{'' if amount == 1 else 's'}"
 
 
-def _person_at(tier, team):
-    """The person a tier points at right now. None means nobody: the policy ends here."""
-    if tier is None or tier.escalate_to == "administration":
-        return None
+def _escalate_if_overdue(incident, now):
+    """Move one Assigned ticket up if it has waited out its tier. True when it moved."""
+    if incident.escalation_timer_started_at is None:
+        # Assigned before the clock existed, so its wait starts now
+        incident.escalation_timer_started_at = now
+        incident.save(update_fields=["escalation_timer_started_at"])
+        return False
+    ensure_policy(incident.assigned_team)
+    tiers = list(incident.assigned_team.escalation_tiers.select_related("escalate_to_user").order_by("tier_number"))
+    # escalation_level counts the tiers the ticket has left behind, so it is
+    # the position of the tier it sits at. If the lead has shortened the
+    # policy since, a ticket that was further along sits at the last tier.
+    position = min(incident.escalation_level, len(tiers) - 1)
+    minutes = tiers[position].wait_minutes * SEVERITY_FACTOR.get(incident.priority, 1)
+    if now - incident.escalation_timer_started_at < timedelta(minutes=minutes):
+        return False
+    _move_up(incident, tiers, position, minutes, now)
+    return True
+
+
+def _person_at(tier, team, holder):
+    """
+    Who a tier can give the ticket to right now, or None. Never the person
+    who already holds it, never anyone deactivated or already holding
+    MAX_ACTIVE_TICKETS, and a named person only while they are still a
+    solver on the team.
+    """
     if tier.escalate_to == "on_call":
-        return pick_solver(team)
-    if tier.escalate_to == "lead":
-        person = team.lead
+        candidates = on_call_solvers(team)
+    elif tier.escalate_to == "lead":
+        candidates = [team.lead]
     else:
         person = tier.escalate_to_user
-    if person is not None and person.is_active:
-        return person
+        on_team = (person is not None and person.role == "solver"
+                   and TeamMember.objects.filter(user=person, team=team).exists())
+        candidates = [person] if on_team else []
+    for person in candidates:
+        if (person is not None and person.is_active and person != holder
+                and active_ticket_count(person) < MAX_ACTIVE_TICKETS):
+            return person
     return None
 
 
-def _move_up(incident, tier, now):
+def _move_up(incident, tiers, position, minutes, now):
     """
-    One overdue ticket leaves its tier. If somebody is at the next tier,
-    they get it and the clock restarts. If nobody is, the ticket goes
+    An overdue ticket leaves its tier for the first later tier that has
+    somebody to take it. A tier with nobody available is passed over and
+    named on the timeline. When no later tier has anyone, the ticket goes
     back to Open, is flagged as unassigned, and the lead is told.
     """
     team = incident.assigned_team
-    next_tier = _tier(team, tier.tier_number + 1)
-    person = _person_at(next_tier, team)
-    old = incident.assigned_to
-    reason = f"{_full_name(old)} did not start work within {tier.wait_minutes} minutes"
-
-    incident.escalation_level = tier.tier_number
+    holder = incident.assigned_to
+    author = holder or incident.reported_by
+    severity = "" if SEVERITY_FACTOR.get(incident.priority, 1) == 1 else f" for a {incident.priority} ticket"
+    reason = f"{_full_name(holder) if holder else 'Nobody'} did not start work within {_minutes(minutes)}{severity}"
     incident.escalated_at = now
+
+    passed = []
+
+    def skipped():
+        if not passed:
+            return ""
+        return f" {'Tiers' if len(passed) > 1 else 'Tier'} {' and '.join(passed)} had nobody available."
+
+    for index in range(position + 1, len(tiers)):
+        person = _person_at(tiers[index], team, holder)
+        if person is not None:
+            _hand_to(incident, person, author, "escalation",
+                     f"{reason}.{skipped()} Escalated to tier {index + 1}: {_full_name(person)}",
+                     "escalated", f"escalated to you at tier {index + 1}", at=now, level=index)
+            return
+        passed.append(str(index + 1))
+
+    incident.assigned_to = None
+    incident.status = "open"
+    incident.is_unassigned_after_escalation = True
+    incident.escalation_level = position + 1
     incident.escalation_timer_started_at = now
-
-    if person is None:
-        incident.assigned_to = None
-        incident.status = "open"
-        incident.is_unassigned_after_escalation = True
-        incident.save()
-        log_event(incident, old, "escalation",
-                  f"{reason}. Escalation ran out: this ticket is unassigned and needs attention",
-                  old_assignee=old)
-        notify(team.lead, incident, "final_escalation",
-               f"Ticket #{incident.pk} ({incident.service.name}, {incident.priority}) ran out of escalation tiers and is unassigned")
-        return
-
-    incident.assigned_to = person
     incident.save()
-    log_event(incident, old, "escalation",
-              f"{reason}. Escalated to tier {next_tier.tier_number}: {_full_name(person)}",
-              old_assignee=old, new_assignee=person)
-    notify(person, incident, "escalated",
-           f"Ticket #{incident.pk} ({incident.service.name}, {incident.priority}) escalated to you at tier {next_tier.tier_number}")
+    log_event(incident, author, "escalation",
+              f"{reason}.{skipped()} Escalation ran out: this ticket is unassigned and needs attention",
+              old_assignee=holder)
+    for person in _lead_or_admins(team):
+        if is_lead(person, team):
+            action = "Open it and reassign it to a solver on call."
+        else:
+            action = f"{team.name} has no active lead to reassign it."
+        notify(person, incident, "final_escalation",
+               f"{_ticket_label(incident)} ran out of escalation tiers and is unassigned. {action}")

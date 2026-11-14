@@ -1,12 +1,14 @@
-{% extends "base.html"%}
+{% extends "base.html" %}
 {% load static %}
 {% block title %}Incident form{% endblock %}
 
 {% block content %}
 <div class="form-body">
-
   <div class="form-layout">
-    <h1 class="form-header">{% if incident %}Edit Ticket{% else %}Ticket Request Form{% endif %}</h1>
+    <h1 class="form-header">{% if incident %}Edit ticket #{{ incident.pk }}{% else %}Report a problem{% endif %}</h1>
+    {% if not incident %}
+      <p class="lead">Say what is wrong and where. The service you pick decides which team gets the ticket.</p>
+    {% endif %}
     <form method="POST" class="stacked">
       {% csrf_token %}
 
@@ -48,9 +50,13 @@
         <label for="{{ form.priority.id_for_label }}" class="form-label">Severity</label>
         {{ form.priority }}
         {% if form.priority.errors %}<div class="error">{{ form.priority.errors }}</div>{% endif %}
+        <p class="hint">The more severe a ticket, the sooner it moves to the next person if nobody starts on it.</p>
       </div>
-      
-      <button type="submit">{% if incident %}Save Changes{% else %}Submit Incident{% endif %}</button>
+
+      <div class="actions">
+        <button type="submit">{% if incident %}Save changes{% else %}Submit ticket{% endif %}</button>
+        <a href="{% if incident %}{% url 'incident_detail' incident.pk %}{% else %}{% url 'landing' %}{% endif %}" class="btn-small">Cancel</a>
+      </div>
     </form>
   </div>
 </div>

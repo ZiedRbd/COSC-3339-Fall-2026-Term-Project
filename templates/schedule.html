@@ -2,56 +2,45 @@
 {% load static %}
 {% block title %}{{ team.name }} schedule{% endblock %}
 {% block extra_js %}
-  <script src="{% static 'js/schedule.js' %}?v=2" defer></script>
+  <script src="{% static 'js/schedule.js' %}?v=3" defer></script>
 {% endblock %}
 
 {% block content %}
-<div class="card wide">
-  <h1 class="form-header">{{ team.name }}: on-call schedule</h1>
+<div class="page-head">
+  <div>
+    <h1 class="form-header">{{ team.name }}: on-call schedule</h1>
+    <p class="lead">Every hour needs one primary on call. A secondary is optional and takes tickets once the primary holds three.</p>
+  </div>
+  <div class="actions">
+    <a href="{% url 'team_policy' team.pk %}" class="btn-small">Escalation policy</a>
+    <button type="button" id="add-shift" class="btn-gold">Add shift</button>
+  </div>
+</div>
 
-  {% if messages and not open_form %}
-    {% for message in messages %}
-      <p class="notice {{ message.tags }}">{{ message }}</p>
-    {% endfor %}
+{% if messages and not open_form %}
+  {% for message in messages %}
+    <p class="notice {{ message.tags }}">{{ message }}</p>
+  {% endfor %}
+{% endif %}
+
+<div class="card wide">
+  <h2 class="section-title first">Secondary on call (optional)</h2>
+  <p class="lead">A secondary shift is at most 24 hours, and a person rests 24 hours between two of them.</p>
+  {% if secondary_shifts %}
+    <div class="table-scroll">{% include "shift_table.html" with rows=secondary_shifts %}</div>
+  {% else %}
+    <p class="empty">No secondary shifts. Add one with Add shift and the role Secondary.</p>
   {% endif %}
 
-  <div class="section-head">
-    <h2 class="section-title">Upcoming shifts</h2>
-    <div class="actions">
-      <a href="{% url 'team_policy' team.pk %}" class="btn-small">Escalation policy</a>
-      <button type="button" id="add-shift" class="btn-gold">Add shift</button>
-    </div>
-  </div>
+  <h2 class="section-title">Upcoming shifts: primary on call</h2>
+  <p class="lead">A primary shift is at most 12 hours, and nobody takes two in a row.</p>
   {% if shifts %}
-    <table class="incident-table schedule-table">
-      <thead>
-        <tr><th>Starts</th><th>Ends</th><th>Solver</th><th>Actions</th></tr>
-      </thead>
-      <tbody>
-        {% for shift in shifts %}
-          <tr>
-            <td>{{ shift.starts_at|date:"D M j, H:i" }}</td>
-            <td>{{ shift.ends_at|date:"D M j, H:i" }}</td>
-            <td>{{ shift.solver.first_name }} {{ shift.solver.last_name }}</td>
-            <td class="row-actions">
-              <a href="{% url 'shift_edit' team.pk shift.pk %}" class="btn-small shift-edit"
-                 data-solver="{{ shift.solver_id }}"
-                 data-start-date="{{ shift.starts_at|date:'Y-m-d' }}" data-start-hour="{{ shift.starts_at|date:'H:i' }}"
-                 data-end-date="{{ shift.ends_at|date:'Y-m-d' }}" data-end-hour="{{ shift.ends_at|date:'H:i' }}">Edit</a>
-              <form method="post" action="{% url 'shift_delete' team.pk shift.pk %}" style="display:inline">
-                {% csrf_token %}
-                <button type="submit" class="btn-small danger">Delete</button>
-              </form>
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="table-scroll">{% include "shift_table.html" with rows=shifts %}</div>
   {% else %}
     <p class="empty">No upcoming shifts. Nobody is on call for {{ team.name }}.</p>
   {% endif %}
 
-  <a href="{% url 'calendar' %}" class="back-link">&larr; Back to calendar</a>
+  <a href="{% url 'calendar' %}" class="back-link">Back to the calendar</a>
 </div>
 
 <div id="shift-form-modal" class="modal-overlay" data-add-url="{% url 'schedule' team.pk %}"{% if not open_form %} hidden{% endif %}>

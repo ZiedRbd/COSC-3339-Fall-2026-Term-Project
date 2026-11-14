@@ -10,7 +10,7 @@ We considered Flask, which would have required adding authentication, sessions, 
 
 ## Database: PostgreSQL
 
-The server runs PostgreSQL. It enforces foreign keys and unique constraints strictly, handles concurrent users, and is what later sprints will need for escalation timers and reporting queries. SQLite is used for local development because it needs no installation and the ORM hides the difference; settings switch to PostgreSQL automatically when the database variables are present in the environment.
+The server runs PostgreSQL. It enforces foreign keys and unique constraints strictly, handles concurrent users, and supports the row locks the escalation timer takes so a ticket cannot be escalated at the same moment a solver starts work on it. SQLite is used for local development because it needs no installation and the ORM hides the difference; settings switch to PostgreSQL automatically when the database variables are present in the environment.
 
 ## Application server: gunicorn
 
@@ -28,10 +28,18 @@ A plain Ubuntu virtual machine, as required by the course. It gives full control
 
 Certificate authorities do not issue TLS certificates for bare IP addresses, so a domain name was required. DuckDNS provides a free subdomain that points at the droplet. certbot obtained a free certificate from Let's Encrypt, rewrote the nginx configuration to use it, and set up automatic renewal. HTTP requests redirect to HTTPS, so credentials are never sent in plain text.
 
+## Scheduled task: systemd timer
+
+Escalation has to happen whether or not anyone has the site open, so it runs as a scheduled task. A systemd timer starts a one-shot service every minute, and the service runs the `escalate` management command, which escalates overdue tickets and hands out tickets that were waiting. We chose a timer over a check on page load because a page-load check only runs when somebody visits, and over a task queue such as Celery because one command a minute does not justify a broker and a worker process.
+
+## Email: Gmail SMTP
+
+Notifications are sent through Gmail's SMTP server with an app password, using Django's own mail backend. The account name and password are read from the environment. When they are absent the same messages are printed in the terminal, so development needs no mail account. A send that fails is logged and never stops the request that caused it.
+
 ## Configuration: environment variables
 
-The secret key, debug flag, allowed hosts, and database credentials are read from a `.env` file that exists only on the server and is excluded from version control. The same codebase behaves differently per machine without any code changes. An `.env.example` in the repository documents the variable names.
+The secret key, debug flag, allowed hosts, mail account, and database credentials are read from a `.env` file that exists only on the server and is excluded from version control. The same codebase behaves differently per machine without any code changes. An `.env.example` in the repository documents the variable names.
 
 ## Front end: Django templates
 
-Pages are rendered server-side with Django templates and styled with a small set of stylesheets split by concern. A base template holds the navigation bar and shared layout; each page extends it. A few small JavaScript files handle the show/hide password toggle, the live password rule checklist, severity filtering on the incident list, the confirmation dialogs for deleting a ticket and changing its status, and the shift form popup on the schedule page. No front-end framework was needed for the pages in scope.
+Pages are rendered server-side with Django templates and styled with a small set of stylesheets split by concern. A base template holds the navigation bar and shared layout; each page extends it. A few small JavaScript files handle the show/hide password toggle, the live password rule checklist, severity filtering on the incident list, the confirmation dialogs for deleting a ticket and changing its status, the shift form popup on the schedule page, and the notification dropdown under the bell. No front-end framework was needed for the pages in scope.

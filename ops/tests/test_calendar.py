@@ -97,3 +97,16 @@ class PastSlotTests(TestCase):
         html = self.client.get("/calendar/").content.decode()
         self.assertIn('class="slot past"', html)
         self.assertIn('class="slot"', html)
+
+
+class CalendarFarDateTests(TestCase):
+    def test_a_week_centuries_away_shows_this_week_instead_of_crashing(self):
+        team = Team.objects.create(name="Plumbing")
+        tim = User.objects.create_user(username="tim@x.com", email="tim@x.com", password=GOOD_PASSWORD, role="solver")
+        TeamMember.objects.create(user=tim, team=team)
+        self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
+        this_week = self.client.get("/calendar/").context["days"]
+        for start in ("9999-12-30", "0001-01-01", "1999-12-31", "2100-01-02", "not-a-date"):
+            resp = self.client.get("/calendar/", {"start": start})
+            self.assertEqual(resp.status_code, 200, start)
+            self.assertEqual(resp.context["days"], this_week, start)

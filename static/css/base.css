@@ -1,239 +1,332 @@
-/* ---------- Palette ---------- */
+/* ---------- Tokens ----------
+   The ground is the sky over the hilltop at dusk: indigo running into
+   deep teal. Brass gold, the colour of the desk bell, means "act here"
+   or "you are here" and nothing else. The rest of the colour belongs to
+   the tickets, which are printed on coloured stock by status, the way
+   the copies of a paper work order are. */
 :root {
-    --navy: #07388e;
-    --navy-dark: #052b6e;
-    --gold: #d4af37;
-    --gold-dark: #b8962e;
-    --white: #ffffff;
-    --ink: #1f2933;
-    --muted: #6b7280;
-    --line: #e5e7eb;
-    --red: #c62828;
-    --green: #2e7d32;
-    --amber: #ef6c00;
-    --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --navy: #2c318f;
+    --navy-dark: #1a1c4f;
+    --gold: #e6b53c;
+    --gold-dark: #b98b1d;
+
+    /* Ticket stock, one colour per status */
+    --stock-open: #cfe4fb;
+    --stock-assigned: #fbefae;
+    --stock-in_progress: #ffd6a3;
+    --stock-resolved: #c9ecd3;
+    --stock-closed: #e3e4ec;
+    --stock-ran-out: #ffcfca;
+    /* The page is dark, so the eye rests. Content sits on soft-white
+       sheets, a little off pure white so they do not glare against it. */
+    --ground: linear-gradient(140deg, #201d5e 0%, #1b2d75 42%, #0f4d63 100%);
+    --paper: #1b2d75;
+    --bar: #121238;
+    --on-page: #ffffff;
+    --on-page-muted: #c3cbea;
+    --sheet: #f7f7fb;
+    --field: #ffffff;
+    --rule: #c9cbe0;
+    --rule-soft: #e3e4ef;
+    --ink: #1b1d3a;
+    --muted: #595d7b;
+
+    --red: #b3261e;
+    --red-tint: #fbe9e7;
+    --amber: #a34a05;
+    --amber-tint: #fdf0dc;
+    --green: #1e7b34;
+    --green-tint: #e4f3e7;
+    --blue-tint: #e4e6fb;
+    --grey-tint: #e9eaf2;
+    --gold-tint: #fbf1cf;
+
+    /* Names the older rules used, kept so nothing falls back to nothing */
+    --white: var(--sheet);
+    --line: var(--rule-soft);
+
+    --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --display: "Zilla Slab", "Rockwell", Georgia, serif;
+
+    --bar-height: 56px;
+    --column: 1160px;
+    /* Only things that float above the page cast a shadow */
+    --shadow-float: 0 14px 34px rgba(5, 43, 110, 0.2);
 }
 
 /* ---------- Base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+
 .base-body {
     margin: 0;
     min-height: 100vh;
-    background: linear-gradient(160deg, var(--navy) 0%, var(--navy-dark) 100%);
+    background: var(--paper);
+    background-image: var(--ground);
     background-attachment: fixed;
     color: var(--ink);
     font-family: var(--font);
     font-size: 16px;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
 }
 
 .page {
-    padding: 92px 24px 48px;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    gap: 24px;
-    flex-wrap: wrap;
+    max-width: var(--column);
+    margin: 0 auto;
+    padding: calc(var(--bar-height) + 32px) 24px 72px;
 }
 
-h1, h2 {
-    color: var(--gold);
-    font-family: var(--font);
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    margin-top: 0;
-}
-
-/* ---------- Nav ---------- */
-.navbar {
-    display: flex;
-    align-items: center;
-    height: 60px;
-    padding: 0 20px;
-    position: fixed;
-    top: 0;
-    width: 100%;
-    box-sizing: border-box;
-    background-color: var(--navy-dark);
-    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
-    z-index: 10;
-}
-
-.nav-links {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-}
-
-.nav-user-section {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.logout-form {
-    display: inline-block;
+h1, h2, h3 {
+    font-family: var(--display);
+    font-weight: 700;
+    color: var(--navy-dark);
+    line-height: 1.15;
     margin: 0;
 }
+h1 { font-size: 32px; }
+h2 { font-size: 24px; }
+h3 { font-size: 18px; }
 
-.info {
-    color: var(--gold);
-    font-size: 15px;
-}
+p { margin: 0 0 12px; }
+a { color: var(--navy); }
 
-.nav-btn {
-    display: inline-flex;
-    background: transparent;
-    border: 1px solid var(--gold);
-    color: var(--gold);
-    text-decoration: none;
-    font-family: var(--font);
-    font-size: 15px;
-    padding: 8px 16px;
+/* One focus ring everywhere, in two bands: the white one shows on the
+   navy page, the navy one shows on a sheet */
+:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 1px;
+    box-shadow: 0 0 0 5px var(--navy);
     border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-    height: 40px;
-    box-sizing: border-box;
-    line-height: 1;
-}
-.nav-btn svg{
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-    display: block;
 }
 
-/* .nav-btn:hover {
+.skip-link {
+    position: fixed;
+    top: -60px;
+    left: 12px;
+    z-index: 100;
     background: var(--gold);
     color: var(--navy-dark);
-} */
+    font-weight: 700;
+    padding: 10px 14px;
+    border-radius: 6px;
+}
+.skip-link:focus { top: 8px; }
 
 /* User-typed text can be one long unbroken string. Wrap it wherever it
    is shown so it never widens the page. */
 .card, .profile-card, .incident-col, .profile-incident, .team-panel,
-.field-value, .detail-title, .tl-body, .pi-title, .notice, .calendar-table td {
+.field-value, .detail-title, .tl-body, .pi-title, .notice, .calendar-table td,
+.notification-text {
     overflow-wrap: anywhere;
     min-width: 0;
 }
+/* In a table, break a word only when it cannot fit its column at all */
+.incident-table td { overflow-wrap: break-word; }
 
-/* ---------- Notifications ---------- */
-.nav-notification-wrapper {
-    position: relative;
+/* ---------- Top bar ---------- */
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--bar-height);
     display: flex;
     align-items: center;
+    gap: 6px;
+    padding: 0 20px;
+    background: var(--bar);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    z-index: 50;
 }
 
-.nav-notification-btn {
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-right: 14px;
+    color: #ffffff;
+    text-decoration: none;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 22px;
+    line-height: 1;
+}
+.brand svg { width: 30px; height: 30px; fill: var(--gold); flex-shrink: 0; }
+.brand .brand-base { fill: #ffffff; }
+
+.nav-links,
+.nav-user-section {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.nav-user-section { margin-left: auto; }
+
+.logout-form { margin: 0; display: flex; }
+
+/* A nav item is a quiet text link. The page you are on gets a gold bar
+   along the bottom edge of the top bar. */
+.navbar .nav-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 12px;
     background: transparent;
-    border: 1px solid var(--gold);
-    color: var(--gold);
-    border-radius: 4px;
-    padding: 7px 10px;
+    border: 0;
+    border-radius: 6px;
+    color: #d9dcf5;
+    font-family: var(--font);
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    transition: background 0.15s, color 0.15s;
+    box-shadow: none;
+    transition: background 0.12s, color 0.12s;
+}
+.navbar .nav-btn svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.navbar .nav-btn:hover { background: rgba(255, 255, 255, 0.1); color: #ffffff; }
+.navbar .nav-btn[aria-current="page"] { color: #ffffff; font-weight: 700; }
+.navbar .nav-btn[aria-current="page"]::after {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: -8px;
+    height: 4px;
+    background: var(--gold);
+    border-radius: 3px 3px 0 0;
 }
 
-.nav-notification-btn:hover {
+/* The one filled button in the bar: the thing this visitor most likely came to do */
+.navbar .nav-cta {
     background: var(--gold);
     color: var(--navy-dark);
+    font-weight: 700;
+    margin-right: 6px;
+}
+.navbar .nav-cta:hover { background: #f0c95f; color: var(--navy-dark); }
+/* On a phone the button says the same thing in one word, so Log out still fits */
+.cta-short { display: none; }
+
+.nav-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.6);
 }
 
+/* ---------- Notifications ---------- */
+.nav-notification-wrapper { position: relative; display: flex; align-items: center; }
+
 .notification-badge {
-    position: absolute;
-    top: -6px;
-    right: -6px;
-    background-color: var(--red);
-    color: var(--white);
-    font-size: 11px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #e5484d;
+    color: #ffffff;
+    font-size: 12px;
     font-weight: 700;
-    border-radius: 10px;
-    padding: 2px 6px;
+    border-radius: 9px;
     line-height: 1;
 }
 
 .notification-dropdown {
     display: none;
     position: absolute;
-    top: calc(100% + 12px);
+    top: calc(100% + 10px);
     right: 0;
-    width: 320px;
-    background-color: var(--white);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-    z-index: 100;
+    width: min(380px, calc(100vw - 24px));
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    box-shadow: var(--shadow-float);
     color: var(--ink);
     overflow: hidden;
+    z-index: 60;
 }
-
-.notification-dropdown.active {
-    display: block;
-}
+.notification-dropdown.active { display: block; }
 
 .notification-header {
-    background-color: var(--navy-dark);
-    color: var(--gold);
-    padding: 10px 14px;
-    font-weight: 600;
-    font-size: 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.notification-list {
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.notification-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
     padding: 12px 14px;
-    border-bottom: 1px solid var(--line);
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--navy-dark);
+    border-bottom: 2px solid var(--navy-dark);
+}
+.notification-read-all { margin: 0; }
+
+.notification-list { max-height: 360px; overflow-y: auto; }
+
+/* What happened decides the colour of the bar on the left */
+.notification-item {
+    display: block;
+    padding: 11px 14px 11px 12px;
+    border-left: 4px solid var(--navy);
+    border-bottom: 1px solid var(--rule-soft);
+    color: inherit;
+    text-decoration: none;
     font-size: 14px;
     line-height: 1.4;
 }
+.notification-item:last-child { border-bottom: 0; }
+.notification-item:hover { background: #ffffff; }
+.notification-item.notification-assigned { border-left-color: var(--navy); }
+.notification-item.notification-escalated { border-left-color: var(--amber); }
+.notification-item.notification-final_escalation,
+.notification-item.notification-queued { border-left-color: var(--red); }
+.notification-item.notification-work_started { border-left-color: var(--gold-dark); }
+.notification-item.notification-resolved { border-left-color: var(--green); }
 
-.notification-item:last-child {
-    border-bottom: none;
-}
+.notification-time { display: block; margin-top: 3px; font-size: 13px; color: var(--muted); }
+.notification-empty { padding: 18px 14px; color: var(--muted); font-size: 14px; }
 
-.notification-item { display: block; color: inherit; text-decoration: none; }
-.notification-item:hover { background: #f5f5f5; }
-.notification-time { display: block; font-size: 12px; color: var(--muted); margin-top: 4px; }
-.notification-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.notification-read-all { margin: 0; }
-.notification-item.notification-assigned { border-left: 4px solid var(--green); }
-.notification-item.notification-escalated { border-left: 4px solid var(--amber); }
-.notification-item.notification-final_escalation { border-left: 4px solid var(--red); }
-.notification-item.notification-queued { border-left: 4px solid var(--red); }
-.notification-item.notification-work_started { border-left: 4px solid var(--navy); }
-.notification-item.notification-resolved { border-left: 4px solid var(--green); }
-
-.notification-empty {
-    padding: 16px;
-    color: var(--muted);
-    font-size: 14px;
-    text-align: center;
+/* ---------- Small screens ---------- */
+@media (max-width: 980px) {
+    .brand-name { display: none; }
+    .brand { margin-right: 4px; }
+    .navbar { padding: 0 10px; gap: 2px; }
+    .navbar .nav-btn { padding: 0 9px; }
+    .nav-links .nav-label,
+    .nav-user .nav-label,
+    .nav-notification-btn .nav-label,
+    .logout-btn .nav-label { display: none; }
 }
-
-.notification-icon {
-    width: 18px;
-    height: 18px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-}
-.nav-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-.nav-icon svg {
-    display: block;
+@media (max-width: 640px) {
+    /* On a phone the bell's list spans the screen instead of hanging off its edge */
+    .notification-dropdown {
+        position: fixed;
+        top: calc(var(--bar-height) + 6px);
+        left: 10px;
+        right: 10px;
+        width: auto;
+    }
+    .page { padding: calc(var(--bar-height) + 20px) 14px 56px; }
+    h1 { font-size: 27px; }
+    .navbar .nav-cta { padding: 0 10px; font-size: 14px; }
+    .cta-long { display: none; }
+    .cta-short { display: inline; }
 }

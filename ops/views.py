@@ -3,16 +3,21 @@ from datetime import date, datetime, time, timedelta
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.db.models import Prefetch, Q
+from django.db import transaction
+from django.db.models import F, Prefetch, Q
+from django.http import Http404
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
-from .forms import EscalationTierForm, IncidentForm, LoginForm, RegisterForm, ShiftForm
+from .forms import AvatarForm, EscalationTierForm, IncidentForm, LoginForm, RegisterForm, ShiftForm
 from .models import EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team, TeamMember, User
 from .notifications import notify
-from .scheduling import (assign_now, assign_on_creation, assign_waiting, is_lead, on_call_roster, reassign,
-                         validate_schedule, who_is_on_call)
+from .scheduling import (MAX_ACTIVE_TICKETS, active_ticket_count, assign_all_waiting, assign_now,
+                         assign_on_creation, assign_waiting, ensure_policy, is_lead, on_call_roster,
+                         on_call_solvers, reassign,
+                         validate_schedule, validate_secondary, who_is_on_call, who_is_secondary_on_call)
 from .timeline import log_event
 
 # A ticket leaves Open only by being assigned, automatically on creation or
@@ -122,11 +127,11 @@ def incident_list(request):
     led_ids = set(Team.objects.filter(lead=request.user).values_list("id", flat=True))
     # A ticket that was waiting for someone to come on call is picked up here
     for team in Team.objects.filter(id__in=team_ids | led_ids):
-        assign_waiting(team, request.user)
+        assign_waiting(team)
     incidents = (
         Incident.objects.filter(is_deleted=False)
         .filter(Q(assigned_team_id__in=team_ids) | Q(assigned_team_id__in=led_ids))
-        .select_related("service", "reported_by")
+        .select_related("service", "reported_by", "assigned_team", "assigned_to")
         .order_by("-is_unassigned_after_escalation", "-created_at")
     )
     for i in incidents:
@@ -195,13 +200,15 @@ def _can_transition(user, incident):
 
 
 @login_required
+@transaction.atomic
 def incident_edit(request, pk):
     """
     GET shows the form pre-filled with the incident's current values.
     POST saves the changes and returns to the list. Returns 404 for an
-    unknown or deleted incident.
+    unknown or deleted incident. The ticket is locked while it is saved,
+    so an edit cannot undo an escalation that happens at the same moment.
     """
-    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    incident = get_object_or_404(Incident.objects.select_for_update(of=("self",)), pk=pk, is_deleted=False)
     if not _can_edit(request.user, incident):
         if request.user.id == incident.reported_by_id:
             messages.error(request, "A ticket being worked on can only be edited by its solver")
@@ -259,12 +266,13 @@ def incident_edit(request, pk):
 
 
 @login_required
+@transaction.atomic
 def incident_delete(request, pk):
     """
     Soft delete. Sets is_deleted so the ticket leaves the list while the
     row and its history are kept. Only responds to POST.
     """
-    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    incident = get_object_or_404(Incident.objects.select_for_update(of=("self",)), pk=pk, is_deleted=False)
     # Solvers work tickets, they do not remove them. Only the reporter deletes.
     if request.user.role == "solver":
         messages.error(request, "Solvers cannot delete tickets")
@@ -279,17 +287,39 @@ def incident_delete(request, pk):
         incident.is_deleted = True
         incident.save()
         messages.success(request, f"Ticket #{incident.pk} deleted")
+        # Its solver has room again for a ticket that was waiting, on any team they cover
+        assign_all_waiting()
     return redirect("profile")
 
 @login_required
 def profile(request):
     """
-    Show the logged-in user's profile: identity, an editable bio, and their
-    incidents split into active, closed/resolved, and all filed.
+    Show the logged-in user's profile: identity, a profile picture, an
+    editable bio, and their incidents split into active, closed/resolved,
+    and all filed. A POST saves the bio, or uploads or removes the picture
+    when the form says so in its `action` field.
     """
     if request.method == "POST":
-        request.user.bio = request.POST.get("bio", "")
-        request.user.save()
+        user = request.user
+        action = request.POST.get("action")
+        # The file the user has now, if any, so it can be deleted once it is replaced
+        old_name = user.avatar.name
+        if action == "avatar":
+            form = AvatarForm(request.POST, request.FILES, instance=user)
+            if form.is_valid():
+                form.save()
+                if old_name:
+                    user.avatar.storage.delete(old_name)
+                messages.success(request, "Profile picture updated")
+            else:
+                messages.error(request, form.errors["avatar"][0])
+        elif action == "remove_avatar":
+            if old_name:
+                user.avatar.delete(save=True)
+                messages.success(request, "Profile picture removed")
+        else:
+            user.bio = request.POST.get("bio", "")
+            user.save()
         return redirect("profile")
     team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
     # Tickets involving the user: ones they filed or ones on their team(s).
@@ -314,8 +344,8 @@ def profile(request):
 
 def _can_access_incident(user, incident):
     """
-    A user may access an incident if they reported it, or they are a solver
-    on the team it is assigned to, or they lead that team.
+    A user may work with an incident if they reported it, or they are a
+    solver on the team it is assigned to, or they lead that team.
     """
     if incident.reported_by_id == user.id:
         return True
@@ -327,13 +357,15 @@ def _can_access_incident(user, incident):
 
 
 @login_required
+@transaction.atomic
 def incident_transition(request, pk):
     """
     Move an incident to a new status. Only solvers may do this, and only
     along a transition the state machine allows. Every successful move is
-    recorded as an IncidentUpdate row for the timeline.
+    recorded as an IncidentUpdate row for the timeline. The ticket is locked
+    while it changes, so the minute job cannot escalate it at the same moment.
     """
-    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    incident = get_object_or_404(Incident.objects.select_for_update(of=("self",)), pk=pk, is_deleted=False)
     if not _can_access_incident(request.user, incident):
         messages.error(request, "You do not have access to that ticket")
         return redirect("incidents")
@@ -368,10 +400,13 @@ def incident_transition(request, pk):
         assign_now(incident, request.user)
     elif new_status == "in_progress":
         notify(incident.reported_by, incident, "work_started",
-               f"Work has started on your ticket #{incident.pk} ({incident.title})")
+               f"Work has started on your ticket #{incident.pk} ({incident.title}).")
     elif new_status == "resolved":
         notify(incident.reported_by, incident, "resolved",
-               f"Your ticket #{incident.pk} ({incident.title}) was resolved")
+               f"Your ticket #{incident.pk} ({incident.title}) was resolved.")
+    if new_status in ("resolved", "closed"):
+        # Its solver has room again for a ticket that was waiting, on any team they cover
+        assign_all_waiting()
     messages.success(request, f"Ticket #{incident.pk} moved to {STATUS_LABELS.get(new_status, new_status)}")
     return redirect("incident_detail", pk=pk)
 
@@ -386,11 +421,14 @@ def incident_detail(request, pk):
     """
     
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
-    if not _can_access_incident(request.user, incident):
+    # An administrator may read any ticket, because the notification about a
+    # full queue links to one. Reading is all it allows: every action on the
+    # page checks access again without this exception.
+    if not (_can_access_incident(request.user, incident) or request.user.is_superuser):
         messages.error(request, "You do not have access to that ticket")
         return redirect("incidents")
     if incident.status == "open" and incident.assigned_to_id is None and incident.assigned_team_id:
-        if assign_waiting(incident.assigned_team, request.user):
+        if assign_waiting(incident.assigned_team):
             incident.refresh_from_db()
     timeline = (
         IncidentUpdate.objects.filter(incident=incident)
@@ -399,21 +437,23 @@ def incident_detail(request, pk):
     )
     incident.next_states = ALLOWED_TRANSITIONS.get(incident.status, [])
     team = incident.assigned_team
-    on_call = who_is_on_call(team) if team else None
-    # The lead may hand an active ticket to the solver on call, and only them
-    lead_of_active = (
-        team is not None and is_lead(request.user, team)
-        and incident.status not in ("resolved", "closed") and on_call is not None
-    )
-    can_reassign = lead_of_active and on_call != incident.assigned_to
-    on_call_holds = lead_of_active and on_call == incident.assigned_to
+    # The lead may hand an active ticket to the primary or the secondary on
+    # call right now, and to nobody else. Each one is listed with why they
+    # can or cannot take it.
+    reassign_targets = []
+    if team is not None and is_lead(request.user, team) and incident.status not in ("resolved", "closed"):
+        for role, person in (("primary", who_is_on_call(team)), ("secondary", who_is_secondary_on_call(team))):
+            if person is not None:
+                reassign_targets.append({
+                    "solver": person, "role": role, "holds": person == incident.assigned_to,
+                    "full": active_ticket_count(person) >= MAX_ACTIVE_TICKETS,
+                })
     can_edit = _can_edit(request.user, incident)
     return render(request, "incidents/detail.html", {
         "incident": incident,
         "timeline": timeline,
-        "on_call": on_call,
-        "can_reassign": can_reassign,
-        "on_call_holds": on_call_holds,
+        "reassign_targets": reassign_targets,
+        "max_tickets": MAX_ACTIVE_TICKETS,
         "can_edit": can_edit,
         "can_transition": _can_transition(request.user, incident),
     })
@@ -445,14 +485,24 @@ def incident_comment(request, pk):
 @login_required
 def incident_reassign(request, pk):
     """
-    A team lead hands the ticket to whoever is on call for its team right
-    now. POST only. The rules live in scheduling.reassign.
+    A team lead hands the ticket to the primary or the secondary on call
+    for its team right now. The form posts which one as `solver`; with
+    none posted it is the first of them. POST only. The rules live in
+    scheduling.reassign.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
     if request.method == "POST":
         team = incident.assigned_team
-        new_solver = who_is_on_call(team) if team else None
-        problem = reassign(incident, new_solver, request.user)
+        on_call = on_call_solvers(team) if team else []
+        chosen = request.POST.get("solver")
+        if chosen:
+            new_solver = next((s for s in on_call if str(s.pk) == chosen), None)
+        else:
+            new_solver = on_call[0] if on_call else None
+        if chosen and new_solver is None and team and is_lead(request.user, team):
+            problem = f"That person is not on call for {team.name} right now"
+        else:
+            problem = reassign(incident, new_solver, request.user)
         if problem:
             messages.error(request, problem)
         else:
@@ -461,12 +511,31 @@ def incident_reassign(request, pk):
     return redirect("incident_detail", pk=pk)
 
 
-def _future_shifts(team):
-    """Shifts still running or yet to come, earliest first."""
+def _future_shifts(team, on_call_role="primary"):
+    """Shifts of one role still running or yet to come, earliest first."""
     return (
-        Shift.objects.filter(team=team, on_call_role="primary", ends_at__gt=timezone.now())
+        Shift.objects.filter(team=team, on_call_role=on_call_role, ends_at__gt=timezone.now())
         .select_related("solver").order_by("starts_at")
     )
+
+
+def _schedule_problems(team, shift, others):
+    """
+    What is wrong with the schedule once this shift joins the other
+    future shifts of its role. Primary shifts must cover every hour;
+    secondary shifts only have to respect their own limits.
+    """
+    if shift.on_call_role == "secondary":
+        return validate_secondary(team, others + [shift])
+    return validate_schedule(team, others + [shift])
+
+
+def _schedule_page(request, team, form, editing=None, open_form=False):
+    """The schedule page with both lists of upcoming shifts."""
+    return render(request, "schedule.html", {
+        "team": team, "form": form, "editing": editing, "open_form": open_form,
+        "shifts": _future_shifts(team), "secondary_shifts": _future_shifts(team, "secondary"),
+    })
 
 
 def _solver_name(shift):
@@ -490,10 +559,11 @@ def _lead_only(request, team):
 @login_required
 def schedule(request, team_id):
     """
-    One team's on-call schedule: the upcoming shifts and a form to add one.
-    Only the team's lead gets in. A new shift is checked together with the
-    rest of the future schedule, so a gap or an overlap is refused with a
-    message naming the day and the window.
+    One team's on-call schedule: the upcoming primary and secondary shifts
+    and a form to add one. Only the team's lead gets in. A new shift is
+    checked together with the rest of the future shifts of its role, so a
+    gap or an overlap is refused with a message naming the day and the
+    window.
     """
     team = get_object_or_404(Team, pk=team_id)
     denied = _lead_only(request, team)
@@ -505,21 +575,19 @@ def schedule(request, team_id):
             shift = form.save(commit=False)
             shift.team = team
             shift.created_by = request.user
-            problems = validate_schedule(team, list(_future_shifts(team)) + [shift])
+            problems = _schedule_problems(team, shift, list(_future_shifts(team, shift.on_call_role)))
             if problems:
                 for problem in problems:
                     messages.error(request, problem)
             else:
                 shift.save()
-                messages.success(request, "Shift added")
+                messages.success(request, "Secondary shift added" if shift.on_call_role == "secondary"
+                                 else "Shift added")
                 _report_pickups(request, assign_waiting(team, request.user))
                 return redirect("schedule", team_id=team.pk)
     else:
         form = ShiftForm(team)
-    return render(request, "schedule.html", {
-        "team": team, "form": form, "shifts": _future_shifts(team), "editing": None,
-        "open_form": request.method == "POST",
-    })
+    return _schedule_page(request, team, form, open_form=request.method == "POST")
 
 
 @login_required
@@ -535,16 +603,18 @@ def shift_edit(request, team_id, shift_id):
         form = ShiftForm(team, request.POST, instance=shift)
         if form.is_valid():
             changed = form.save(commit=False)
-            others = [s for s in _future_shifts(team) if s.pk != shift.pk]
-            # Moving a start or an end moves the neighbouring shift's boundary
-            # with it, so the schedule stays whole in one save.
+            others = [s for s in _future_shifts(team, shift.on_call_role) if s.pk != shift.pk]
+            # Moving a primary start or end moves the neighbouring shift's
+            # boundary with it, so the schedule stays whole in one save.
+            # Secondary shifts stand alone, so nothing else moves.
             moved = []
-            if changed.starts_at != original_start:
+            primary = shift.on_call_role == "primary"
+            if primary and changed.starts_at != original_start:
                 before = next((s for s in others if s.ends_at == original_start), None)
                 if before:
                     before.ends_at = changed.starts_at
                     moved.append((before, "ends"))
-            if changed.ends_at != original_end:
+            if primary and changed.ends_at != original_end:
                 after = next((s for s in others if s.starts_at == original_end), None)
                 if after:
                     after.starts_at = changed.ends_at
@@ -552,7 +622,7 @@ def shift_edit(request, team_id, shift_id):
             problems = [f"That would leave {_solver_name(s)} with no time on {timezone.localtime(s.starts_at):%A}"
                         for s, _ in moved if s.ends_at <= s.starts_at]
             if not problems:
-                problems = validate_schedule(team, others + [changed])
+                problems = _schedule_problems(team, changed, others)
             if problems:
                 for problem in problems:
                     messages.error(request, problem)
@@ -567,23 +637,24 @@ def shift_edit(request, team_id, shift_id):
                 return redirect("schedule", team_id=team.pk)
     else:
         form = ShiftForm(team, instance=shift)
-    return render(request, "schedule.html", {
-        "team": team, "form": form, "shifts": _future_shifts(team), "editing": shift,
-        "open_form": True,
-    })
+    return _schedule_page(request, team, form, editing=shift, open_form=True)
 
 
 @login_required
 def shift_delete(request, team_id, shift_id):
-    """Remove one upcoming shift, unless that would leave a hole in the cover."""
+    """
+    Remove one upcoming shift. A primary shift stays if removing it would
+    leave a hole in the cover; a secondary shift can always go.
+    """
     team = get_object_or_404(Team, pk=team_id)
     shift = get_object_or_404(Shift, pk=shift_id, team=team)
     denied = _lead_only(request, team)
     if denied:
         return denied
     if request.method == "POST":
-        others = [s for s in _future_shifts(team) if s.pk != shift.pk]
-        problems = validate_schedule(team, others)
+        problems = []
+        if shift.on_call_role == "primary":
+            problems = validate_schedule(team, [s for s in _future_shifts(team) if s.pk != shift.pk])
         if problems:
             for problem in problems:
                 messages.error(request, problem)
@@ -606,9 +677,12 @@ def calendar(request):
         messages.error(request, "The calendar is for solvers")
         return redirect("profile")
     today = timezone.localdate()
+    # A start that is not a date, or is centuries away, falls back to this week
     try:
         first_day = date.fromisoformat(request.GET.get("start", ""))
     except ValueError:
+        first_day = None
+    if first_day is None or not date(2000, 1, 1) <= first_day <= date(2100, 1, 1):
         first_day = today - timedelta(days=today.weekday())
     days = [first_day + timedelta(days=i) for i in range(7)]
     week_start = timezone.make_aware(datetime.combine(first_day, time.min))
@@ -620,7 +694,7 @@ def calendar(request):
     rows = []
     for team in teams:
         cells = [[] for _ in days]
-        for shift in on_call_roster(team, week_start, week_end):
+        for shift in on_call_roster(team, week_start, week_end, on_call_role=None):
             # A shift can cross midnight, so clip it to each day it touches
             for i, day in enumerate(days):
                 day_start = timezone.make_aware(datetime.combine(day, time.min))
@@ -632,6 +706,7 @@ def calendar(request):
                     cells[i].append({
                         "when": f"{timezone.localtime(begins):%H:%M} to {end_label}",
                         "who": f"{shift.solver.first_name} {shift.solver.last_name}",
+                        "secondary": shift.on_call_role == "secondary",
                         # Already over: shown greyed out, and not on the schedule page
                         "past": ends <= now,
                     })
@@ -645,39 +720,76 @@ def calendar(request):
 
 
 @login_required
+@transaction.atomic
 def team_policy(request, team_id):
     """
-    One team's escalation policy: its tiers in order and a form to add the
-    next one. Only the lead gets in. Adding puts the new tier last;
-    removing one renumbers the rest so they stay 1, 2, 3.
+    One team's escalation policy. Only the lead gets in. Tier 1 is always
+    the on-call solver and cannot be removed, so a policy never has fewer
+    than one tier; its wait can be changed. Every later tier can be
+    changed in its row or removed, and a new tier is added at the end.
+    Removing a tier renumbers the rest so they stay 1, 2, 3, and moves the
+    tickets that were at or past it back one step so they keep their place.
     """
     team = get_object_or_404(Team, pk=team_id)
     if not is_lead(request.user, team):
         messages.error(request, f"Only the lead of {team.name} can edit its escalation policy")
         return redirect("profile")
-    tiers = list(team.escalation_tiers.select_related("escalate_to_user"))
-    form = EscalationTierForm(team)
-    if request.method == "POST" and request.POST.get("action") == "remove":
-        tier = get_object_or_404(EscalationTier, pk=request.POST.get("tier"), team=team)
-        tier.delete()
-        for number, t in enumerate(team.escalation_tiers.all(), start=1):
-            if t.tier_number != number:
-                t.tier_number = number
-                t.save()
-        messages.success(request, "Tier removed")
-        return redirect("team_policy", team_id=team.pk)
     if request.method == "POST":
-        form = EscalationTierForm(team, request.POST)
-        if tiers and tiers[-1].escalate_to == "administration":
-            messages.error(request, "The administration tier is the last one. Remove it to add more tiers")
-        elif form.is_valid():
-            tier = form.save(commit=False)
+        # One edit at a time per team, so two submissions never take the same tier number
+        Team.objects.select_for_update().get(pk=team.pk)
+    ensure_policy(team)
+    tiers = list(team.escalation_tiers.select_related("escalate_to_user"))
+    add_form = EscalationTierForm(team)
+    refused = None
+    action = request.POST.get("action") if request.method == "POST" else None
+    if action in ("save", "remove"):
+        tier = next((t for t in tiers if str(t.pk) == request.POST.get("tier")), None)
+        if tier is None:
+            raise Http404("No such tier on this team")
+    if action == "remove":
+        if tier.tier_number == 1:
+            messages.error(request, "Tier 1 is the on-call solver and cannot be removed: "
+                                    "a policy needs at least one tier. Change its wait instead.")
+        else:
+            removed = tier.tier_number
+            tier.delete()
+            for number, t in enumerate(team.escalation_tiers.all(), start=1):
+                if t.tier_number != number:
+                    t.tier_number = number
+                    t.save()
+            # A ticket's level is the position of its tier, and every position from the removed one on moved up
+            Incident.objects.filter(
+                assigned_team=team, status="assigned", escalation_level__gte=removed - 1,
+            ).update(escalation_level=F("escalation_level") - 1)
+            messages.success(request, "Tier removed")
+        return redirect("team_policy", team_id=team.pk)
+    if action == "save":
+        form = EscalationTierForm(team, request.POST, instance=tier, prefix=f"t{tier.pk}")
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Tier {tier.tier_number} saved")
+            return redirect("team_policy", team_id=team.pk)
+        refused = form
+    if action == "add":
+        add_form = EscalationTierForm(team, request.POST)
+        if add_form.is_valid():
+            tier = add_form.save(commit=False)
             tier.team = team
-            tier.tier_number = len(tiers) + 1
+            tier.tier_number = tiers[-1].tier_number + 1
             tier.save()
             messages.success(request, f"Tier {tier.tier_number} added")
             return redirect("team_policy", team_id=team.pk)
-    return render(request, "policy.html", {"team": team, "tiers": tiers, "form": form})
+    rows = []
+    for tier in tiers:
+        if refused is not None and refused.instance.pk == tier.pk:
+            # Put the stored values back on the object: the row shows what was typed, the table what is saved
+            tier.refresh_from_db()
+            rows.append((tier, refused))
+        else:
+            rows.append((tier, EscalationTierForm(team, instance=tier, prefix=f"t{tier.pk}")))
+    return render(request, "policy.html", {
+        "team": team, "rows": rows, "add_form": add_form, "next_number": tiers[-1].tier_number + 1,
+    })
 
 
 @login_required
@@ -697,4 +809,8 @@ def notifications_read_all(request):
     """Clears the bell. POST only."""
     if request.method == "POST":
         request.user.notifications.filter(read_at__isnull=True).update(read_at=timezone.now())
-    return redirect(request.META.get("HTTP_REFERER") or "home")
+    # Back to the page the bell was on, but never to another site
+    back = request.META.get("HTTP_REFERER", "")
+    if url_has_allowed_host_and_scheme(back, allowed_hosts={request.get_host()}):
+        return redirect(back)
+    return redirect("home")

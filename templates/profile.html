@@ -5,89 +5,86 @@
   <script src="{% static 'js/incidents.js' %}?v=3" defer></script>
 {% endblock %}
 
-
 {% block content %}
-  {% if messages %}
-    {% for message in messages %}
-      <p class="notice {{ message.tags }}">{{ message }}</p>
-    {% endfor %}
-  {% endif %}
-    <div class =profile-layout>
-    
-    <!--Profile on the rigtht side-->
-    <!-- Profile photo -->
-    <aside class="profile-card">
-    <img class ="avatar" src ="{% static 'images/profile_icon.jpeg' %}" alt="Profile photo">
-<!-- Identity -->
-    <h1> {{ user.username }}</h1>
-    {% if user.email != user.username %}
-    <p class = "meta">{{ user.email }}</p>
+{% if messages %}
+  {% for message in messages %}
+    <p class="notice {{ message.tags }}">{{ message }}</p>
+  {% endfor %}
+{% endif %}
+
+<div class="profile-layout">
+
+  <aside class="profile-card">
+    <img class="avatar" src="{% if user.avatar %}{{ user.avatar.url }}{% else %}{% static 'images/profile_icon.jpeg' %}{% endif %}" alt="Profile picture">
+    <h1 class="profile-name">{% if user.first_name %}{{ user.first_name }} {{ user.last_name }}{% else %}{{ user.username }}{% endif %}</h1>
+    <p class="meta">{{ user.email }}</p>
+    <p class="meta">{% if user.role == "solver" %}Solver{% else %}Reporter{% endif %}</p>
+
+    <form method="POST" enctype="multipart/form-data" class="avatar-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="avatar">
+      <label for="avatar">Profile picture</label>
+      <input type="file" id="avatar" name="avatar" accept="image/jpeg,image/png,image/webp" required>
+      <p class="hint">JPEG, PNG or WebP, up to 2 MB.</p>
+      <div class="avatar-actions">
+        <button type="submit" class="btn-small">Upload picture</button>
+        {% if user.avatar %}
+          <button type="submit" form="remove-avatar" class="btn-small danger">Remove picture</button>
+        {% endif %}
+      </div>
+    </form>
+    {% if user.avatar %}
+    <form method="POST" id="remove-avatar" hidden>
+      {% csrf_token %}
+      <input type="hidden" name="action" value="remove_avatar">
+    </form>
     {% endif %}
-    <p class = "meta">User ID:{{ user.id }}</p>
-   
-<!-- Bio -->
-<form method = "POST" class = "bio-form">
-{% csrf_token %}
-<label for ="bio"> Bio</label>
-<textarea id="bio" name="bio" rows="4" placeholder="Write a short bio">{{ user.bio }}</textarea>
-      <button type="submit">Save bio</button>
+
+    <form method="POST" class="bio-form">
+      {% csrf_token %}
+      <label for="bio">Bio</label>
+      <textarea id="bio" name="bio" rows="4" placeholder="A line or two about you">{{ user.bio }}</textarea>
+      <button type="submit" class="btn-small">Save bio</button>
     </form>
   </aside>
 
-
-
-<!-- Incidents -->
- <section class="incidents">
-{% if user.role == "solver" %}
-{% for team in my_teams %}
-<div class="team-panel">
-  <h2 class="team-name">{{ team.name }}</h2>
-  <p class="team-label">Team members</p>
-  <ul class="team-members">
-    {% for member in team.members %}
-    <li>{{ member.first_name }} {{ member.last_name }}{% if member == user %} (you){% endif %}</li>
+  <section class="incidents">
+  {% if user.role == "solver" %}
+    <div class="page-head">
+      <div>
+        <h2>Your teams</h2>
+      </div>
+      <a href="{% url 'incidents' %}" class="btn-gold">Open the incident list</a>
+    </div>
+    {% for team in my_teams %}
+      <div class="team-panel">
+        <h3 class="team-name">{{ team.name }}</h3>
+        <p class="team-label">Team members</p>
+        <ul class="team-members">
+          {% for member in team.members %}
+          <li>{{ member.first_name }} {{ member.last_name }}{% if member == user %} (you){% endif %}</li>
+          {% endfor %}
+        </ul>
+        <a href="{% url 'incidents' %}" class="team-cta">View tickets assigned to {{ team.name }}</a>
+      </div>
+    {% empty %}
+      <p class="empty">You are not a member of a team. Teams you lead are on the <a href="{% url 'calendar' %}">on-call calendar</a>.</p>
     {% endfor %}
-  </ul>
-  <a href="{% url 'incidents' %}" class="team-cta">View tickets assigned to {{ team.name }}</a>
-</div>
-{% endfor %}
-{% else %}
-<div class ="incident-columns">
-    <div class = "incident-col">
+  {% else %}
+    <div class="page-head">
+      <h2>Your tickets</h2>
+    </div>
+    <div class="incident-columns">
+      <div class="incident-col">
         <h3>Active</h3>
-        <ul>{% for incident in active_incidents %}
-            <li class="profile-incident">
-                <span class="pi-title">{{ incident.title }}</span>
-                <div class="pi-meta">
-                  <span class="pi-date">{{ incident.created_at|date:"j M Y" }}</span>
-                  <span class="badge {{ incident.status }}">{{ incident.get_status_display }}</span>
-                </div>
-                <div class="pi-actions">
-                  <a href="{% url 'incident_detail' incident.pk %}" class="pi-btn">Details</a>
-                  {% if incident.status == "open" or incident.status == "assigned" %}
-                    <a href="{% url 'incident_edit' incident.pk %}" class="pi-btn edit">Edit</a>
-                    <form method="post" action="{% url 'incident_delete' incident.pk %}" class="delete-form" style="display:inline">
-                      {% csrf_token %}
-                      <button type="button" class="pi-btn danger" data-title="#{{ incident.pk }} {{ incident.title }}">Delete</button>
-                    </form>
-                  {% endif %}
-                </div>
-              </li>
-            {% empty %}
-            <li> No Active Incidents</li>
-            {% endfor %}
-        </ul>
-    </div>
-
-
-    <div class = "incident-col">
-        <h3> Closed &amp; Resolved</h3>
         <ul>
-            {% for incident in closed_incidents %}
-        <li class="profile-incident">
+          {% for incident in active_incidents %}
+            <li class="profile-incident sev-{{ incident.priority }} st-{{ incident.status }}">
+              <span class="pi-number">{{ incident.pk }}</span>
+              <div class="pi-main">
                 <span class="pi-title">{{ incident.title }}</span>
                 <div class="pi-meta">
-                  <span class="pi-date">{{ incident.created_at|date:"j M Y" }}</span>
+                  <span class="pi-date">Filed {{ incident.created_at|date:"j M Y" }}</span>
                   <span class="badge {{ incident.status }}">{{ incident.get_status_display }}</span>
                 </div>
                 <div class="pi-actions">
@@ -100,18 +97,39 @@
                     </form>
                   {% endif %}
                 </div>
-              </li>
-        {% empty %}
-        <li>No closed or resolved incidents.</li>
-        {% endfor %}
+              </div>
+            </li>
+          {% empty %}
+            <li class="none">Nothing open. Use Report a problem, at the top of the page, and the ticket shows up here.</li>
+          {% endfor %}
         </ul>
+      </div>
+
+      <div class="incident-col">
+        <h3>Closed and resolved</h3>
+        <ul>
+          {% for incident in closed_incidents %}
+            <li class="profile-incident sev-{{ incident.priority }} st-{{ incident.status }}">
+              <span class="pi-number">{{ incident.pk }}</span>
+              <div class="pi-main">
+                <span class="pi-title">{{ incident.title }}</span>
+                <div class="pi-meta">
+                  <span class="pi-date">Filed {{ incident.created_at|date:"j M Y" }}</span>
+                  <span class="badge {{ incident.status }}">{{ incident.get_status_display }}</span>
+                </div>
+                <div class="pi-actions">
+                  <a href="{% url 'incident_detail' incident.pk %}" class="pi-btn">Details</a>
+                </div>
+              </div>
+            </li>
+          {% empty %}
+            <li class="none">Nothing here yet. Tickets move here once they are fixed.</li>
+          {% endfor %}
+        </ul>
+      </div>
     </div>
-
-
-
-  </div>
-{% endif %}
-</section>
+  {% endif %}
+  </section>
 </div>
 
 <div id="confirm-modal" class="modal-overlay" hidden>

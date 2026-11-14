@@ -2,18 +2,38 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="card">
-  <h1 class="form-header">Welcome, {{ user.first_name }}</h1>
-  <p class="lead">What would you like to do?</p>
-  <div class="actions">
-    {% if user.role != "solver" %}
-      <a href="{% url 'form' %}" class="btn-gold">Fill out a support ticket</a>
-    {% endif %}
-    {% if user.role == "solver" %}
-      <a href="{% url 'incidents' %}" class="btn-gold">View team incidents</a>
-    {% else %}
-      <a href="{% url 'profile' %}" class="btn-gold">View my incidents</a>
-    {% endif %}
+<div class="page-head">
+  <div>
+    <h1>Welcome, {{ user.first_name }}</h1>
+    <p class="lead">
+      {% if user.role == "solver" %}
+        Tickets come to you while you are on call. Start one to take it, and it stops escalating.
+      {% else %}
+        Report a problem, or check on one you already reported.
+      {% endif %}
+    </p>
   </div>
+</div>
+
+<div class="choices">
+  {% if user.role == "solver" %}
+    <a href="{% url 'incidents' %}" class="choice primary">
+      <strong>View team incidents</strong>
+      <span>Every ticket for your teams, with yours marked.</span>
+    </a>
+    <a href="{% url 'calendar' %}" class="choice">
+      <strong>On-call calendar</strong>
+      <span>Who covers which hours this week.</span>
+    </a>
+  {% else %}
+    <a href="{% url 'form' %}" class="choice primary">
+      <strong>Report a problem</strong>
+      <span>Say what is broken and where. It goes to the team that fixes it.</span>
+    </a>
+    <a href="{% url 'profile' %}" class="choice">
+      <strong>View my incidents</strong>
+      <span>See where each of your tickets stands.</span>
+    </a>
+  {% endif %}
 </div>
 {% endblock %}

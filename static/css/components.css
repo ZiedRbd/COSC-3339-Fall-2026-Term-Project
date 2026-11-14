@@ -1,195 +1,326 @@
-/* ---------- Cards and buttons ---------- */
+/* ---------- The sheet ----------
+   One white sheet per page holds the content. It has a ruled edge and
+   no shadow: only tickets get to look like objects. */
 .card {
-    background: var(--white);
-    border-radius: 14px;
-    padding: 36px;
-    width: 100%;
-    max-width: 560px;
-    box-shadow: 0 10px 30px rgba(5, 43, 110, 0.18), 0 2px 6px rgba(0,0,0,0.06);
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 32px;
+    max-width: 640px;
 }
+.card.wide { max-width: none; }
 
-.card.wide {
-    max-width: 1000px;
-}
-
-.card h1,
-.card h2 {
-    color: var(--navy);
-}
-
-.form-header {
-    text-align: center;
-    margin-bottom: 20px;
-}
+.form-header { margin-bottom: 10px; }
+.section-title { margin: 32px 0 12px; }
+.section-title.first { margin-top: 0; }
 
 .lead {
     color: var(--muted);
-    line-height: 1.5;
-    margin: 0 0 24px;
+    font-size: 17px;
+    max-width: 68ch;
+    margin: 0 0 20px;
 }
+
+.muted { color: var(--muted); }
+
+/* ---------- Text straight on the navy page, outside any sheet ---------- */
+.page-head h1,
+.page-head h2 { color: var(--on-page); }
+.page-head .lead,
+.page > .empty,
+.card.ticket-list .empty,
+.incidents > .empty { color: var(--on-page-muted); }
+.incidents > .empty a { color: var(--on-page); }
+
+.section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 20px 0 8px;
+}
+.section-head .section-title { margin: 0; }
 
 .actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    align-items: center;
+    gap: 10px;
+}
+/* Buttons that sit side by side are the same height, whichever kind they are */
+.actions > .btn-small { min-height: 42px; padding: 9px 16px; font-size: 15px; }
+
+.back-link {
+    display: inline-block;
+    margin-top: 28px;
+    font-weight: 600;
+    color: var(--navy);
 }
 
+/* ---------- Buttons ----------
+   Gold fill: the one thing to do on this page. Navy outline: everything
+   else. Red outline: it removes something. */
 .btn-gold,
-.btn-link,
-button[type="submit"] {
-    display: inline-block;
+:where(main, .modal) :where(button[type="submit"]) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 9px 18px;
     background: var(--gold);
     color: var(--navy-dark);
-    border: 1px solid var(--gold);
-    text-decoration: none;
+    border: 1px solid var(--gold-dark);
+    border-radius: 6px;
     font-family: var(--font);
     font-size: 16px;
-    font-weight: 600;
-    padding: 10px 20px;
-    border-radius: 6px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: none;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.12s;
 }
-
 .btn-gold:hover,
-.btn-link:hover,
-button[type="submit"]:hover {
-    background: var(--gold-dark);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(212,175,55,0.35);
-}
-.btn-gold, .btn-link, button[type="submit"] { transition: all 0.15s ease; }
+:where(main, .modal) :where(button[type="submit"]):hover { background: #f0c95f; }
+.btn-gold:active,
+:where(main, .modal) :where(button[type="submit"]):active { background: var(--gold-dark); }
 
+.btn-small,
+.pi-btn,
+.password {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 5px 12px;
+    background: var(--field);
+    color: var(--navy);
+    border: 1px solid var(--navy);
+    border-radius: 6px;
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+.btn-small:hover,
+.pi-btn:hover,
+.password:hover { background: var(--navy); color: #ffffff; }
+
+.btn-small.danger,
+.pi-btn.danger { color: var(--red); border-color: var(--red); }
+.btn-small.danger:hover,
+.pi-btn.danger:hover { background: var(--red); color: #ffffff; }
+
+/* A link that sits where a button would, for the lesser of two choices */
 .btn-link {
-    margin-top: 12px;
+    display: inline-block;
+    margin-top: 16px;
+    font-weight: 600;
+    color: var(--navy);
 }
 
 /* ---------- Forms ---------- */
-input, textarea, select {
-    font-size: 16px;
-    padding: 10px;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    box-sizing: border-box;
-    width: 100%;
-    font-family: var(--font);
-}
-
-input:focus, textarea:focus, select:focus {
-    outline: none;
-    border-color: var(--navy);
-}
-
-.stacked {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    width: 100%;
-    max-width: 400px;
-    padding: 24px;
-    background: var(--white);
-    border-radius: 8px;
-}
-
-.login-field,
-.form-layout {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    max-width: 480px;
-}
-
-.form-body {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-}
-
-.form-item {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    margin-bottom: 0;
-}
-
+label,
 .form-label {
+    display: block;
     margin-bottom: 6px;
-    font-weight: bold;
+    font-size: 15px;
+    font-weight: 600;
     color: var(--ink);
 }
 
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="file"],
+select,
+textarea,
 .form-input {
     width: 100%;
-    resize: vertical;
-}
-
-.password {
-    width: auto;
-    font-size: 14px;
-    padding: 6px 12px;
-    margin: 4px 0 8px;
-    background: var(--white);
-    border: 1px solid var(--line);
-}
-
-.stacked button[type="submit"],
-.stacked .btn-link {
-    width: 100%;
-    text-align: center;
-    box-sizing: border-box;
-}
-
-.error {
-    color: var(--red);
-    font-weight: bold;
-    font-size: 15px;
-    margin: 0;
-}
-
-.error-popup {
-    width: 100%;
-}
-
-.success,
-.notice {
-    background: #e8f5e9;
-    color: var(--green);
-    border: 1px solid var(--green);
+    padding: 10px 12px;
+    background: var(--field);
+    color: var(--ink);
+    border: 1px solid #8b96a9;
     border-radius: 6px;
-    padding: 10px 14px;
-    margin-bottom: 16px;
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.3;
 }
+textarea { resize: vertical; min-height: 96px; }
+input::placeholder, textarea::placeholder { color: #7b869a; }
+input:focus, select:focus, textarea:focus {
+    outline: 3px solid rgba(7, 56, 142, 0.25);
+    outline-offset: 0;
+    border-color: var(--navy);
+}
+input:disabled, select:disabled { background: var(--grey-tint); color: var(--muted); }
+
+.form-item { margin-bottom: 18px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.hint,
+.helptext {
+    display: block;
+    margin-top: 6px;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--muted);
+}
+label.hint { margin: 0; }
+
+.error,
+.errorlist {
+    margin: 6px 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--red);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* ---------- Notices ----------
+   What the page says back after an action. The bar on the left is the verdict. */
+.notice,
+.error-popup p {
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    border-left: 4px solid var(--navy);
+    border-radius: 0 4px 4px 0;
+    background: var(--blue-tint);
+    color: var(--ink);
+    font-size: 15px;
+}
+.notice.success { border-left-color: var(--green); background: var(--green-tint); }
+.notice.error,
+.error-popup p { border-left-color: var(--red); background: var(--red-tint); font-weight: 600; }
+.notice.warning { border-left-color: var(--amber); background: var(--amber-tint); }
 
 .empty {
+    margin: 8px 0 0;
+    padding: 18px 0;
     color: var(--muted);
-    text-align: center;
-    padding: 24px 0;
 }
 
-/* Message colour follows its level: Django tags each message error,
-   success, or info */
-.notice.error   { background: #fdecea; border-color: #c62828; color: #8e1c1c; }
-.notice.success { background: #e8f5e9; border-color: var(--green); color: #1b5e20; }
-.notice.info    { background: #e3f2fd; border-color: var(--navy); color: var(--navy); }
-
-/* Small buttons used outside the ticket table: calendar week links,
-   schedule row actions, cancel links */
-.btn-small {
+/* ---------- Tags and pills ----------
+   Shape says which kind of fact it is. Severity is a square tag with a
+   bar; status is a pill. The two never look alike, even in the same colour. */
+.badge {
     display: inline-block;
-    padding: 6px 14px;
-    border: 1px solid var(--navy);
-    border-radius: 999px;
-    background: #ffffff;
-    color: var(--navy);
+    padding: 3px 9px;
     font-size: 13px;
-    font-weight: 600;
-    text-decoration: none;
-    cursor: pointer;
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: nowrap;
+    vertical-align: middle;
 }
-.btn-small:hover { background: var(--navy); color: #ffffff; }
-.btn-small.danger { border-color: #c62828; color: #c62828; }
-.btn-small.danger:hover { background: #c62828; color: #ffffff; }
 
-/* Field errors printed by Django above the field */
-.errorlist { list-style: none; margin: 0 0 6px; padding: 0; color: #c62828; font-size: 14px; }
+/* Severity: a white tag with a bar, so it reads on any colour of ticket.
+   Critical is the one that is filled. */
+.badge.low,
+.badge.medium,
+.badge.high,
+.badge.critical {
+    border-radius: 3px;
+    border-left: 5px solid;
+    background: #ffffff;
+    color: var(--ink);
+}
+.badge.low { border-left-color: #8a8fa8; }
+.badge.medium { border-left-color: #e09a1a; }
+.badge.high { border-left-color: #e0483d; }
+.badge.critical { background: var(--red); color: #ffffff; border-left-color: #7a120d; }
+
+/* Status: a pill in the colour of the stock that status is printed on */
+.badge.open,
+.badge.assigned,
+.badge.in_progress,
+.badge.resolved,
+.badge.closed {
+    border-radius: 999px;
+    border: 1px solid rgba(27, 29, 58, 0.28);
+    padding: 3px 11px;
+    color: var(--ink);
+}
+.badge.open { background: var(--stock-open); }
+.badge.assigned { background: var(--stock-assigned); }
+.badge.in_progress { background: var(--stock-in_progress); }
+.badge.resolved { background: var(--stock-resolved); }
+.badge.closed { background: var(--stock-closed); }
+
+/* On a ticket the pill sits on its own colour, so there it turns white */
+:is(.ticket-table, .profile-incident, .ticket-head, .sample-top) .badge:is(.open, .assigned, .in_progress, .resolved, .closed) {
+    background: rgba(255, 255, 255, 0.78);
+}
+
+.badge.escalated {
+    margin-left: 6px;
+    border-radius: 3px;
+    background: var(--red);
+    color: #ffffff;
+}
+
+/* ---------- Tables ---------- */
+.table-scroll { overflow-x: auto; }
+
+.incident-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+}
+.incident-table th {
+    text-align: left;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    border-bottom: 2px solid var(--navy-dark);
+    white-space: nowrap;
+}
+.incident-table td {
+    padding: 11px 10px;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: middle;
+}
+.incident-table td a { color: var(--navy); font-weight: 600; }
+
+.row-actions { white-space: nowrap; }
+.row-actions form { display: inline-block; margin: 0; }
+.row-actions .btn-small { margin: 2px 4px 2px 0; }
+
+/* ---------- Popups ---------- */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(2, 12, 32, 0.62);
+    z-index: 80;
+}
+.modal-overlay[hidden] { display: none; }
+
+.modal {
+    width: min(460px, 100%);
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    padding: 26px;
+    background: var(--sheet);
+    border-radius: 8px;
+    box-shadow: var(--shadow-float);
+}
+.modal.wide { width: min(580px, 100%); }
+.modal h2 { margin-bottom: 10px; }
+.modal .actions { justify-content: flex-end; margin-top: 20px; }
+.modal .btn-small { min-height: 42px; padding: 9px 18px; font-size: 16px; }
+
+@media (max-width: 640px) {
+    .card { padding: 20px 16px; }
+    .form-row { grid-template-columns: 1fr; gap: 0; }
+}

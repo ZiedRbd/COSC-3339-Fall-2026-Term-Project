@@ -29,6 +29,13 @@ class SeedLeadsTests(TestCase):
         self.assertFalse(Team.objects.filter(lead__isnull=True).exists())
         self.assertEqual({pat.role, maya.role}, {"solver"})
 
+    def test_seed_creates_one_administrator_who_cannot_open_the_django_admin(self):
+        call_command("seed", stdout=io.StringIO())
+        admin = User.objects.get(is_superuser=True)
+        self.assertEqual(admin.email, "demo.admin@campusdesk.edu")
+        self.assertFalse(admin.is_staff)
+        self.assertEqual(User.objects.filter(role="reporter", is_superuser=False).count(), 6)
+
 
 class ShiftSeederTests(TestCase):
     """seed_shifts fills a week of 24/7 cover without touching ticket ownership."""
@@ -39,7 +46,7 @@ class ShiftSeederTests(TestCase):
         self.now = timezone.now()
 
     def shifts_for(self, name):
-        return list(Shift.objects.filter(team__name=name).order_by("starts_at"))
+        return list(Shift.objects.filter(team__name=name, on_call_role="primary").order_by("starts_at"))
 
     def test_every_team_is_covered_with_no_gaps(self):
         """Each shift starts exactly where the previous one ended, starting before now."""
