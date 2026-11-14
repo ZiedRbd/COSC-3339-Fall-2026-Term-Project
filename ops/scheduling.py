@@ -188,7 +188,7 @@ def _notify_about_queue(team, incident, why):
     waiting; the administrators hear about the second and each one after
     it. A team with no lead tells the administrators, and a site with no
     administrator tells the lead, so a waiting ticket is never silent.
-    Tickets whose escalation ran out are not part of the queue.
+    Tickets escalated to administration are not part of the queue.
     """
     waiting = _waiting(team).count()
     if waiting <= 1:
@@ -526,8 +526,10 @@ def _move_up(incident, tiers, position, minutes, now):
     """
     An overdue ticket leaves its tier for the first later tier that has
     somebody to take it. A tier with nobody available is passed over and
-    named on the timeline. When no later tier has anyone, the ticket goes
-    back to Open, is flagged as unassigned, and the lead is told.
+    named on the timeline. When no later tier has anyone, the ticket is
+    escalated to administration, the last tier of every policy: it goes
+    back to Open, is flagged as unassigned, and the administrators and
+    the lead are told. Only the lead can hand it out again.
     """
     team = incident.assigned_team
     holder = incident.assigned_to
@@ -559,12 +561,16 @@ def _move_up(incident, tiers, position, minutes, now):
     incident.escalation_timer_started_at = now
     incident.save()
     log_event(incident, author, "escalation",
-              f"{reason}.{skipped()} Escalation ran out: this ticket is unassigned and needs attention",
+              f"{reason}.{skipped()} Escalated to administration: this ticket is unassigned and needs attention",
               old_assignee=holder)
-    for person in _lead_or_admins(team):
-        if is_lead(person, team):
-            action = "Open it and reassign it to a solver on call."
-        else:
-            action = f"{team.name} has no active lead to reassign it."
-        notify(person, incident, "final_escalation",
-               f"{_ticket_label(incident)} ran out of escalation tiers and is unassigned. {action}")
+    lead = team.lead if team.lead is not None and team.lead.is_active else None
+    told = f"{_ticket_label(incident)} escalated to administration and is unassigned."
+    if lead is not None:
+        notify(lead, incident, "final_escalation", f"{told} Open it and reassign it to a solver on call.")
+    for admin in _admins():
+        if admin == lead:
+            continue
+        why = f"Nobody on {team.name} started work on it in time."
+        if lead is None:
+            why += f" {team.name} has no active lead to reassign it."
+        notify(admin, incident, "final_escalation", f"{told} {why}")

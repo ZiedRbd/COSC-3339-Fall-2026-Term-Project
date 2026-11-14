@@ -96,8 +96,9 @@ class Incident(models.Model):
     # reassignment, reopening or escalation. The minute timer compares
     # now minus this against the tier's wait.
     escalation_timer_started_at = models.DateTimeField(null=True, blank=True)
-    # True once every tier of the team's policy has run out. The ticket
-    # is then shown unassigned at the top of the list until someone takes it.
+    # True once the ticket was escalated to administration, the tier after
+    # the last one in the team's policy. The ticket is then shown unassigned
+    # at the top of the list until the lead hands it to someone.
     is_unassigned_after_escalation = models.BooleanField(default=False)
     sla_due_at = models.DateTimeField(null=True, blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
@@ -167,7 +168,9 @@ class Shift(models.Model):
 # solver who first got the ticket. Each later tier names a role (the team
 # lead) or a user (one person on the team). When the person at a tier has
 # not started work within wait_minutes, the ticket moves to the next
-# tier. After the last tier it is marked unassigned.
+# tier. After the last tier comes administration, which every policy
+# ends with and which has no row here: the ticket is marked unassigned
+# and the administrators and the lead are notified.
 class EscalationTier(models.Model):
     ESCALATE_TO_CHOICES = [
         ("on_call", "The on-call solver"),
@@ -207,7 +210,7 @@ class Notification(models.Model):
     EVENT_CHOICES = [
         ("assigned", "Assigned to you"),
         ("escalated", "Escalated to you"),
-        ("final_escalation", "Escalation ran out"),
+        ("final_escalation", "Escalated to administration"),
         ("queued", "Ticket is waiting in the queue"),
         ("work_started", "Work started on your ticket"),
         ("resolved", "Your ticket was resolved"),
