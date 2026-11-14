@@ -653,9 +653,12 @@ def calendar(request):
         messages.error(request, "The calendar is for solvers")
         return redirect("profile")
     today = timezone.localdate()
+    # A start that is not a date, or is centuries away, falls back to this week
     try:
         first_day = date.fromisoformat(request.GET.get("start", ""))
     except ValueError:
+        first_day = None
+    if first_day is None or not date(2000, 1, 1) <= first_day <= date(2100, 1, 1):
         first_day = today - timedelta(days=today.weekday())
     days = [first_day + timedelta(days=i) for i in range(7)]
     week_start = timezone.make_aware(datetime.combine(first_day, time.min))
