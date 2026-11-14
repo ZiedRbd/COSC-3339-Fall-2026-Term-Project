@@ -1,4 +1,4 @@
-@startuml
+@startuml assignment-sequence
 title A Filed Ticket Is Assigned to a Solver on Call
 
 actor Reporter
