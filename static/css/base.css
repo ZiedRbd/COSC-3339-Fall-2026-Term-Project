@@ -385,9 +385,10 @@ a { color: var(--navy); }
 .notification-queued { --stock: var(--stock-open); }
 .notification-work_started { --stock: var(--stock-in_progress); }
 .notification-resolved { --stock: var(--stock-resolved); --stub-ink: #14532a; }
-.notification-final_escalation { --stock: var(--red); --stub-ink: #ffffff; }
-.notification-final_escalation .notification-stub { border-right-color: rgba(255, 255, 255, 0.55); }
-.notification-final_escalation .notification-kind { color: var(--red); }
+.notification-final_escalation,
+.notification-administration { --stock: var(--red); --stub-ink: #ffffff; }
+:is(.notification-final_escalation, .notification-administration) .notification-stub { border-right-color: rgba(255, 255, 255, 0.55); }
+:is(.notification-final_escalation, .notification-administration) .notification-kind { color: var(--red); }
 
 .notification-empty { padding: 34px 18px; text-align: center; color: var(--muted); font-size: 15px; }
 .notification-foot {

@@ -20,7 +20,7 @@
     </div>
     <p class="ticket-now">
       {% if incident.is_unassigned_after_escalation %}
-        Nobody holds this ticket right now. It was escalated to administration, and the team lead has been told.
+        Nobody holds this ticket right now. {% if to_administration %}It was escalated to administration, and the team lead has been told.{% else %}The team lead has been told.{% endif %}
       {% elif incident.status == "open" %}
         Waiting for a solver on call to have room for it.
       {% elif incident.status == "assigned" %}
@@ -44,7 +44,7 @@
   {% endif %}
 
   {% if incident.is_unassigned_after_escalation %}
-    <p class="notice error">Nobody started work on this ticket in time, so it was escalated to administration. It is unassigned and needs attention.</p>
+    <p class="notice error">{% if to_administration %}Nobody started work on this ticket in time, so it was escalated to administration.{% else %}Nobody started work on this ticket in time and the escalation policy ran out.{% endif %} It is unassigned and needs attention.</p>
   {% endif %}
 
   <div class="detail-grid">

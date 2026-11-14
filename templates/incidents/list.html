@@ -55,7 +55,7 @@
           <tr class="incident-list-item sev-{{ incident.priority }} st-{{ incident.status }}{% if incident.is_unassigned_after_escalation %} escalated-row{% endif %}">
             <td class="ticket-id">{{ incident.pk }}</td>
             <td><a href="{% url 'incident_detail' incident.pk %}">{{ incident.title|truncatechars:70 }}</a>
-              {% if incident.is_unassigned_after_escalation %}<span class="badge escalated">Unassigned: escalated to administration</span>{% endif %}</td>
+              {% if incident.is_unassigned_after_escalation %}<span class="badge escalated">Unassigned: {% if incident.to_administration %}escalated to administration{% else %}escalation ran out{% endif %}</span>{% endif %}</td>
             <td>{% if incident.building or incident.room %}{{ incident.building|truncatechars:40 }}{% if incident.building and incident.room %}, {% endif %}{{ incident.room|truncatechars:24 }}{% else %}<span class="muted">Not given</span>{% endif %}</td>
             <td>{{ incident.service.name }}</td>
             <td><span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></td>

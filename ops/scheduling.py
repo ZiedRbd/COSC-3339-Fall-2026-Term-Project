@@ -441,9 +441,12 @@ def reassign(incident, new_solver, by):
 def ensure_policy(team):
     """
     Every team has a policy. A team that has none gets the default one:
-    the on-call solver has 5 minutes, then the lead has 10.
+    the on-call solver has 5 minutes, then the lead has 10. An
+    Administration row on its own is not a policy, since nobody waits at
+    it: it is moved after the two default tiers.
     """
-    if not team.escalation_tiers.exists():
+    if not team.escalation_tiers.exclude(escalate_to="administration").exists():
+        team.escalation_tiers.filter(escalate_to="administration").update(tier_number=3)
         EscalationTier.objects.bulk_create([
             EscalationTier(team=team, tier_number=1, escalate_to="on_call", wait_minutes=5),
             EscalationTier(team=team, tier_number=2, escalate_to="lead", wait_minutes=10),
@@ -487,7 +490,10 @@ def _escalate_if_overdue(incident, now):
         incident.save(update_fields=["escalation_timer_started_at"])
         return False
     ensure_policy(incident.assigned_team)
-    tiers = list(incident.assigned_team.escalation_tiers.select_related("escalate_to_user").order_by("tier_number"))
+    rows = list(incident.assigned_team.escalation_tiers.select_related("escalate_to_user").order_by("tier_number"))
+    # Administration is not a tier anyone waits at. It only says how the policy ends.
+    tiers = [tier for tier in rows if tier.escalate_to != "administration"]
+    to_administration = len(tiers) < len(rows)
     # escalation_level counts the tiers the ticket has left behind, so it is
     # the position of the tier it sits at. If the lead has shortened the
     # policy since, a ticket that was further along sits at the last tier.
@@ -495,7 +501,7 @@ def _escalate_if_overdue(incident, now):
     minutes = tiers[position].wait_minutes * SEVERITY_FACTOR.get(incident.priority, 1)
     if now - incident.escalation_timer_started_at < timedelta(minutes=minutes):
         return False
-    _move_up(incident, tiers, position, minutes, now)
+    _move_up(incident, tiers, position, minutes, now, to_administration)
     return True
 
 
@@ -522,14 +528,16 @@ def _person_at(tier, team, holder):
     return None
 
 
-def _move_up(incident, tiers, position, minutes, now):
+def _move_up(incident, tiers, position, minutes, now, to_administration=False):
     """
     An overdue ticket leaves its tier for the first later tier that has
     somebody to take it. A tier with nobody available is passed over and
-    named on the timeline. When no later tier has anyone, the ticket is
-    escalated to administration, the last tier of every policy: it goes
-    back to Open, is flagged as unassigned, and the administrators and
-    the lead are told. Only the lead can hand it out again.
+    named on the timeline. When no later tier has anyone, the ticket goes
+    back to Open and is flagged as unassigned, and only the lead can hand
+    it out again. A team whose lead ticked Administration on the policy
+    page has it as the last tier: the timeline says the ticket was
+    escalated to administration and the administrators are told with the
+    lead. Without the tick the policy just runs out and the lead is told.
     """
     team = incident.assigned_team
     holder = incident.assigned_to
@@ -560,17 +568,33 @@ def _move_up(incident, tiers, position, minutes, now):
     incident.escalation_level = position + 1
     incident.escalation_timer_started_at = now
     incident.save()
+    if not to_administration:
+        # The policy just ends. The lead is told, or the administrators when there is no active lead.
+        log_event(incident, author, "escalation",
+                  f"{reason}.{skipped()} Escalation ran out: this ticket is unassigned and needs attention",
+                  old_assignee=holder)
+        for person in _lead_or_admins(team):
+            if is_lead(person, team):
+                action = "Open it and reassign it to a solver on call."
+            else:
+                action = f"{team.name} has no active lead to reassign it."
+            notify(person, incident, "final_escalation",
+                   f"{_ticket_label(incident)} ran out of escalation tiers and is unassigned. {action}")
+        return
+
+    # The lead ticked Administration on the policy page: it is the last tier.
+    # The administrators are told as well as the lead.
     log_event(incident, author, "escalation",
               f"{reason}.{skipped()} Escalated to administration: this ticket is unassigned and needs attention",
               old_assignee=holder)
     lead = team.lead if team.lead is not None and team.lead.is_active else None
     told = f"{_ticket_label(incident)} escalated to administration and is unassigned."
     if lead is not None:
-        notify(lead, incident, "final_escalation", f"{told} Open it and reassign it to a solver on call.")
+        notify(lead, incident, "administration", f"{told} Open it and reassign it to a solver on call.")
     for admin in _admins():
         if admin == lead:
             continue
         why = f"Nobody on {team.name} started work on it in time."
         if lead is None:
             why += f" {team.name} has no active lead to reassign it."
-        notify(admin, incident, "final_escalation", f"{told} {why}")
+        notify(admin, incident, "administration", f"{told} {why}")

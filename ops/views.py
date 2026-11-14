@@ -134,9 +134,13 @@ def incident_list(request):
         .select_related("service", "reported_by", "assigned_team", "assigned_to")
         .order_by("-is_unassigned_after_escalation", "-created_at")
     )
+    # Teams whose policy ends with Administration, so an unassigned ticket says which way it ended
+    with_administration = set(EscalationTier.objects.filter(
+        team_id__in=team_ids | led_ids, escalate_to="administration").values_list("team_id", flat=True))
     for i in incidents:
         i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
         i.can_transition = _can_transition(request.user, i)
+        i.to_administration = i.assigned_team_id in with_administration
     return render(request, "incidents/list.html", {"incidents": incidents})
 
 @login_required
@@ -456,6 +460,9 @@ def incident_detail(request, pk):
         "max_tickets": MAX_ACTIVE_TICKETS,
         "can_edit": can_edit,
         "can_transition": _can_transition(request.user, incident),
+        # Which way an unassigned ticket ended: at Administration, or with the policy running out
+        "to_administration": (incident.is_unassigned_after_escalation and team is not None
+                              and team.escalation_tiers.filter(escalate_to="administration").exists()),
     })
 
 
@@ -729,6 +736,7 @@ def team_policy(request, team_id):
     changed in its row or removed, and a new tier is added at the end.
     Removing a tier renumbers the rest so they stay 1, 2, 3, and moves the
     tickets that were at or past it back one step so they keep their place.
+    A checkbox under the table adds Administration as the last tier.
     """
     team = get_object_or_404(Team, pk=team_id)
     if not is_lead(request.user, team):
@@ -738,7 +746,11 @@ def team_policy(request, team_id):
         # One edit at a time per team, so two submissions never take the same tier number
         Team.objects.select_for_update().get(pk=team.pk)
     ensure_policy(team)
-    tiers = list(team.escalation_tiers.select_related("escalate_to_user"))
+    policy_rows = list(team.escalation_tiers.select_related("escalate_to_user"))
+    # Administration, when the lead ticked it, is the last row. Nobody waits
+    # at it, so it has no form and is kept apart from the tiers people sit at.
+    administration = next((t for t in policy_rows if t.escalate_to == "administration"), None)
+    tiers = [t for t in policy_rows if t.escalate_to != "administration"]
     add_form = EscalationTierForm(team)
     refused = None
     action = request.POST.get("action") if request.method == "POST" else None
@@ -770,12 +782,30 @@ def team_policy(request, team_id):
             messages.success(request, f"Tier {tier.tier_number} saved")
             return redirect("team_policy", team_id=team.pk)
         refused = form
+    if action == "administration":
+        # The checkbox under the table: a ticked box arrives as "on", an unticked one does not arrive at all
+        wanted = request.POST.get("administration") == "on"
+        if wanted and administration is None:
+            # Its wait is never read: nobody waits at administration
+            EscalationTier.objects.create(team=team, tier_number=tiers[-1].tier_number + 1,
+                                          escalate_to="administration", wait_minutes=1)
+        elif not wanted and administration is not None:
+            administration.delete()
+        if wanted:
+            messages.success(request, "Administration is now the last tier of this policy")
+        else:
+            messages.success(request, "Administration is no longer a tier of this policy")
+        return redirect("team_policy", team_id=team.pk)
     if action == "add":
         add_form = EscalationTierForm(team, request.POST)
         if add_form.is_valid():
             tier = add_form.save(commit=False)
             tier.team = team
             tier.tier_number = tiers[-1].tier_number + 1
+            if administration is not None:
+                # Administration stays last: it steps down one place to make room
+                administration.tier_number = tier.tier_number + 1
+                administration.save()
             tier.save()
             messages.success(request, f"Tier {tier.tier_number} added")
             return redirect("team_policy", team_id=team.pk)
@@ -789,6 +819,7 @@ def team_policy(request, team_id):
             rows.append((tier, EscalationTierForm(team, instance=tier, prefix=f"t{tier.pk}")))
     return render(request, "policy.html", {
         "team": team, "rows": rows, "add_form": add_form, "next_number": tiers[-1].tier_number + 1,
+        "has_administration": administration is not None,
     })
 
 
