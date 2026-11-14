@@ -182,7 +182,7 @@ class EscalationTierForm(forms.ModelForm):
     class Meta:
         model = EscalationTier
         fields = ["escalate_to", "escalate_to_user", "wait_minutes"]
-        labels = {"escalate_to": "Escalate to", "escalate_to_user": "Named solver", "wait_minutes": "Wait (minutes)"}
+        labels = {"escalate_to": "Escalate to", "escalate_to_user": "Which person", "wait_minutes": "Wait (minutes)"}
 
     def __init__(self, team, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -199,12 +199,12 @@ class EscalationTierForm(forms.ModelForm):
         data = super().clean()
         kind, user, wait = data.get("escalate_to"), data.get("escalate_to_user"), data.get("wait_minutes")
         if kind == "user" and user is None:
-            self.add_error("escalate_to_user", "Pick the solver this tier escalates to")
+            self.add_error("escalate_to_user", "Pick the person this tier escalates to")
         if kind != "user":
             data["escalate_to_user"] = None
         if kind == "administration":
             if wait is not None:
-                self.add_error("wait_minutes", "The administration tier ends the policy and has no wait")
+                self.add_error("wait_minutes", "Leave the wait empty: administration ends the policy")
         elif not wait or wait <= 0:
             self.add_error("wait_minutes", "Wait must be a whole number of minutes above zero")
         return data

@@ -1,10 +1,14 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ team.name }} escalation policy{% endblock %}
+{% block extra_js %}
+  <script src="{% static 'js/policy.js' %}?v=1" defer></script>
+{% endblock %}
 
 {% block content %}
 <div class="card wide">
   <h1 class="form-header">{{ team.name }}: escalation policy</h1>
-  <p class="lead">A new ticket starts at tier 1 with the solver on call. When the person at a tier has not started work within the wait, the ticket moves to the next tier. Critical tickets wait half as long, high three quarters, low twice as long. After the last tier the ticket is marked unassigned.</p>
+  <p class="lead">A new ticket starts at tier 1 with the solver on call. When the person at a tier has not started work within the wait, the ticket moves to the next tier. Critical tickets wait half as long, high three quarters, low twice as long. Administration means nobody: the ticket is marked unassigned and flagged. It must be the last tier.</p>
 
   {% if messages %}
     {% for message in messages %}
