@@ -150,7 +150,7 @@ class EscalationTests(TestCase):
         self.file()
         out = io.StringIO()
         call_command("escalate", stdout=out)
-        self.assertEqual(out.getvalue().strip(), "0 ticket(s) escalated")
+        self.assertEqual(out.getvalue().strip(), "0 ticket(s) escalated, 0 waiting ticket(s) assigned")
 
 
 class ReporterNotificationTests(TestCase):

@@ -5,14 +5,16 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch, Q
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
 from .forms import EscalationTierForm, IncidentForm, LoginForm, RegisterForm, ShiftForm
 from .models import EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team, TeamMember, User
 from .notifications import notify
-from .scheduling import (assign_now, assign_on_creation, assign_waiting, is_lead, on_call_roster, reassign,
-                         validate_schedule, validate_secondary, who_is_on_call)
+from .scheduling import (MAX_ACTIVE_TICKETS, active_ticket_count, assign_now, assign_on_creation,
+                         assign_waiting, is_lead, on_call_roster, on_call_solvers, reassign,
+                         validate_schedule, validate_secondary, who_is_on_call, who_is_secondary_on_call)
 from .timeline import log_event
 
 # A ticket leaves Open only by being assigned, automatically on creation or
@@ -122,11 +124,11 @@ def incident_list(request):
     led_ids = set(Team.objects.filter(lead=request.user).values_list("id", flat=True))
     # A ticket that was waiting for someone to come on call is picked up here
     for team in Team.objects.filter(id__in=team_ids | led_ids):
-        assign_waiting(team, request.user)
+        assign_waiting(team)
     incidents = (
         Incident.objects.filter(is_deleted=False)
         .filter(Q(assigned_team_id__in=team_ids) | Q(assigned_team_id__in=led_ids))
-        .select_related("service", "reported_by")
+        .select_related("service", "reported_by", "assigned_team")
         .order_by("-is_unassigned_after_escalation", "-created_at")
     )
     for i in incidents:
@@ -279,6 +281,9 @@ def incident_delete(request, pk):
         incident.is_deleted = True
         incident.save()
         messages.success(request, f"Ticket #{incident.pk} deleted")
+        # Its solver has room again for a ticket that was waiting
+        if incident.assigned_team:
+            assign_waiting(incident.assigned_team)
     return redirect("profile")
 
 @login_required
@@ -315,9 +320,11 @@ def profile(request):
 def _can_access_incident(user, incident):
     """
     A user may access an incident if they reported it, or they are a solver
-    on the team it is assigned to, or they lead that team.
+    on the team it is assigned to, or they lead that team. An
+    administrator may open any ticket, because the notification about a
+    full queue links to one.
     """
-    if incident.reported_by_id == user.id:
+    if incident.reported_by_id == user.id or user.is_superuser:
         return True
     if user.role == "solver" and incident.assigned_team_id:
         if TeamMember.objects.filter(user=user, team_id=incident.assigned_team_id).exists():
@@ -372,6 +379,9 @@ def incident_transition(request, pk):
     elif new_status == "resolved":
         notify(incident.reported_by, incident, "resolved",
                f"Your ticket #{incident.pk} ({incident.title}) was resolved")
+    if new_status in ("resolved", "closed") and incident.assigned_team:
+        # Its solver has room again for a ticket that was waiting
+        assign_waiting(incident.assigned_team)
     messages.success(request, f"Ticket #{incident.pk} moved to {STATUS_LABELS.get(new_status, new_status)}")
     return redirect("incident_detail", pk=pk)
 
@@ -390,7 +400,7 @@ def incident_detail(request, pk):
         messages.error(request, "You do not have access to that ticket")
         return redirect("incidents")
     if incident.status == "open" and incident.assigned_to_id is None and incident.assigned_team_id:
-        if assign_waiting(incident.assigned_team, request.user):
+        if assign_waiting(incident.assigned_team):
             incident.refresh_from_db()
     timeline = (
         IncidentUpdate.objects.filter(incident=incident)
@@ -399,21 +409,23 @@ def incident_detail(request, pk):
     )
     incident.next_states = ALLOWED_TRANSITIONS.get(incident.status, [])
     team = incident.assigned_team
-    on_call = who_is_on_call(team) if team else None
-    # The lead may hand an active ticket to the solver on call, and only them
-    lead_of_active = (
-        team is not None and is_lead(request.user, team)
-        and incident.status not in ("resolved", "closed") and on_call is not None
-    )
-    can_reassign = lead_of_active and on_call != incident.assigned_to
-    on_call_holds = lead_of_active and on_call == incident.assigned_to
+    # The lead may hand an active ticket to the primary or the secondary on
+    # call right now, and to nobody else. Each one is listed with why they
+    # can or cannot take it.
+    reassign_targets = []
+    if team is not None and is_lead(request.user, team) and incident.status not in ("resolved", "closed"):
+        for role, person in (("primary", who_is_on_call(team)), ("secondary", who_is_secondary_on_call(team))):
+            if person is not None:
+                reassign_targets.append({
+                    "solver": person, "role": role, "holds": person == incident.assigned_to,
+                    "full": active_ticket_count(person) >= MAX_ACTIVE_TICKETS,
+                })
     can_edit = _can_edit(request.user, incident)
     return render(request, "incidents/detail.html", {
         "incident": incident,
         "timeline": timeline,
-        "on_call": on_call,
-        "can_reassign": can_reassign,
-        "on_call_holds": on_call_holds,
+        "reassign_targets": reassign_targets,
+        "max_tickets": MAX_ACTIVE_TICKETS,
         "can_edit": can_edit,
         "can_transition": _can_transition(request.user, incident),
     })
@@ -445,14 +457,24 @@ def incident_comment(request, pk):
 @login_required
 def incident_reassign(request, pk):
     """
-    A team lead hands the ticket to whoever is on call for its team right
-    now. POST only. The rules live in scheduling.reassign.
+    A team lead hands the ticket to the primary or the secondary on call
+    for its team right now. The form posts which one as `solver`; with
+    none posted it is the first of them. POST only. The rules live in
+    scheduling.reassign.
     """
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
     if request.method == "POST":
         team = incident.assigned_team
-        new_solver = who_is_on_call(team) if team else None
-        problem = reassign(incident, new_solver, request.user)
+        on_call = on_call_solvers(team) if team else []
+        chosen = request.POST.get("solver")
+        if chosen:
+            new_solver = next((s for s in on_call if str(s.pk) == chosen), None)
+        else:
+            new_solver = on_call[0] if on_call else None
+        if chosen and new_solver is None and team and is_lead(request.user, team):
+            problem = f"That person is not on call for {team.name} right now"
+        else:
+            problem = reassign(incident, new_solver, request.user)
         if problem:
             messages.error(request, problem)
         else:
@@ -719,4 +741,8 @@ def notifications_read_all(request):
     """Clears the bell. POST only."""
     if request.method == "POST":
         request.user.notifications.filter(read_at__isnull=True).update(read_at=timezone.now())
-    return redirect(request.META.get("HTTP_REFERER") or "home")
+    # Back to the page the bell was on, but never to another site
+    back = request.META.get("HTTP_REFERER", "")
+    if url_has_allowed_host_and_scheme(back, allowed_hosts={request.get_host()}):
+        return redirect(back)
+    return redirect("home")

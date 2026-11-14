@@ -142,13 +142,39 @@ class ReassignmentTests(TestCase):
         self.post_as("lead@x.com")
         self.assertEqual(self.inc.assigned_to, self.tim)
 
-    def test_only_the_solver_on_call_can_receive_it(self):
-        """Whatever is posted, the ticket goes to the person on call right now."""
+    def test_only_a_solver_on_call_can_receive_it(self):
+        """Posting a teammate who is not on call is refused and the ticket stays where it was."""
         bob = User.objects.create_user(username="bob@x.com", email="bob@x.com", password=GOOD_PASSWORD,
                                        first_name="Bob", last_name="Ray", role="solver")
         TeamMember.objects.create(user=bob, team=self.team)
         self.post_as("lead@x.com", bob)
-        self.assertEqual(self.inc.assigned_to, self.jane)
+        self.assertEqual(self.inc.assigned_to, self.tim)
+        html = self.client.get(f"/incidents/{self.inc.pk}/").content.decode()
+        self.assertIn("That person is not on call for Plumbing right now", html)
+
+    def test_lead_reassigns_to_the_secondary_on_call(self):
+        """With Jane primary and Bob secondary, the lead picks Bob and Bob gets it."""
+        bob = User.objects.create_user(username="bob@x.com", email="bob@x.com", password=GOOD_PASSWORD,
+                                       first_name="Bob", last_name="Ray", role="solver")
+        TeamMember.objects.create(user=bob, team=self.team)
+        now = timezone.now()
+        Shift.objects.create(team=self.team, solver=bob, created_by=self.lead, on_call_role="secondary",
+                             starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=1))
+        self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
+        html = self.client.get(f"/incidents/{self.inc.pk}/").content.decode()
+        self.assertIn("Reassign to Jane Okoro (primary on call)", html)
+        self.assertIn("Reassign to Bob Ray (secondary on call)", html)
+        self.post_as("lead@x.com", bob)
+        self.assertEqual(self.inc.assigned_to, bob)
+
+    def test_a_full_solver_is_named_but_gets_no_button(self):
+        for n in range(3):
+            Incident.objects.create(title=f"Other {n}", description="d", service=self.svc, reported_by=self.reporter,
+                                    assigned_team=self.team, assigned_to=self.jane, status="assigned")
+        self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
+        html = self.client.get(f"/incidents/{self.inc.pk}/").content.decode()
+        self.assertIn("Jane Okoro (primary on call) already holds 3 tickets", html)
+        self.assertNotIn('class="reassign-form"', html)
 
     def test_holder_who_is_on_call_cannot_be_reassigned(self):
         """Tim holds it and Tim is on call: the page says so and there is no button."""
@@ -189,7 +215,7 @@ class ReassignmentTests(TestCase):
         """The button names the on-call solver and shows for the lead alone."""
         self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
         html = self.client.get(f"/incidents/{self.inc.pk}/").content.decode()
-        self.assertIn("Reassign to Jane Okoro (on call now)", html)
+        self.assertIn("Reassign to Jane Okoro (primary on call)", html)
         self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
         self.assertNotIn('class="reassign-form"', self.client.get(f"/incidents/{self.inc.pk}/").content.decode())
 

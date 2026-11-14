@@ -58,22 +58,26 @@
     </div>
   {% endif %}
 
-  {% if can_edit or can_reassign or on_call_holds %}
+  {% if can_edit or reassign_targets %}
     <div class="action-bar">
       <span class="field-label">Ticket</span>
       <div class="action-buttons">
         {% if can_edit %}
           <a href="{% url 'incident_edit' incident.pk %}" class="btn-gold">Edit details</a>
         {% endif %}
-        {% if can_reassign %}
-          <form method="post" action="{% url 'incident_reassign' incident.pk %}" class="reassign-form">
-            {% csrf_token %}
-            <button type="submit" class="btn-gold">Reassign to {{ on_call.first_name }} {{ on_call.last_name }} (on call now)</button>
-          </form>
-        {% endif %}
-        {% if on_call_holds %}
-          <p class="muted">{{ on_call.first_name }} {{ on_call.last_name }} is on call and already has this ticket</p>
-        {% endif %}
+        {% for target in reassign_targets %}
+          {% if target.holds %}
+            <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }} is on call and already has this ticket</p>
+          {% elif target.full %}
+            <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }} ({{ target.role }} on call) already holds {{ max_tickets }} tickets</p>
+          {% else %}
+            <form method="post" action="{% url 'incident_reassign' incident.pk %}" class="reassign-form">
+              {% csrf_token %}
+              <input type="hidden" name="solver" value="{{ target.solver.pk }}">
+              <button type="submit" class="btn-gold">Reassign to {{ target.solver.first_name }} {{ target.solver.last_name }} ({{ target.role }} on call)</button>
+            </form>
+          {% endif %}
+        {% endfor %}
       </div>
     </div>
   {% endif %}

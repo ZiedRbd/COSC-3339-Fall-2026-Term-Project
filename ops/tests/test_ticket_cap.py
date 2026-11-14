@@ -1,6 +1,9 @@
 """Nobody holds more than three unfinished tickets: primary fills first, then secondary, then the queue."""
+import io
 from datetime import timedelta
 
+from django.core import mail
+from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
@@ -11,7 +14,9 @@ from ops.scheduling import (
 from ops.tests.helpers import GOOD_PASSWORD
 
 
-class TicketCapTests(TestCase):
+class CapSetup:
+    """A team with a primary, a secondary, a lead and an administrator, and a way to file tickets."""
+
     def setUp(self):
         self.team = Team.objects.create(name="Plumbing")
         self.svc = Service.objects.create(name="Pipes", owning_team=self.team)
@@ -49,6 +54,8 @@ class TicketCapTests(TestCase):
     def holders(self, tickets):
         return [t.assigned_to for t in tickets]
 
+
+class TicketCapTests(CapSetup, TestCase):
     def test_primary_takes_three_then_secondary_takes_three(self):
         tickets = self.file(6)
         self.assertEqual(self.holders(tickets), [self.tim] * 3 + [self.jane] * 3)
@@ -129,3 +136,148 @@ class TicketCapTests(TestCase):
             t.status = status
             t.save()
         self.assertEqual(active_ticket_count(self.tim), 1)
+
+
+class QueueHandOutTests(CapSetup, TestCase):
+    """A waiting ticket is handed out the moment a slot opens, with nobody loading a page."""
+
+    def test_resolving_through_the_page_hands_out_the_waiting_ticket(self):
+        tickets = self.file(7)
+        held = tickets[0]
+        held.status = "in_progress"
+        held.save()
+        self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
+        self.client.post(f"/incidents/{held.pk}/transition/", {"new_status": "resolved"})
+        tickets[-1].refresh_from_db()
+        self.assertEqual((tickets[-1].assigned_to, tickets[-1].status), (self.tim, "assigned"))
+
+    def test_deleting_a_ticket_hands_out_the_waiting_ticket(self):
+        tickets = self.file(7)
+        self.client.login(username="r@x.com", password=GOOD_PASSWORD)
+        self.client.post(f"/incidents/{tickets[0].pk}/delete/")
+        tickets[-1].refresh_from_db()
+        self.assertEqual(tickets[-1].assigned_to, self.tim)
+
+    def test_the_minute_command_hands_out_waiting_tickets(self):
+        Shift.objects.all().delete()
+        ticket = self.file(1)[0]
+        now = timezone.now()
+        Shift.objects.create(team=self.team, solver=self.tim, created_by=self.lead,
+                             starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=7))
+        out = io.StringIO()
+        call_command("escalate", stdout=out)
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.assigned_to, self.tim)
+        self.assertIn("1 waiting ticket(s) assigned", out.getvalue())
+
+    def test_reassigning_a_ticket_away_hands_the_freed_slot_to_the_queue(self):
+        """Jane hands nothing back: Tim gives one of his three to nobody new, so only a resolve frees him."""
+        tickets = self.file(7)
+        tickets[3].status = "resolved"
+        tickets[3].save()
+        self.assertIsNone(reassign(tickets[0], self.jane, self.lead))
+        tickets[-1].refresh_from_db()
+        self.assertEqual(tickets[-1].assigned_to, self.tim)
+
+    def test_an_automatic_hand_out_says_so_and_credits_nobody_else(self):
+        tickets = self.file(7)
+        tickets[0].status = "resolved"
+        tickets[0].save()
+        self.client.login(username="jane@x.com", password=GOOD_PASSWORD)
+        self.client.get("/incidents/list")
+        entry = IncidentUpdate.objects.filter(incident=tickets[-1], update_type="assignment").get()
+        self.assertEqual(entry.body, "Assigned automatically to Tim Diaz, on call for Plumbing")
+        self.assertEqual(entry.author, self.tim)
+
+
+class QueueNotificationTests(CapSetup, TestCase):
+    """Who hears about a waiting ticket, and what the message says."""
+
+    def test_the_lead_is_told_which_ticket_is_waiting_and_is_emailed(self):
+        seventh = self.file(7)[-1]
+        note = Notification.objects.get(user=self.lead, event="queued")
+        self.assertEqual(note.incident, seventh)
+        self.assertIn(f"Ticket #{seventh.pk} (Pipes, low) is waiting", note.message)
+        self.assertIn("everyone on call for Plumbing holds 3 tickets", note.message)
+        self.assertIn(self.lead.email, [m.to[0] for m in mail.outbox])
+
+    def test_a_ticket_whose_escalation_ran_out_is_not_counted_as_waiting(self):
+        """With a flagged ticket on the team, the first waiting ticket still goes to the lead."""
+        Incident.objects.create(title="Old", description="d", service=self.svc, reported_by=self.reporter,
+                                assigned_team=self.team, status="open", is_unassigned_after_escalation=True)
+        self.file(7)
+        self.assertEqual(Notification.objects.filter(user=self.lead, event="queued").count(), 1)
+        self.assertFalse(Notification.objects.filter(user=self.admin).exists())
+
+    def test_with_no_administrator_the_lead_hears_about_every_waiting_ticket(self):
+        self.admin.delete()
+        self.file(8)
+        self.assertEqual(Notification.objects.filter(user=self.lead, event="queued").count(), 2)
+
+    def test_with_no_lead_the_administrator_hears_about_the_first_one(self):
+        self.team.lead = None
+        self.team.save()
+        self.file(7)
+        self.assertEqual(Notification.objects.filter(user=self.admin, event="queued").count(), 1)
+
+    def test_an_inactive_lead_is_not_told(self):
+        self.lead.is_active = False
+        self.lead.save()
+        self.file(7)
+        self.assertFalse(Notification.objects.filter(user=self.lead).exists())
+        self.assertEqual(Notification.objects.filter(user=self.admin, event="queued").count(), 1)
+
+    def test_the_administrator_can_open_the_ticket_the_notification_links_to(self):
+        eighth = self.file(8)[-1]
+        self.client.login(username="admin@x.com", password=GOOD_PASSWORD)
+        note = Notification.objects.get(user=self.admin)
+        resp = self.client.get(f"/notifications/{note.pk}/open/", follow=True)
+        self.assertEqual(resp.redirect_chain[-1][0], f"/incidents/{eighth.pk}/")
+        self.assertNotContains(resp, "You do not have access")
+
+
+class SolverMessageTests(CapSetup, TestCase):
+    """Every message to a solver has the ticket number, the service, the severity and what to do."""
+
+    def assert_complete(self, message, ticket):
+        for part in (f"#{ticket.pk}", "Pipes", "low", "move it to In Progress"):
+            self.assertIn(part, message)
+
+    def test_automatic_assignment(self):
+        ticket = self.file(1)[0]
+        self.assert_complete(Notification.objects.get(user=self.tim).message, ticket)
+
+    def test_reassignment_by_the_lead(self):
+        ticket = self.file(1)[0]
+        reassign(ticket, self.jane, self.lead)
+        note = Notification.objects.get(user=self.jane)
+        self.assert_complete(note.message, ticket)
+        self.assertIn("was reassigned to you", note.message)
+
+    def test_reassigning_a_ticket_already_in_progress_says_to_carry_on(self):
+        ticket = self.file(1)[0]
+        ticket.status = "in_progress"
+        ticket.save()
+        reassign(ticket, self.jane, self.lead)
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.status, "in_progress")
+        self.assertIn("already In Progress", Notification.objects.get(user=self.jane).message)
+
+
+class BellHygieneTests(CapSetup, TestCase):
+    def test_a_deleted_tickets_notifications_leave_the_bell(self):
+        ticket = self.file(1)[0]
+        self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
+        self.assertContains(self.client.get("/profile/"), f"Ticket #{ticket.pk}")
+        ticket.is_deleted = True
+        ticket.save()
+        resp = self.client.get("/profile/")
+        self.assertNotContains(resp, "notification-badge")
+        self.assertContains(resp, "No new notifications")
+
+    def test_mark_all_read_never_sends_the_browser_to_another_site(self):
+        self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
+        resp = self.client.post("/notifications/read-all/", HTTP_REFERER="https://evil.example/steal")
+        self.assertEqual(resp.url, "/")
+        resp = self.client.post("/notifications/read-all/", HTTP_REFERER="http://testserver/profile/")
+        self.assertEqual(resp.url, "http://testserver/profile/")

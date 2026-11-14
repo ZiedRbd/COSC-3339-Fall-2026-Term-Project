@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from .models import Incident, Notification, Shift, TeamMember, User
+from .models import Incident, Shift, Team, TeamMember, User
 from .notifications import notify
 from .timeline import log_event
 
@@ -110,53 +110,91 @@ def assign_now(incident, by, at=None):
         if on_call_solvers(team, at):
             log_event(incident, by, "assignment_failed",
                       f"Everyone on call for {team.name} is full, so this ticket is waiting in the queue")
-            _notify_about_queue(team, incident)
+            _notify_about_queue(team, incident,
+                                f"everyone on call for {team.name} holds {MAX_ACTIVE_TICKETS} tickets")
         else:
             log_event(incident, by, "assignment_failed",
                       f"Nobody is on call for {team.name} right now, so this ticket is waiting to be assigned")
         return None
-    incident.assigned_to = solver
-    incident.status = "assigned"
-    _start_clock(incident, at)
-    incident.save()
-    log_event(incident, by, "assignment",
-              f"Assigned to {_full_name(solver)}, on call for {team.name}",
-              new_assignee=solver)
-    notify(solver, incident, "assigned",
-           f"Ticket #{incident.pk} ({incident.service.name}, {incident.priority}) was assigned to you")
+    _hand_to(incident, solver, by, "assignment", f"Assigned to {_full_name(solver)}, on call for {team.name}",
+             "assigned", "was assigned to you", at)
     return solver
 
 
-def _start_clock(incident, at=None):
+def _start_clock(incident, at=None, level=0):
     """
-    The ticket has a new owner: the escalation stopwatch starts from zero
-    at tier 1. Called on assignment, reassignment and reopen. Does not save.
+    The ticket has a new owner: the escalation stopwatch starts from zero.
+    A fresh assignment, a reassignment and a reopen start at tier 1,
+    which is level 0; an escalation passes the level it moved to. Does
+    not save.
     """
     incident.escalation_timer_started_at = at or timezone.now()
-    incident.escalation_level = 0
+    incident.escalation_level = level
     incident.is_unassigned_after_escalation = False
 
 
-def _notify_about_queue(team, incident):
+def _ticket_label(incident):
+    """How a notification names a ticket: its number, service and severity."""
+    return f"Ticket #{incident.pk} ({incident.service.name}, {incident.priority})"
+
+
+# What every assignment notification asks the solver to do
+TAKE_IT = "Open it and move it to In Progress to take responsibility, or it escalates"
+
+
+def _hand_to(incident, solver, by, update_type, body, event, happened, at=None, level=0):
     """
-    A ticket just joined the queue because everyone on call is full. The
-    lead hears about the first one waiting; every superuser hears about
-    the second and each one after it.
+    The one place a ticket gets an owner. Sets the solver, starts the
+    escalation clock, saves, writes the timeline entry and notifies the
+    solver with the ticket number, service, severity and what to do next.
     """
-    waiting = Incident.objects.filter(
+    old = incident.assigned_to
+    incident.assigned_to = solver
+    if incident.status == "open":
+        incident.status = "assigned"
+    _start_clock(incident, at, level)
+    incident.save()
+    log_event(incident, by or solver, update_type, body, old_assignee=old, new_assignee=solver)
+    action = TAKE_IT if incident.status == "assigned" else "It is already In Progress, so carry on with the work"
+    notify(solver, incident, event, f"{_ticket_label(incident)} {happened}. {action}.")
+
+
+def _waiting(team):
+    """A team's Open tickets that nobody holds and that can be handed out, oldest first."""
+    return Incident.objects.filter(
         assigned_team=team, status="open", assigned_to__isnull=True, is_deleted=False,
-    ).count()
-    if waiting == 1 and team.lead is not None:
-        Notification.objects.create(
-            user=team.lead, incident=incident, event="queued",
-            message=f"Everyone on call for {team.name} is full and a ticket is waiting",
-        )
-    elif waiting >= 2:
-        for admin in User.objects.filter(is_superuser=True, is_active=True):
-            Notification.objects.create(
-                user=admin, incident=incident, event="queued",
-                message=f"Everyone on call for {team.name} is full and {waiting} tickets are waiting",
-            )
+        is_unassigned_after_escalation=False,
+    ).order_by("created_at", "id")
+
+
+def _admins():
+    return list(User.objects.filter(is_superuser=True, is_active=True))
+
+
+def _lead_or_admins(team):
+    """The team's lead, or the administrators when the team has no active lead."""
+    if team.lead is not None and team.lead.is_active:
+        return [team.lead]
+    return _admins()
+
+
+def _notify_about_queue(team, incident, why):
+    """
+    A ticket just started waiting. The lead hears about the first one
+    waiting; the administrators hear about the second and each one after
+    it. A team with no lead tells the administrators, and a site with no
+    administrator tells the lead, so a waiting ticket is never silent.
+    Tickets whose escalation ran out are not part of the queue.
+    """
+    waiting = _waiting(team).count()
+    if waiting <= 1:
+        people, count = _lead_or_admins(team), ""
+    else:
+        people, count = _admins() or _lead_or_admins(team), f" {waiting} tickets are waiting for {team.name}."
+    for person in people:
+        notify(person, incident, "queued",
+               f"{_ticket_label(incident)} is waiting because {why}.{count} "
+               f"It is assigned as soon as a solver on call has room.")
 
 
 def assign_on_creation(incident):
@@ -166,34 +204,35 @@ def assign_on_creation(incident):
 
 def assign_waiting(team, by=None):
     """
-    Every Open, unassigned ticket of this team gets another chance at the
-    solver on call right now. Runs when a schedule changes, when a solver
-    opens the list, when a ticket is opened, and when shifts are seeded, so
-    a ticket filed while nobody was on call is picked up as soon as someone
-    is. Oldest ticket first, each one to whoever on call has room, stopping
-    when nobody does. Quiet when it cannot assign: the ticket already says
-    it is waiting. Returns how many tickets were assigned.
+    Every waiting ticket of this team gets another chance at the solvers
+    on call right now. Runs every minute from the escalate command, and
+    straight away whenever a slot may have opened: a ticket is resolved,
+    closed, deleted or reassigned, a schedule changes, or a solver opens
+    the list. Oldest ticket first, each one to whoever on call has room,
+    stopping when nobody does. Quiet when it cannot assign: the ticket
+    already says it is waiting. Pass the lead whose schedule change set
+    this off as `by`; with nobody, the timeline says it was automatic.
+    Returns how many tickets were assigned.
     """
-    waiting = Incident.objects.filter(
-        assigned_team=team, status="open", assigned_to__isnull=True, is_deleted=False,
-        is_unassigned_after_escalation=False,
-    ).order_by("created_at", "id")
+    how = "Assigned" if by else "Assigned automatically"
     count = 0
-    for incident in waiting:
+    for incident in _waiting(team):
         solver = pick_solver(team)
         if solver is None:
             break
-        incident.assigned_to = solver
-        incident.status = "assigned"
-        _start_clock(incident)
-        incident.save()
-        log_event(incident, by or solver, "assignment",
-                  f"Assigned to {_full_name(solver)}, on call for {team.name}",
-                  new_assignee=solver)
-        notify(solver, incident, "assigned",
-               f"Ticket #{incident.pk} ({incident.service.name}, {incident.priority}) was assigned to you")
+        _hand_to(incident, solver, by, "assignment", f"{how} to {_full_name(solver)}, on call for {team.name}",
+                 "assigned", "was assigned to you")
         count += 1
     return count
+
+
+def assign_all_waiting():
+    """Every team with a waiting ticket gets its queue handed out. Returns how many were assigned."""
+    waiting_teams = Incident.objects.filter(
+        status="open", assigned_to__isnull=True, is_deleted=False, is_unassigned_after_escalation=False,
+        assigned_team__isnull=False,
+    ).values("assigned_team_id")
+    return sum(assign_waiting(team) for team in Team.objects.filter(id__in=waiting_teams))
 
 
 def is_lead(user, team):
@@ -385,16 +424,11 @@ def reassign(incident, new_solver, by):
         return f"{_full_name(new_solver)} already has this ticket"
     if active_ticket_count(new_solver) >= MAX_ACTIVE_TICKETS:
         return f"{_full_name(new_solver)} already holds {MAX_ACTIVE_TICKETS} tickets"
-    incident.assigned_to = new_solver
-    if incident.status == "open":
-        incident.status = "assigned"
-    _start_clock(incident)
-    incident.save()
-    log_event(incident, by, "reassignment",
-              f"Reassigned from {_full_name(old) if old else 'nobody'} to {_full_name(new_solver)}",
-              old_assignee=old, new_assignee=new_solver)
-    notify(new_solver, incident, "assigned",
-           f"Ticket #{incident.pk} ({incident.service.name}, {incident.priority}) was reassigned to you")
+    _hand_to(incident, new_solver, by, "reassignment",
+             f"Reassigned from {_full_name(old) if old else 'nobody'} to {_full_name(new_solver)}",
+             "assigned", "was reassigned to you")
+    # The solver who let go may now have room for a ticket that was waiting
+    assign_waiting(team)
     return None
 
 
