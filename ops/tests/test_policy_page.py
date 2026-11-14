@@ -67,7 +67,7 @@ class PolicyPageTests(TestCase):
 
     def test_the_dropdown_offers_the_lead_and_the_teams_solvers_and_nothing_else(self):
         html = self.client.get(self.url).content.decode()
-        self.assertIn("Team lead (Pat Lee)", html)
+        self.assertIn("Team lead: Pat Lee", html)
         self.assertIn("Tim Diaz", html)
         self.assertNotIn("Ola Ng", html)
         # Administration ends every policy by itself, so it is never a choice in the dropdown
@@ -76,14 +76,79 @@ class PolicyPageTests(TestCase):
         self.assertNotIn("policy.js", html)
 
     def test_the_page_says_how_a_policy_ends(self):
-        self.assertContains(self.client.get(self.url), "the ticket is marked unassigned")
+        self.assertContains(self.client.get(self.url),
+                            "The ticket turns red and unassigned, and you are notified to reassign it.")
 
-    def test_administration_is_shown_as_the_last_tier_of_every_policy(self):
-        page = self.client.get(self.url)
-        self.assertContains(page, "<strong>Administration</strong>")
-        self.assertContains(page, "always the last tier, no wait")
+    # ---- the Administration checkbox
+
+    def tick(self, on):
+        data = {"action": "administration"}
+        if on:
+            data["administration"] = "on"
+        return self.client.post(self.url, data, follow=True)
+
+    def administration(self, team=None):
+        return EscalationTier.objects.filter(team=team or self.team, escalate_to="administration")
+
+    def numbers(self):
+        return list(self.team.escalation_tiers.values_list("tier_number", "escalate_to"))
+
+    def test_administration_is_off_until_the_lead_ticks_the_box(self):
+        page = self.client.get(self.url).content.decode()
+        self.assertIn('<input type="checkbox" name="administration">', page)
+        self.assertNotIn("<td>Administration</td>", page)
+        self.assertFalse(self.administration().exists())
+
+    def test_ticking_the_box_makes_administration_the_last_tier(self):
+        page = self.tick(True)
+        self.assertContains(page, "Administration is now the last tier of this policy")
+        self.assertContains(page, "<td>Administration</td>")
+        self.assertContains(page, '<input type="checkbox" name="administration" checked>')
+        self.assertEqual(self.numbers(), [(1, "on_call"), (2, "administration")])
+        self.tick(True)
+        self.assertEqual(self.administration().count(), 1, "ticking it again adds no second row")
+
+    def test_a_tier_added_while_administration_is_ticked_goes_before_it(self):
+        self.tick(True)
         self.add("lead", 10)
-        self.assertContains(self.client.get(self.url), "<strong>Administration</strong>")
+        self.add(f"user:{self.tim.pk}", 5)
+        self.assertEqual(self.numbers(), [(1, "on_call"), (2, "lead"), (3, "user"), (4, "administration")])
+        page = self.client.get(self.url)
+        self.assertContains(page, "<td>Administration</td>")
+        self.assertContains(page, "Add tier 4")
+
+    def test_removing_a_tier_keeps_administration_last(self):
+        self.tick(True)
+        self.add("lead", 10)
+        self.add(f"user:{self.tim.pk}", 5)
+        self.remove(2)
+        self.assertEqual(self.numbers(), [(1, "on_call"), (2, "user"), (3, "administration")])
+
+    def test_the_administration_row_cannot_be_edited_or_removed_like_a_tier(self):
+        self.tick(True)
+        row = self.administration().get()
+        for action in ("save", "remove"):
+            response = self.client.post(self.url, {"action": action, "tier": row.pk, f"t{row.pk}-wait_minutes": 30})
+            self.assertEqual(response.status_code, 404, action)
+        self.assertEqual(self.administration().get().wait_minutes, row.wait_minutes)
+        self.assertNotContains(self.client.get(self.url), f'form="tier-{row.pk}"')
+
+    def test_unticking_the_box_takes_administration_off_again(self):
+        self.tick(True)
+        page = self.tick(False)
+        self.assertContains(page, "Administration is no longer a tier of this policy")
+        self.assertNotContains(page, "<td>Administration</td>")
+        self.assertFalse(self.administration().exists())
+        self.assertEqual(self.numbers(), [(1, "on_call")])
+
+    def test_the_box_belongs_to_one_team(self):
+        self.tick(True)
+        self.assertFalse(self.administration(self.other).exists())
+
+    def test_only_the_lead_can_tick_the_box(self):
+        self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
+        self.tick(True)
+        self.assertFalse(self.administration().exists())
 
     def test_each_team_has_its_own_policy(self):
         self.add("lead", 10)
@@ -246,7 +311,7 @@ class PolicyPageTests(TestCase):
         self.add(self.person(self.tim), 5)
         self.tim.is_active = False
         self.tim.save()
-        self.assertContains(self.client.get(self.url), "Tim Diaz (not available, tier is skipped)")
+        self.assertContains(self.client.get(self.url), "Tim Diaz, not available, tier is skipped")
 
     # ---- who gets in
 

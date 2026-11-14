@@ -118,6 +118,17 @@
 .team-label { margin: 0 0 4px; font-size: 14px; color: var(--muted); }
 .team-members { margin: 0 0 16px; padding: 0; list-style: none; columns: 2; column-gap: 24px; }
 .team-members li { padding: 3px 0; break-inside: avoid; }
+/* Marks the signed-in person's own name in the list */
+.you-tag {
+    margin-left: 6px;
+    padding: 1px 8px;
+    background: var(--gold-tint);
+    border: 1px solid var(--gold-dark);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #4a3d0a;
+}
 .team-cta {
     display: inline-flex;
     align-items: center;
