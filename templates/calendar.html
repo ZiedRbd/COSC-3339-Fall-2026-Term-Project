@@ -2,23 +2,27 @@
 {% block title %}Calendar{% endblock %}
 
 {% block content %}
-<div class="card wide calendar-card">
-  <div class="calendar-head">
+<div class="page-head">
+  <div>
     <h1 class="form-header">On-call calendar</h1>
-    <nav class="calendar-nav">
-      <a href="?start={{ prev }}" class="btn-small">&larr; Previous week</a>
-      <a href="{% url 'calendar' %}" class="btn-small">This week</a>
-      <a href="?start={{ next }}" class="btn-small">Next week &rarr;</a>
-    </nav>
+    <p class="lead">Who covers each team this week. A solid block is the primary on call. A dashed block is the secondary, who takes tickets once the primary holds three.</p>
   </div>
+  <nav class="calendar-nav" aria-label="Week">
+    <a href="?start={{ prev }}" class="btn-small">Previous week</a>
+    <a href="{% url 'calendar' %}" class="btn-small">This week</a>
+    <a href="?start={{ next }}" class="btn-small">Next week</a>
+  </nav>
+</div>
 
-  {% if messages %}
-    {% for message in messages %}
-      <p class="notice {{ message.tags }}">{{ message }}</p>
-    {% endfor %}
-  {% endif %}
+{% if messages %}
+  {% for message in messages %}
+    <p class="notice {{ message.tags }}">{{ message }}</p>
+  {% endfor %}
+{% endif %}
 
+<div class="card wide calendar-card">
   {% if rows %}
+    <div class="table-scroll">
     <table class="calendar-table">
       <thead>
         <tr>
@@ -48,8 +52,9 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   {% else %}
-    <p class="empty">You are not on any team yet.</p>
+    <p class="empty">You are not on any team yet. A team lead adds solvers to a team.</p>
   {% endif %}
 </div>
 {% endblock %}

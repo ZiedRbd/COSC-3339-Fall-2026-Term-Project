@@ -2,17 +2,22 @@
 {% block title %}{{ team.name }} escalation policy{% endblock %}
 
 {% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="form-header">{{ team.name }}: escalation policy</h1>
+    <p class="lead">A new ticket goes to the on-call solver, who is tier 1. When the person at a tier has not moved the ticket to In Progress within the wait, it goes to the next tier. Critical tickets wait half as long, high three quarters, low twice as long. A tier whose person cannot take the ticket is skipped.</p>
+  </div>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+    <p class="notice {{ message.tags }}">{{ message }}</p>
+  {% endfor %}
+{% endif %}
+
 <div class="card wide">
-  <h1 class="form-header">{{ team.name }}: escalation policy</h1>
-  <p class="lead">A new ticket goes to the on-call solver, who is tier 1. When the person at a tier has not moved the ticket to In Progress within the wait, it goes to the next tier. Critical tickets wait half as long, high three quarters, low twice as long. A tier whose person cannot take the ticket is skipped.</p>
-
-  {% if messages %}
-    {% for message in messages %}
-      <p class="notice {{ message.tags }}">{{ message }}</p>
-    {% endfor %}
-  {% endif %}
-
-  <h2 class="section-title">Tiers</h2>
+  <h2 class="section-title first">Tiers</h2>
+  <div class="table-scroll">
   <table class="incident-table policy-table">
     <thead>
       <tr><th>Tier</th><th>Escalate to</th><th>Wait (minutes)</th><th>Actions</th></tr>
@@ -61,6 +66,7 @@
       </tr>
     </tbody>
   </table>
+  </div>
 
   <h2 class="section-title">Add tier {{ next_number }}</h2>
   <form method="post" class="shift-form">
@@ -72,6 +78,6 @@
     </div>
   </form>
 
-  <a href="{% url 'schedule' team.pk %}" class="back-link">&larr; Back to the schedule</a>
+  <a href="{% url 'schedule' team.pk %}" class="back-link">Back to the schedule</a>
 </div>
 {% endblock %}

@@ -1,21 +1,67 @@
 {% extends "base.html" %}
 {% block title %}Topper Help Desk{% endblock %}
 
-{% block content %}
-<div class="card">
-  <h1 class="form-header">Topper Help Desk</h1>
-  <p class="lead">
-    One place to report anything broken on campus. Plumbing, lighting, heating
-    and cooling, Wi-Fi, printing, classroom technology, and more. File a ticket
-    and the right team takes it from there.
-  </p>
-  <div class="actions">
-    <a href="{% url 'services' %}" class="btn-gold">See our services</a>
-    {% if user.is_authenticated and user.role != "solver" %}
-      <a href="{% url 'form' %}" class="btn-gold">Open a ticket</a>
-    {% elif not user.is_authenticated %}
-      <a href="{% url 'register' %}" class="btn-gold">Get started</a>
-    {% endif %}
+{% block hero %}
+<section class="home-band">
+  <div class="home-band-inner">
+    <div class="home-pitch">
+      <h1>Something broken on campus? Report it once.</h1>
+      <p>
+        Plumbing, lighting, heating and cooling, Wi-Fi, printing, classroom
+        technology. Say what is wrong and where. The team that fixes it has
+        someone on call, and your ticket reaches them straight away.
+      </p>
+      <div class="actions">
+        {% if user.is_authenticated and user.role != "solver" %}
+          <a href="{% url 'form' %}" class="btn-gold">Report a problem</a>
+        {% elif user.is_authenticated %}
+          <a href="{% url 'incidents' %}" class="btn-gold">Open the incident list</a>
+        {% else %}
+          <a href="{% url 'register' %}" class="btn-gold">Create an account</a>
+        {% endif %}
+        <a href="{% url 'services' %}" class="btn-on-navy">See what we fix</a>
+      </div>
+    </div>
+
+    <div class="sample-ticket" role="img" aria-label="Example: ticket 41, No Wi-Fi in the library basement, critical. Filed at 9:02, assigned to the solver on call at 9:02, work started at 9:06, resolved at 9:41.">
+      <div class="sample-top" aria-hidden="true">
+        <div class="sample-stub">
+          <span class="stub-no">No.</span>
+          <span class="stub-number">41</span>
+        </div>
+        <div class="sample-main">
+          <h2>No Wi-Fi in the library basement</h2>
+          <span class="badge critical">Critical</span>
+          <span class="badge resolved">Resolved</span>
+        </div>
+      </div>
+      <ol class="sample-trail" aria-hidden="true">
+        <li><time>9:02</time><span>Filed against Campus Wi-Fi</span></li>
+        <li><time>9:02</time><span>Assigned to Lee, on call for IT Support</span></li>
+        <li><time>9:06</time><span>Lee starts work, and the reporter is told</span></li>
+        <li><time>9:41</time><span>Resolved, and the reporter is told again</span></li>
+      </ol>
+    </div>
   </div>
-</div>
+</section>
+{% endblock %}
+
+{% block content %}
+<section class="home-steps">
+  <h2>What happens to a ticket</h2>
+  <ol class="steps">
+    <li>
+      <h3>It goes to whoever is on call</h3>
+      <p>Each team keeps a solver on call around the clock. Your ticket is theirs the moment you send it, and they are told in the app and by email.</p>
+    </li>
+    <li>
+      <h3>If nobody starts, it moves up</h3>
+      <p>Every team sets how long a ticket may wait. When the time is up it goes to the next person on the team's list, and sooner when the problem is urgent.</p>
+    </li>
+    <li>
+      <h3>You hear back twice</h3>
+      <p>Once when work starts and once when it is fixed. Every step in between is on the ticket's timeline.</p>
+    </li>
+  </ol>
+</section>
 {% endblock %}

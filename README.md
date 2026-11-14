@@ -72,22 +72,23 @@ COSC-3339-Fall-2026-Term-Project/
 │       └── detail.html         One incident with its timeline
 ├── static/
 │   ├── css/
-│   │   ├── base.css            Variables, layout, and typography
-│   │   ├── components.css      Buttons, badges, forms, and navigation
-│   │   ├── incidents.css       Incident list, detail page, and modals
-│   │   ├── profile.css         Profile page and incident columns
-│   │   ├── animations.css      Transitions and entry animations
-│   │   └── calendar.css        On-call calendar grid
+│   │   ├── base.css            Colours, type, page layout, top bar, and the notification bell
+│   │   ├── components.css      Sheets, buttons, forms, notices, tags, tables, and popups
+│   │   ├── incidents.css       The ticket, the incident list, the ticket page, schedule and policy
+│   │   ├── profile.css         Profile page, profile picture, and a reporter's tickets
+│   │   ├── calendar.css        On-call calendar grid
+│   │   ├── pages.css           Home, services, log in, register, and the ticket form
+│   │   └── animations.css      The few things that move, and the reduced-motion rule
 │   ├── js/
 │   │   ├── password.js         Show/hide password and live rule checklist
 │   │   ├── incidents.js        Delete confirmation dialog
 │   │   ├── filter.js           Severity filtering on the incident list
 │   │   ├── transition.js       Confirmation modal for status changes
 │   │   ├── schedule.js         Shift form popup and confirmation on the schedule page
-│   │   ├── notifications.js    Opens and closes the bell's dropdown
-│   │   └── animations.js       Hover and entry animations
+│   │   └── notifications.js    Opens and closes the bell's dropdown
 │   └── images/
-│       └── profile_icon.jpeg   Profile picture
+│       ├── favicon.svg         Browser tab icon
+│       └── profile_icon.jpeg   Picture shown until a user uploads their own
 ├── deploy/
 │   ├── gunicorn.service        systemd unit for the application server
 │   ├── escalate.service        systemd unit that runs one escalation pass
