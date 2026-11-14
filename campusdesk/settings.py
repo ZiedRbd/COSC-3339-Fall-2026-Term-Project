@@ -149,20 +149,29 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
+# Notification emails go out through Gmail when EMAIL_HOST_USER and
+# EMAIL_HOST_PASSWORD are set. Without them the same emails are printed
+# in the terminal, so the site runs with no mail account.
+MAIL_ACCOUNT = os.getenv("EMAIL_HOST_USER", "")
+DEFAULT_FROM_EMAIL = MAIL_ACCOUNT or "campusdesk@localhost"
+
+CONSOLE_MAILER = {"BACKEND": "django.core.mail.backends.console.EmailBackend"}
+GMAIL_MAILER = {
+    "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+    "OPTIONS": {
+        "host": "smtp.gmail.com",
+        "port": 587,
+        "use_tls": True,
+        "username": MAIL_ACCOUNT,
+        "password": os.getenv("EMAIL_HOST_PASSWORD", ""),
+        # A mail server that does not answer must not hold a request open
+        "timeout": 10,
+    },
+}
+
 MAILERS = {
-    "default": {
-        "BACKEND": "django.core.mail.backends.console.EmailBackend",
-    },
-    "notifications": {
-        "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
-        "OPTIONS": {
-            "host": "smtp.gmail.com",
-            "port": 587,
-            "use_tls": True,
-            "username": os.getenv("EMAIL_HOST_USER"),
-            "password": os.getenv("EMAIL_HOST_PASSWORD"),
-        },
-    },
+    "default": CONSOLE_MAILER,
+    "notifications": GMAIL_MAILER if MAIL_ACCOUNT else CONSOLE_MAILER,
 }
 
 # Tests create hundreds of users. The real hasher is deliberately slow, so a

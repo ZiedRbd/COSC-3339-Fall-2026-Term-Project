@@ -195,7 +195,8 @@ class EscalationTier(models.Model):
 
 
 # One message to one person about one ticket. The bell counts rows with
-# no read_at. The minute timer emails rows with no emailed_at.
+# no read_at. emailed_at is when the same message went out by email, and
+# stays empty when the mail server refused it.
 class Notification(models.Model):
     EVENT_CHOICES = [
         ("assigned", "Assigned to you"),
