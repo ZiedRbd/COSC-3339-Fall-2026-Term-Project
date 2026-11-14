@@ -81,36 +81,61 @@ h1, h2 {
     font-size: 15px;
 }
 
-.nav-btn {
+/* Every nav item is the same pill: same height, padding, icon size.
+   Scoped to .navbar so the generic submit-button style cannot resize Log out. */
+.navbar .nav-btn {
     display: inline-flex;
-    background: transparent;
-    border: 1px solid var(--gold);
-    color: var(--gold);
-    text-decoration: none;
-    font-family: var(--font);
-    font-size: 15px;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     height: 40px;
+    padding: 0 14px;
     box-sizing: border-box;
+    background: transparent;
+    border: 1px solid var(--gold);
+    border-radius: 4px;
+    color: var(--gold);
+    font-family: var(--font);
+    font-size: 15px;
+    font-weight: 500;
     line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: none;
+    transition: background 0.15s, color 0.15s, transform 0.15s;
 }
-.nav-btn svg{
+
+.navbar .nav-btn svg {
     width: 18px;
     height: 18px;
     flex-shrink: 0;
     display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
-/* .nav-btn:hover {
+.navbar .nav-btn:hover,
+.navbar .nav-btn:focus-visible {
     background: var(--gold);
     color: var(--navy-dark);
-} */
+}
+
+/* Log out is the one filled button, so it reads as the way out. */
+.navbar .logout-btn {
+    background: var(--gold);
+    color: var(--navy-dark);
+    font-weight: 600;
+}
+
+.navbar .logout-btn:hover,
+.navbar .logout-btn:focus-visible {
+    background: var(--gold-dark);
+    border-color: var(--gold-dark);
+}
 
 /* User-typed text can be one long unbroken string. Wrap it wherever it
    is shown so it never widens the page. */
@@ -128,22 +153,7 @@ h1, h2 {
 }
 
 .nav-notification-btn {
-    background: transparent;
-    border: 1px solid var(--gold);
-    color: var(--gold);
-    border-radius: 4px;
-    padding: 7px 10px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     position: relative;
-    transition: background 0.15s, color 0.15s;
-}
-
-.nav-notification-btn:hover {
-    background: var(--gold);
-    color: var(--navy-dark);
 }
 
 .notification-badge {
@@ -220,20 +230,4 @@ h1, h2 {
     color: var(--muted);
     font-size: 14px;
     text-align: center;
-}
-
-.notification-icon {
-    width: 18px;
-    height: 18px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-}
-.nav-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-.nav-icon svg {
-    display: block;
 }
