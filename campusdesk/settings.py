@@ -145,6 +145,12 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# Files users upload, such as profile pictures. They live outside the
+# code, in media/, and are served at /media/: by Django while DEBUG is on
+# and by nginx on the server.
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration

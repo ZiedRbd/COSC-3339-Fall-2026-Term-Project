@@ -11,7 +11,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
-from .forms import EscalationTierForm, IncidentForm, LoginForm, RegisterForm, ShiftForm
+from .forms import AvatarForm, EscalationTierForm, IncidentForm, LoginForm, RegisterForm, ShiftForm
 from .models import EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team, TeamMember, User
 from .notifications import notify
 from .scheduling import (MAX_ACTIVE_TICKETS, active_ticket_count, assign_all_waiting, assign_now,
@@ -294,12 +294,32 @@ def incident_delete(request, pk):
 @login_required
 def profile(request):
     """
-    Show the logged-in user's profile: identity, an editable bio, and their
-    incidents split into active, closed/resolved, and all filed.
+    Show the logged-in user's profile: identity, a profile picture, an
+    editable bio, and their incidents split into active, closed/resolved,
+    and all filed. A POST saves the bio, or uploads or removes the picture
+    when the form says so in its `action` field.
     """
     if request.method == "POST":
-        request.user.bio = request.POST.get("bio", "")
-        request.user.save()
+        user = request.user
+        action = request.POST.get("action")
+        # The file the user has now, if any, so it can be deleted once it is replaced
+        old_name = user.avatar.name
+        if action == "avatar":
+            form = AvatarForm(request.POST, request.FILES, instance=user)
+            if form.is_valid():
+                form.save()
+                if old_name:
+                    user.avatar.storage.delete(old_name)
+                messages.success(request, "Profile picture updated")
+            else:
+                messages.error(request, form.errors["avatar"][0])
+        elif action == "remove_avatar":
+            if old_name:
+                user.avatar.delete(save=True)
+                messages.success(request, "Profile picture removed")
+        else:
+            user.bio = request.POST.get("bio", "")
+            user.save()
         return redirect("profile")
     team_ids = TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True)
     # Tickets involving the user: ones they filed or ones on their team(s).

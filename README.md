@@ -137,7 +137,7 @@ Full ER diagram: [`docs/ER-DIAGRAM.md`](docs/ER-DIAGRAM.md)
 - **Reporters** file tickets and add comments. From their profile page they can edit or delete their own tickets until a solver starts work on one. The service a ticket was filed against is fixed once it is routed. They cannot change a ticket's status.
 - **Solvers** work the tickets assigned to their team. They move the tickets assigned to them through the lifecycle and add notes; a team lead can move any ticket of the team. They see the full incident list, filtered to their team, and cannot file or delete tickets. Once work starts on a ticket, only the assigned solver can edit its details.
 
-Each role sees a different profile page. A reporter's profile lists the tickets they filed, split into active and closed. A solver's profile lists the teams they belong to and the members of each team.
+Each role sees a different profile page. Any user can upload a profile picture there (JPEG, PNG or WebP, at most 2 MB); it is stored as a file under `media/avatars/`, outside the repository, and can be replaced or removed. A reporter's profile lists the tickets they filed, split into active and closed. A solver's profile lists the teams they belong to and the members of each team.
 
 A reporter's comments and a solver's notes both appear on the ticket timeline, and neither side can edit the other's entries.
 

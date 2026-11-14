@@ -9,6 +9,7 @@ SSH into the server, then:
 ```bash
 cd /srv/campusdesk
 sudo git pull
+sudo venv/bin/pip install -r requirements.txt
 sudo venv/bin/python manage.py migrate
 sudo venv/bin/python manage.py collectstatic --noinput
 sudo systemctl restart campusdesk
@@ -20,6 +21,31 @@ To refresh the demo data, run these before the restart. Both are safe to run aga
 sudo venv/bin/python manage.py seed
 sudo venv/bin/python manage.py seed_shifts
 ```
+
+## Profile pictures
+
+Uploaded pictures are files in `/srv/campusdesk/media/avatars/`. The application writes them, so the folder belongs to the user gunicorn runs as. Create it once:
+
+```bash
+sudo mkdir -p /srv/campusdesk/media
+sudo chown -R www-data:www-data /srv/campusdesk/media
+```
+
+nginx serves the folder and must accept uploads larger than its 1 MB default. Add these lines to the site's `server` block for port 443, as in `deploy/nginx.conf`, then reload:
+
+```
+client_max_body_size 5m;
+
+location /media/ {
+    alias /srv/campusdesk/media/;
+}
+```
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+The `media/` folder is not in the repository, so a deploy never touches the pictures. Back it up with the database.
 
 ## Email
 

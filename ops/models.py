@@ -10,6 +10,9 @@ class User(AbstractUser):
     role = models.CharField(max_length=20, default="reporter")
     created_at = models.DateTimeField(auto_now_add=True)
     bio = models.TextField(blank=True)
+    # Profile picture. The database holds only the file's path under
+    # MEDIA_ROOT; the image itself is a file in media/avatars/.
+    avatar = models.ImageField(upload_to="avatars/", blank=True)
 
 
     def __str__(self):

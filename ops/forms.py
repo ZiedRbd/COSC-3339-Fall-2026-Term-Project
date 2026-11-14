@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from django import forms
 from django.utils import timezone
 
@@ -182,6 +184,35 @@ class ShiftForm(forms.ModelForm):
         elif starts_at < this_hour and starts_at != original_start:
             self.add_error("starts_at", "A shift cannot start in the past")
         return data
+
+
+MAX_AVATAR_BYTES = 2 * 1024 * 1024
+# What Pillow calls each accepted format, and the extension the saved file gets
+AVATAR_FORMATS = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}
+
+
+class AvatarForm(forms.ModelForm):
+    """
+    A profile picture. The ImageField opens the upload with Pillow, so a
+    file that is not really an image is refused whatever it is called.
+    Only JPEG, PNG and WebP are kept, at most 2 MB. The file is renamed
+    after the user, so nothing the uploader typed ends up in a path.
+    """
+    class Meta:
+        model = User
+        fields = ["avatar"]
+
+    def clean_avatar(self):
+        picture = self.cleaned_data.get("avatar")
+        if not picture or not hasattr(picture, "image"):
+            raise forms.ValidationError("Choose a picture to upload")
+        if picture.size > MAX_AVATAR_BYTES:
+            raise forms.ValidationError("That picture is larger than 2 MB")
+        extension = AVATAR_FORMATS.get(picture.image.format)
+        if extension is None:
+            raise forms.ValidationError("Upload a JPEG, PNG or WebP picture")
+        picture.name = f"user-{self.instance.pk}-{uuid4().hex[:12]}{extension}"
+        return picture
 
 
 MAX_TIER_WAIT = 1440
