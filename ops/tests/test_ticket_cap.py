@@ -197,7 +197,7 @@ class QueueNotificationTests(CapSetup, TestCase):
         seventh = self.file(7)[-1]
         note = Notification.objects.get(user=self.lead, event="queued")
         self.assertEqual(note.incident, seventh)
-        self.assertIn(f"Ticket #{seventh.pk} (Pipes, low) is waiting", note.message)
+        self.assertIn(f"Ticket #{seventh.pk} for Pipes, low severity, is waiting", note.message)
         self.assertIn("everyone on call for Plumbing holds 3 tickets", note.message)
         self.assertIn(self.lead.email, [m.to[0] for m in mail.outbox])
 

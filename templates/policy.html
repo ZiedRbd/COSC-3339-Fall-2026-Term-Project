@@ -20,7 +20,7 @@
   <div class="table-scroll">
   <table class="incident-table policy-table">
     <thead>
-      <tr><th>Tier</th><th>Escalate to</th><th>Wait (minutes)</th><th>Actions</th></tr>
+      <tr><th>Tier</th><th>Escalate to</th><th>Wait in minutes</th><th>Actions</th></tr>
     </thead>
     <tbody>
       {% for tier, form in rows %}
@@ -28,7 +28,7 @@
           <td>{{ tier.tier_number }}</td>
           <td>
             {% if tier.tier_number == 1 %}
-              On-call solver <span class="muted">(whoever first gets the ticket)</span>
+              On-call solver<span class="muted">, whoever first gets the ticket</span>
             {% else %}
               {{ form.target }}
             {% endif %}

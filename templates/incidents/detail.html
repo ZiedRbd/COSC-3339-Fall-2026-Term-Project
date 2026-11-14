@@ -85,12 +85,12 @@
           {% if target.holds %}
             <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }} is on call and already has this ticket</p>
           {% elif target.full %}
-            <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }} ({{ target.role }} on call) already holds {{ max_tickets }} tickets</p>
+            <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }}, {{ target.role }} on call, already holds {{ max_tickets }} tickets</p>
           {% else %}
             <form method="post" action="{% url 'incident_reassign' incident.pk %}" class="reassign-form">
               {% csrf_token %}
               <input type="hidden" name="solver" value="{{ target.solver.pk }}">
-              <button type="submit" class="btn-small">Reassign to {{ target.solver.first_name }} {{ target.solver.last_name }} ({{ target.role }} on call)</button>
+              <button type="submit" class="btn-small">Reassign to {{ target.solver.first_name }} {{ target.solver.last_name }}, {{ target.role }} on call</button>
             </form>
             <p class="action-hint">They are notified, and the wait before it escalates starts again.</p>
           {% endif %}

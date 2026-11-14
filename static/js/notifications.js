@@ -35,12 +35,12 @@ document.addEventListener("DOMContentLoaded", function () {
         return text.charAt(0).toUpperCase() + text.slice(1);
     }
 
-    // A solver's message reads "Ticket #6 (Power Outlets, medium) what happened. What to do."
+    // A solver's message reads "Ticket #6 for Power Outlets, medium severity, what happened. What to do."
     // The number is already on the stub, so the service and severity get a line of their own
     // and the rest follows as one quiet sentence. When what happened only repeats the heading
     // ("Assigned to you" over "was assigned to you"), it is said once, in the heading.
     // A message worded any other way is left as it is.
-    const SOLVER_MESSAGE = /^Ticket #\d+ \(([^()]+), (low|medium|high|critical)\) ([\s\S]+)$/;
+    const SOLVER_MESSAGE = /^Ticket #\d+ for (.+), (low|medium|high|critical) severity, ([\s\S]+)$/;
     dropdown.querySelectorAll(".notification-item").forEach(function (item) {
         const text = item.querySelector(".notification-text");
         const kind = item.querySelector(".notification-kind");

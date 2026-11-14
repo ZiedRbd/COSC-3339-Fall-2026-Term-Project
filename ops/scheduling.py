@@ -139,7 +139,7 @@ def _start_clock(incident, at=None, level=0):
 
 def _ticket_label(incident):
     """How a notification names a ticket: its number, service and severity."""
-    return f"Ticket #{incident.pk} ({incident.service.name}, {incident.priority})"
+    return f"Ticket #{incident.pk} for {incident.service.name}, {incident.priority} severity,"
 
 
 # What every assignment notification asks the solver to do
@@ -273,9 +273,9 @@ def _problem(what, a, b, from_now=False):
     """
     a_local, b_local = timezone.localtime(a), timezone.localtime(b)
     if a_local.date() == b_local.date():
-        opens = f"now ({_clock(a)})" if from_now else _clock(a)
+        opens = f"now, {_clock(a)}," if from_now else _clock(a)
         return f"{a_local:%A} is {what} from {opens} to {_clock(b)}"
-    opens = f"now ({a_local:%A} {_clock(a)})" if from_now else f"{a_local:%A} {_clock(a)}"
+    opens = f"now, {a_local:%A} {_clock(a)}," if from_now else f"{a_local:%A} {_clock(a)}"
     return f"{what.capitalize()} from {opens} to {b_local:%A} {_clock(b)}"
 
 
@@ -342,8 +342,8 @@ def validate_schedule(team, proposed, now=None):
     # be the one who starts the next shift on the same team.
     for before, after in zip(shifts, shifts[1:]):
         if before.solver_id == after.solver_id and after.starts_at == before.ends_at:
-            errors.append(f"{_full_name(after.solver)} cannot take two shifts in a row on {team.name} "
-                          f"({_window(before.starts_at, after.ends_at)})")
+            errors.append(f"{_full_name(after.solver)} cannot take two shifts in a row on {team.name}: "
+                          f"{_window(before.starts_at, after.ends_at)}")
 
     # Walk forward from now. Each shift should start exactly where the
     # cursor stands: later is a gap, earlier is a double booking. A shift

@@ -67,7 +67,7 @@ class PolicyPageTests(TestCase):
 
     def test_the_dropdown_offers_the_lead_and_the_teams_solvers_and_nothing_else(self):
         html = self.client.get(self.url).content.decode()
-        self.assertIn("Team lead (Pat Lee)", html)
+        self.assertIn("Team lead: Pat Lee", html)
         self.assertIn("Tim Diaz", html)
         self.assertNotIn("Ola Ng", html)
         # Administration ends every policy by itself, so it is never a choice in the dropdown
@@ -311,7 +311,7 @@ class PolicyPageTests(TestCase):
         self.add(self.person(self.tim), 5)
         self.tim.is_active = False
         self.tim.save()
-        self.assertContains(self.client.get(self.url), "Tim Diaz (not available, tier is skipped)")
+        self.assertContains(self.client.get(self.url), "Tim Diaz, not available, tier is skipped")
 
     # ---- who gets in
 

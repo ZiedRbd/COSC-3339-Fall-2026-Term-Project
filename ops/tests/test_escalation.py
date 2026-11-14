@@ -344,7 +344,7 @@ class EscalationEdgeTests(TestCase):
                       self.last_entry(inc))
         for person in (admin, self.lead):
             note = Notification.objects.get(user=person, event="administration")
-            self.assertIn(f"Ticket #{inc.pk} (Pipes, high) escalated to administration", note.message)
+            self.assertIn(f"Ticket #{inc.pk} for Pipes, high severity, escalated to administration", note.message)
             self.assertEqual(note.get_event_display(), "Escalated to administration")
         self.assertIn("Open it and reassign it to a solver on call",
                       Notification.objects.get(user=self.lead, event="administration").message)

@@ -229,8 +229,8 @@ def incident_edit(request, pk):
             old = {
                 "Title": incident.title,
                 "Description": incident.description,
-                "Building": incident.building or "(none)",
-                "Room": incident.room or "(none)",
+                "Building": incident.building or "none",
+                "Room": incident.room or "none",
             }
             old_severity = incident.priority
             incident.title = form.cleaned_data["title"]
@@ -247,8 +247,8 @@ def incident_edit(request, pk):
             new = {
                 "Title": incident.title,
                 "Description": incident.description,
-                "Building": incident.building or "(none)",
-                "Room": incident.room or "(none)",
+                "Building": incident.building or "none",
+                "Room": incident.room or "none",
             }
             for field in old:
                 if old[field] != new[field]:
@@ -404,10 +404,10 @@ def incident_transition(request, pk):
         assign_now(incident, request.user)
     elif new_status == "in_progress":
         notify(incident.reported_by, incident, "work_started",
-               f"Work has started on your ticket #{incident.pk} ({incident.title}).")
+               f"Work has started on your ticket #{incident.pk}, {incident.title}.")
     elif new_status == "resolved":
         notify(incident.reported_by, incident, "resolved",
-               f"Your ticket #{incident.pk} ({incident.title}) was resolved.")
+               f"Your ticket #{incident.pk}, {incident.title}, was resolved.")
     if new_status in ("resolved", "closed"):
         # Its solver has room again for a ticket that was waiting, on any team they cover
         assign_all_waiting()
@@ -480,7 +480,7 @@ def incident_comment(request, pk):
     if request.method == "POST":
         body = request.POST.get("body", "").strip()
         if len(body) > 1000:
-            messages.error(request, "Comment is too long (1000 characters max)")
+            messages.error(request, "Comment is too long. The limit is 1000 characters")
             return redirect("incident_detail", pk=pk)
         if body:
             update_type = "solver_note" if request.user.role == "solver" else "comment"
