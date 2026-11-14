@@ -1,6 +1,7 @@
 """Who is on call, checking a schedule, and handing tickets to people."""
 from datetime import timedelta
 
+from django.db import transaction
 from django.utils import timezone
 
 from .models import Incident, Shift, Team, TeamMember, User
@@ -436,78 +437,116 @@ def escalate_due(now=None):
     """
     Runs once a minute. Looks at every Assigned ticket, works out how long
     it may wait at its current tier, and moves the ones that waited too
-    long. Returns how many moved.
+    long. Each ticket is read again and locked just before it is judged,
+    so a solver who starts work while the job runs keeps the ticket.
+    Returns how many moved.
     """
     now = now or timezone.now()
     moved = 0
-    tickets = Incident.objects.filter(
-        status="assigned", is_deleted=False, assigned_team__isnull=False,
-        escalation_timer_started_at__isnull=False,
-    ).select_related("assigned_team", "assigned_to", "service")
-    for incident in tickets:
-        tier = _tier(incident.assigned_team, incident.escalation_level + 1)
-        if tier is None or tier.wait_minutes is None:
-            continue
-        allowed = timedelta(minutes=tier.wait_minutes * SEVERITY_FACTOR.get(incident.priority, 1))
-        waited = now - incident.escalation_timer_started_at
-        if waited >= allowed:
-            _move_up(incident, tier, now)
-            moved += 1
+    due = Incident.objects.filter(status="assigned", is_deleted=False, assigned_team__isnull=False)
+    for pk in list(due.values_list("pk", flat=True)):
+        with transaction.atomic():
+            incident = (
+                Incident.objects.select_for_update(of=("self",))
+                .select_related("assigned_team", "assigned_to", "service")
+                .filter(pk=pk, status="assigned", is_deleted=False, assigned_team__isnull=False)
+                .first()
+            )
+            if incident is not None and _escalate_if_overdue(incident, now):
+                moved += 1
     return moved
 
 
-def _tier(team, number):
-    """Tier number 1, 2, 3... of a team's policy, or None if there is no such tier."""
-    return team.escalation_tiers.filter(tier_number=number).select_related("escalate_to_user").first()
+def _minutes(amount):
+    """A wait in words: 7.5 is "7.5 minutes", 5.0 is "5 minutes", 1 is "1 minute"."""
+    return f"{amount:g} minute{'' if amount == 1 else 's'}"
 
 
-def _person_at(tier, team):
-    """The person a tier points at right now. None means nobody: the policy ends here."""
-    if tier is None or tier.escalate_to == "administration":
-        return None
+def _escalate_if_overdue(incident, now):
+    """Move one Assigned ticket up if it has waited out its tier. True when it moved."""
+    if incident.escalation_timer_started_at is None:
+        # Assigned before the clock existed, so its wait starts now
+        incident.escalation_timer_started_at = now
+        incident.save(update_fields=["escalation_timer_started_at"])
+        return False
+    tiers = list(incident.assigned_team.escalation_tiers.select_related("escalate_to_user").order_by("tier_number"))
+    if not tiers:
+        return False
+    # escalation_level counts the tiers the ticket has left behind, so it is
+    # the position of the tier it sits at. If the lead has shortened the
+    # policy since, a ticket that was further along sits at the last tier.
+    position = min(incident.escalation_level, len(tiers) - 1)
+    minutes = (tiers[position].wait_minutes or 0) * SEVERITY_FACTOR.get(incident.priority, 1)
+    if now - incident.escalation_timer_started_at < timedelta(minutes=minutes):
+        return False
+    _move_up(incident, tiers, position, minutes, now)
+    return True
+
+
+def _person_at(tier, team, holder):
+    """
+    Who a tier can give the ticket to right now, or None. Never the person
+    who already holds it, never anyone deactivated or already holding
+    MAX_ACTIVE_TICKETS, and a named person only while they are still a
+    solver on the team.
+    """
     if tier.escalate_to == "on_call":
-        return pick_solver(team)
-    if tier.escalate_to == "lead":
-        person = team.lead
-    else:
+        candidates = on_call_solvers(team)
+    elif tier.escalate_to == "lead":
+        candidates = [team.lead]
+    elif tier.escalate_to == "user":
         person = tier.escalate_to_user
-    if person is not None and person.is_active:
-        return person
+        on_team = (person is not None and person.role == "solver"
+                   and TeamMember.objects.filter(user=person, team=team).exists())
+        candidates = [person] if on_team else []
+    else:
+        candidates = []
+    for person in candidates:
+        if (person is not None and person.is_active and person != holder
+                and active_ticket_count(person) < MAX_ACTIVE_TICKETS):
+            return person
     return None
 
 
-def _move_up(incident, tier, now):
+def _move_up(incident, tiers, position, minutes, now):
     """
-    One overdue ticket leaves its tier. If somebody is at the next tier,
-    they get it and the clock restarts. If nobody is, the ticket goes
+    An overdue ticket leaves its tier for the first later tier that has
+    somebody to take it. A tier with nobody available is passed over and
+    named on the timeline. When no later tier has anyone, the ticket goes
     back to Open, is flagged as unassigned, and the lead is told.
     """
     team = incident.assigned_team
-    next_tier = _tier(team, tier.tier_number + 1)
-    person = _person_at(next_tier, team)
-    old = incident.assigned_to
-    reason = f"{_full_name(old)} did not start work within {tier.wait_minutes} minutes"
-
-    incident.escalation_level = tier.tier_number
+    holder = incident.assigned_to
+    author = holder or incident.reported_by
+    severity = "" if SEVERITY_FACTOR.get(incident.priority, 1) == 1 else f" for a {incident.priority} ticket"
+    reason = f"{_full_name(holder) if holder else 'Nobody'} did not start work within {_minutes(minutes)}{severity}"
     incident.escalated_at = now
+
+    passed = []
+    for index in range(position + 1, len(tiers)):
+        if tiers[index].escalate_to == "administration":
+            break
+        person = _person_at(tiers[index], team, holder)
+        if person is not None:
+            skipped = ""
+            if passed:
+                skipped = f" {'Tiers' if len(passed) > 1 else 'Tier'} {' and '.join(passed)} had nobody available."
+            _hand_to(incident, person, author, "escalation",
+                     f"{reason}.{skipped} Escalated to tier {index + 1}: {_full_name(person)}",
+                     "escalated", f"escalated to you at tier {index + 1}", at=now, level=index)
+            return
+        passed.append(str(index + 1))
+
+    incident.assigned_to = None
+    incident.status = "open"
+    incident.is_unassigned_after_escalation = True
+    incident.escalation_level = position + 1
     incident.escalation_timer_started_at = now
-
-    if person is None:
-        incident.assigned_to = None
-        incident.status = "open"
-        incident.is_unassigned_after_escalation = True
-        incident.save()
-        log_event(incident, old, "escalation",
-                  f"{reason}. Escalation ran out: this ticket is unassigned and needs attention",
-                  old_assignee=old)
-        notify(team.lead, incident, "final_escalation",
-               f"Ticket #{incident.pk} ({incident.service.name}, {incident.priority}) ran out of escalation tiers and is unassigned")
-        return
-
-    incident.assigned_to = person
     incident.save()
-    log_event(incident, old, "escalation",
-              f"{reason}. Escalated to tier {next_tier.tier_number}: {_full_name(person)}",
-              old_assignee=old, new_assignee=person)
-    notify(person, incident, "escalated",
-           f"Ticket #{incident.pk} ({incident.service.name}, {incident.priority}) escalated to you at tier {next_tier.tier_number}")
+    log_event(incident, author, "escalation",
+              f"{reason}. Escalation ran out: this ticket is unassigned and needs attention",
+              old_assignee=holder)
+    for person in _lead_or_admins(team):
+        notify(person, incident, "final_escalation",
+               f"{_ticket_label(incident)} ran out of escalation tiers and is unassigned. "
+               f"Open it and reassign it to a solver on call.")

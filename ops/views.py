@@ -3,6 +3,7 @@ from datetime import date, datetime, time, timedelta
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Prefetch, Q
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -334,13 +335,15 @@ def _can_access_incident(user, incident):
 
 
 @login_required
+@transaction.atomic
 def incident_transition(request, pk):
     """
     Move an incident to a new status. Only solvers may do this, and only
     along a transition the state machine allows. Every successful move is
-    recorded as an IncidentUpdate row for the timeline.
+    recorded as an IncidentUpdate row for the timeline. The ticket is locked
+    while it changes, so the minute job cannot escalate it at the same moment.
     """
-    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    incident = get_object_or_404(Incident.objects.select_for_update(of=("self",)), pk=pk, is_deleted=False)
     if not _can_access_incident(request.user, incident):
         messages.error(request, "You do not have access to that ticket")
         return redirect("incidents")
