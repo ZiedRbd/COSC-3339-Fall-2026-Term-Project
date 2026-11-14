@@ -249,60 +249,155 @@ a { color: var(--navy); }
     line-height: 1;
 }
 
+/* The bell's list is a short stack of ticket stubs. Each one carries
+   the ticket number on a stub in the colour of what happened, then what
+   happened, which ticket it is, and what to do about it. */
 .notification-dropdown {
     display: none;
     position: absolute;
     top: calc(100% + 10px);
     right: 0;
-    width: min(380px, calc(100vw - 24px));
+    width: min(450px, calc(100vw - 24px));
     background: var(--sheet);
     border: 1px solid var(--rule);
-    border-radius: 8px;
+    border-radius: 12px;
     box-shadow: var(--shadow-float);
     color: var(--ink);
     overflow: hidden;
     z-index: 60;
 }
-.notification-dropdown.active { display: block; }
+.notification-dropdown.active { display: flex; flex-direction: column; }
 
 .notification-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 8px;
-    padding: 12px 14px;
+    gap: 12px;
+    padding: 16px 18px 14px;
+    background: #ffffff;
+    border-bottom: 1px solid var(--rule-soft);
+}
+.notification-heading { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.notification-title {
     font-family: var(--display);
     font-weight: 700;
-    font-size: 18px;
+    font-size: 21px;
+    line-height: 1.1;
     color: var(--navy-dark);
-    border-bottom: 2px solid var(--navy-dark);
 }
+.notification-count { font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .notification-read-all { margin: 0; }
+/* A quiet text button: clearing the list is not the main thing to do here */
+.notification-clear {
+    margin-right: -8px;
+    padding: 6px 8px;
+    background: none;
+    border: 0;
+    border-radius: 6px;
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--navy);
+    white-space: nowrap;
+    cursor: pointer;
+}
+.notification-clear:hover { background: var(--blue-tint); }
 
-.notification-list { max-height: 360px; overflow-y: auto; }
+.notification-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: min(62vh, 540px);
+    padding: 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule) transparent;
+}
 
-/* What happened decides the colour of the bar on the left */
+/* One notification. --stock is the stub's paper, --stub-ink what is printed on it. */
 .notification-item {
-    display: block;
-    padding: 11px 14px 11px 12px;
-    border-left: 4px solid var(--navy);
-    border-bottom: 1px solid var(--rule-soft);
+    --stock: var(--stock-assigned);
+    --stub-ink: var(--navy-dark);
+    display: grid;
+    grid-template-columns: 60px minmax(0, 1fr);
+    flex: none;
+    background: #ffffff;
+    border: 1px solid var(--rule-soft);
+    border-radius: 8px;
     color: inherit;
     text-decoration: none;
-    font-size: 14px;
-    line-height: 1.4;
+    overflow: hidden;
+    transition: border-color 0.12s;
 }
-.notification-item:last-child { border-bottom: 0; }
-.notification-item:hover { background: #ffffff; }
-.notification-item.notification-assigned { border-left-color: var(--navy); }
-.notification-item.notification-escalated { border-left-color: var(--amber); }
-.notification-item.notification-final_escalation,
-.notification-item.notification-queued { border-left-color: var(--red); }
-.notification-item.notification-work_started { border-left-color: var(--gold-dark); }
-.notification-item.notification-resolved { border-left-color: var(--green); }
+.notification-item:hover { border-color: var(--navy); }
+.notification-item:focus-visible { outline: 3px solid var(--gold); outline-offset: 1px; }
 
-.notification-time { display: block; margin-top: 3px; font-size: 13px; color: var(--muted); }
-.notification-empty { padding: 18px 14px; color: var(--muted); font-size: 14px; }
+.notification-stub {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 10px 4px;
+    background: var(--stock);
+    border-right: 2px dashed rgba(27, 29, 58, 0.28);
+    color: var(--stub-ink);
+}
+.notification-no { font-size: 11px; line-height: 1; opacity: 0.75; }
+.notification-number { font-family: var(--display); font-size: 22px; font-weight: 700; line-height: 1; }
+
+.notification-body { display: block; min-width: 0; padding: 11px 14px 12px; }
+.notification-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.notification-kind { font-size: 15px; font-weight: 700; line-height: 1.25; color: var(--navy-dark); }
+.notification-time {
+    flex: none;
+    font-size: 12.5px;
+    color: var(--muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.notification-text { display: block; margin-top: 4px; font-size: 14px; line-height: 1.45; color: var(--ink); }
+
+/* The two lines the script lays a solver's message out in */
+.notification-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+}
+.notification-sev { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.notification-sev::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--sev, #8a8fa8);
+}
+.notification-detail { display: block; margin-top: 5px; font-size: 13.5px; color: var(--muted); }
+
+/* What happened decides the stub: the paper of the status the ticket is in,
+   and red when its escalation ran out, as on the incident list */
+.notification-escalated { --stock: var(--stock-in_progress); --stub-ink: #5e2a00; }
+.notification-queued { --stock: var(--stock-open); }
+.notification-work_started { --stock: var(--stock-in_progress); }
+.notification-resolved { --stock: var(--stock-resolved); --stub-ink: #14532a; }
+.notification-final_escalation { --stock: var(--red); --stub-ink: #ffffff; }
+.notification-final_escalation .notification-stub { border-right-color: rgba(255, 255, 255, 0.55); }
+.notification-final_escalation .notification-kind { color: var(--red); }
+
+.notification-empty { padding: 34px 18px; text-align: center; color: var(--muted); font-size: 15px; }
+.notification-foot {
+    padding: 10px 18px;
+    background: #ffffff;
+    border-top: 1px solid var(--rule-soft);
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+}
 
 /* ---------- Small screens ---------- */
 @media (max-width: 980px) {

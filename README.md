@@ -87,7 +87,7 @@ COSC-3339-Fall-2026-Term-Project/
 │   │   ├── filter.js           Severity filtering on the incident list
 │   │   ├── transition.js       Confirmation modal for status changes
 │   │   ├── schedule.js         Shift form popup and confirmation on the schedule page
-│   │   └── notifications.js    Opens and closes the bell's dropdown
+│   │   └── notifications.js    Opens and closes the bell's list and lays out each notification
 │   └── images/
 │       ├── favicon.svg         Browser tab icon
 │       └── profile_icon.jpeg   Picture shown until a user uploads their own
