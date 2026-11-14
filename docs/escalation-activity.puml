@@ -1,0 +1,57 @@
+@startuml CampusDesk escalation activity
+skinparam shadowing false
+skinparam roundCorner 8
+skinparam ArrowColor #555555
+skinparam activity {
+  BackgroundColor #FAFAFA
+  BorderColor #444444
+  DiamondBackgroundColor #DDE7F0
+  DiamondBorderColor #444444
+}
+
+title Escalation process of one ticket
+
+start
+:Reporter submits a ticket;
+:Ticket is routed to the team that owns the service;
+
+if (Primary on call holds\nfewer than 3 tickets?) then (yes)
+  :Assign to the primary;
+elseif (Secondary on call holds\nfewer than 3 tickets?) then (yes)
+  :Assign to the secondary;
+else (no)
+  :Ticket waits: Open, unassigned;
+  :Notify the team lead (first waiting ticket)\nor the administrator (second and later);
+  :Wait until someone on call has room\n(checked every minute, oldest ticket first);
+  :Assign to that solver;
+endif
+
+:Status = Assigned, ticket is at tier 1\nClock starts (escalation_timer_started_at)\nSolver notified in the app and by email;
+
+while (Every minute the server runs\n**manage.py escalate**.\nIs the ticket still Assigned?) is (yes)
+  if (Time at this tier >=\ntier wait x severity factor?) then (yes)
+    if (Does a later tier name a person who is active,\non the team, holds fewer than 3 tickets\nand is not the current holder?) then (yes)
+      :Assign to that tier's person\nClock starts again\nTimeline records who and how long\nOnly the new solver is notified;
+    else (no)
+      #FFCFCA:Policy ran out\nStatus = Open, unassigned, flagged\nShown in red, first in the incident list\nTeam lead notified\n(administrators if the team has no active lead);
+      stop
+    endif
+  else (no)
+    :Nothing changes;
+  endif
+endwhile (no, the solver\nmoved it to In Progress)
+
+:Clock stops, the ticket is never escalated again\nReporter notified: work started;
+:Solver resolves the ticket\nReporter notified: resolved;
+stop
+
+floating note right
+  Severity factor on every wait:
+  critical 0.5, high 0.75, medium 1, low 2
+
+  A reopened ticket, and a ran-out ticket the
+  lead reassigns, start again at tier 1
+  with a fresh clock.
+end note
+
+@enduml

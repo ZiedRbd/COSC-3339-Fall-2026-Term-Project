@@ -14,6 +14,8 @@ erDiagram
     TEAM o|--o{ INCIDENT : "assigned team"
     INCIDENT ||--o{ INCIDENT_UPDATE : "has"
     USER ||--o{ INCIDENT_UPDATE : "writes"
+    USER o|--o{ INCIDENT_UPDATE : "old assignee"
+    USER o|--o{ INCIDENT_UPDATE : "new assignee"
     TEAM ||--o{ SHIFT : "has"
     USER ||--o{ SHIFT : "covers"
     USER ||--o{ SHIFT : "scheduled by"
@@ -31,6 +33,7 @@ erDiagram
         string last_name
         string role "reporter or solver"
         string bio
+        string avatar "optional, path of the profile picture file under media/"
         bool is_active
         datetime created_at
     }
