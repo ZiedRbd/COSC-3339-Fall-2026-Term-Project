@@ -9,14 +9,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&family=Zilla+Slab:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=34">
-    <link rel="stylesheet" href="{% static 'css/components.css' %}?v=34">
-    <link rel="stylesheet" href="{% static 'css/incidents.css' %}?v=34">
-    <link rel="stylesheet" href="{% static 'css/profile.css' %}?v=34">
-    <link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=34">
-    <link rel="stylesheet" href="{% static 'css/pages.css' %}?v=34">
-    <link rel="stylesheet" href="{% static 'css/animations.css' %}?v=34">
-    <script src="{% static 'js/notifications.js' %}?v=3" defer></script>
+    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=35">
+    <link rel="stylesheet" href="{% static 'css/components.css' %}?v=35">
+    <link rel="stylesheet" href="{% static 'css/incidents.css' %}?v=35">
+    <link rel="stylesheet" href="{% static 'css/profile.css' %}?v=35">
+    <link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=35">
+    <link rel="stylesheet" href="{% static 'css/pages.css' %}?v=35">
+    <link rel="stylesheet" href="{% static 'css/animations.css' %}?v=35">
+    <script src="{% static 'js/notifications.js' %}?v=4" defer></script>
     {% block extra_js %}{% endblock %}
 </head>
 <body class="base-body">
@@ -75,7 +75,7 @@
                 </a>
             {% endif %}
             <div class="nav-notification-wrapper">
-                <button type="button" class="nav-btn nav-notification-btn" id="notificationBtn" aria-label="Notifications" aria-haspopup="true">
+                <button type="button" class="nav-btn nav-notification-btn" id="notificationBtn" aria-label="Notifications" aria-haspopup="true" aria-expanded="false" aria-controls="notificationDropdown">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                         <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
@@ -87,24 +87,39 @@
                 </button>
 
                 <div class="notification-dropdown" id="notificationDropdown">
-                    <div class="notification-header">Notifications
+                    <div class="notification-header">
+                        <div class="notification-heading">
+                            <span class="notification-title">Notifications</span>
+                            {% if unread_count %}<span class="notification-count">{{ unread_count }} unread</span>{% endif %}
+                        </div>
                         {% if unread_count %}
                             <form method="post" action="{% url 'notifications_read_all' %}" class="notification-read-all">
                                 {% csrf_token %}
-                                <button type="submit" class="btn-small">Mark all read</button>
+                                <button type="submit" class="notification-clear">Mark all read</button>
                             </form>
                         {% endif %}
                     </div>
                     <div class="notification-list">
                         {% for note in unread_notifications %}
                             <a href="{% url 'notification_open' note.pk %}" class="notification-item notification-{{ note.event }}">
-                                <span class="notification-text">{{ note.message }}</span>
-                                <span class="notification-time">{{ note.created_at|date:"M j, g:i A" }}</span>
+                                <span class="notification-stub" aria-hidden="true">
+                                    {% if note.incident_id %}<span class="notification-no">No.</span><span class="notification-number">{{ note.incident_id }}</span>{% endif %}
+                                </span>
+                                <span class="notification-body">
+                                    <span class="notification-top">
+                                        <span class="notification-kind">{{ note.get_event_display }}</span>
+                                        <time class="notification-time" datetime="{{ note.created_at|date:'c' }}">{{ note.created_at|date:"M j, g:i A" }}</time>
+                                    </span>
+                                    <span class="notification-text">{{ note.message }}</span>
+                                </span>
                             </a>
                         {% empty %}
                             <div class="notification-empty">No new notifications</div>
                         {% endfor %}
                     </div>
+                    {% if unread_count > unread_notifications|length %}
+                        <div class="notification-foot">Showing the {{ unread_notifications|length }} newest of {{ unread_count }}</div>
+                    {% endif %}
                 </div>
             </div>
 

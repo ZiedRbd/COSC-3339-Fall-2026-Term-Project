@@ -23,45 +23,16 @@
       </div>
     </div>
 
-    <div class="sample-ticket" role="img" aria-label="Example: ticket 41, No Wi-Fi in the library basement, critical. Filed at 9:02, assigned to the solver on call at 9:02, work started at 9:06, resolved at 9:41.">
-      <div class="sample-top st-resolved" aria-hidden="true">
-        <div class="sample-stub">
-          <span class="stub-no">No.</span>
-          <span class="stub-number">41</span>
-        </div>
-        <div class="sample-main">
-          <h2>No Wi-Fi in the library basement</h2>
-          <span class="badge critical">Critical</span>
-          <span class="badge resolved">Resolved</span>
-        </div>
-      </div>
-      <ol class="sample-trail" aria-hidden="true">
-        <li><time>9:02</time><span>Filed against Campus Wi-Fi</span></li>
-        <li><time>9:02</time><span>Assigned to Lee, on call for IT Support</span></li>
-        <li><time>9:06</time><span>Lee starts work, and the reporter is told</span></li>
-        <li><time>9:41</time><span>Resolved, and the reporter is told again</span></li>
+    <div class="ticket-key">
+      <h2>A ticket changes colour as it moves</h2>
+      <ol class="key-list">
+        <li class="key-strip st-open"><span class="key-stub">Open</span><span class="key-main">Filed, and waiting for a solver</span></li>
+        <li class="key-strip st-assigned"><span class="key-stub">Assigned</span><span class="key-main">With a solver, who has been told</span></li>
+        <li class="key-strip st-in_progress"><span class="key-stub">In Progress</span><span class="key-main">A solver has started work</span></li>
+        <li class="key-strip st-resolved"><span class="key-stub">Resolved</span><span class="key-main">Fixed, and the reporter is told</span></li>
+        <li class="key-strip st-closed"><span class="key-stub">Closed</span><span class="key-main">Finished and filed away</span></li>
       </ol>
     </div>
   </div>
-</section>
-{% endblock %}
-
-{% block content %}
-<section class="home-steps">
-  <h2>What happens to a ticket</h2>
-  <ol class="steps">
-    <li>
-      <h3>It goes to whoever is on call</h3>
-      <p>Each team keeps a solver on call around the clock. Your ticket is theirs the moment you send it, and they are told in the app and by email.</p>
-    </li>
-    <li>
-      <h3>If nobody starts, it moves up</h3>
-      <p>Every team sets how long a ticket may wait. When the time is up it goes to the next person on the team's list, and sooner when the problem is urgent.</p>
-    </li>
-    <li>
-      <h3>You hear back twice</h3>
-      <p>Once when work starts and once when it is fixed. Every step in between is on the ticket's timeline.</p>
-    </li>
-  </ol>
 </section>
 {% endblock %}
