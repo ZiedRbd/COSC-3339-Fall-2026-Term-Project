@@ -39,7 +39,7 @@ class ShiftSeederTests(TestCase):
         self.now = timezone.now()
 
     def shifts_for(self, name):
-        return list(Shift.objects.filter(team__name=name).order_by("starts_at"))
+        return list(Shift.objects.filter(team__name=name, on_call_role="primary").order_by("starts_at"))
 
     def test_every_team_is_covered_with_no_gaps(self):
         """Each shift starts exactly where the previous one ended, starting before now."""

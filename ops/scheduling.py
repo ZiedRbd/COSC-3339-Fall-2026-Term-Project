@@ -74,24 +74,19 @@ def pick_solver(team, at=None):
     return None
 
 
-def on_call_roster(team, window_start, window_end):
+def on_call_roster(team, window_start, window_end, on_call_role="primary"):
     """
     All shifts for a team that fall inside a time window, for example one
     week of the calendar. A shift counts if any part of it is inside the
     window, so a shift that starts before the window but ends inside it
     is included. The list is sorted by start time, so the first item is
-    the shift that starts soonest.
+    the shift that starts soonest. Primary shifts by default; pass
+    on_call_role=None for both roles.
     """
-    return (
-        Shift.objects.filter(
-            team=team,
-            on_call_role="primary",
-            starts_at__lt=window_end,
-            ends_at__gt=window_start,
-        )
-        .select_related("solver")
-        .order_by("starts_at", "id")
-    )
+    shifts = Shift.objects.filter(team=team, starts_at__lt=window_end, ends_at__gt=window_start)
+    if on_call_role:
+        shifts = shifts.filter(on_call_role=on_call_role)
+    return shifts.select_related("solver").order_by("starts_at", "id")
 
 
 def assign_now(incident, by, at=None):
@@ -240,16 +235,36 @@ def _problem(what, a, b, from_now=False):
 
 
 MAX_SHIFT = timedelta(hours=12)
+MAX_SECONDARY_SHIFT = timedelta(hours=24)
+SECONDARY_BREAK = timedelta(hours=24)
+
+
+def _solver_problems(shift, team):
+    """Why this person cannot take a shift on this team at all, as a list."""
+    errors = []
+    if shift.solver.role != "solver":
+        errors.append(f"{_full_name(shift.solver)} is a reporter and cannot take a shift")
+    if not TeamMember.objects.filter(user=shift.solver, team=team).exists():
+        errors.append(f"{_full_name(shift.solver)} is not on {team.name}")
+    return errors
+
+
+def _already_on_call(clash):
+    """The sentence for a person who is on call somewhere else in the same hours."""
+    role = "secondary on call" if clash.on_call_role == "secondary" else "on call"
+    return (f"{_full_name(clash.solver)} is already {role} for {clash.team.name} "
+            f"{_window(clash.starts_at, clash.ends_at)}")
 
 
 def validate_schedule(team, proposed, now=None):
     """
-    Check a team's whole future schedule and return the list of problems,
-    empty when it is fine. Shifts that already ended are ignored. Cover
-    must run from now to the last shift with no gap and no overlap, one
-    person may not cover two teams at once, and only solvers who are on
-    the team may take a shift. A shift is at most 12 hours and nobody
-    takes two shifts in a row.
+    Check a team's whole future primary schedule and return the list of
+    problems, empty when it is fine. Shifts that already ended are
+    ignored. Cover must run from now to the last shift with no gap and no
+    overlap, one person may not be on call twice at once (another team,
+    or secondary on this one), and only solvers who are on the team may
+    take a shift. A shift is at most 12 hours and nobody takes two shifts
+    in a row.
     """
     if now is None:
         now = timezone.now()
@@ -266,20 +281,17 @@ def validate_schedule(team, proposed, now=None):
         if shift.ends_at - shift.starts_at > MAX_SHIFT:
             errors.append(f"{_full_name(shift.solver)}'s shift on {timezone.localtime(shift.starts_at):%A} "
                           f"is longer than 12 hours")
-        if shift.solver.role != "solver":
-            errors.append(f"{_full_name(shift.solver)} is a reporter and cannot take a shift")
-        if not TeamMember.objects.filter(user=shift.solver, team=team).exists():
-            errors.append(f"{_full_name(shift.solver)} is not on {team.name}")
+        errors += _solver_problems(shift, team)
+        # This team's other primary shifts are checked by the walk below
         clash = (
             Shift.objects.filter(solver=shift.solver, starts_at__lt=shift.ends_at, ends_at__gt=shift.starts_at)
-            .exclude(team=team)
+            .exclude(team=team, on_call_role="primary")
             .exclude(id=shift.id)
-            .select_related("team")
+            .select_related("team", "solver")
             .first()
         )
         if clash:
-            errors.append(f"{_full_name(shift.solver)} is already on call for {clash.team.name} "
-                          f"{_window(clash.starts_at, clash.ends_at)}")
+            errors.append(_already_on_call(clash))
 
     # Nobody works two shifts in a row: the person who just finished cannot
     # be the one who starts the next shift on the same team.
@@ -300,6 +312,53 @@ def validate_schedule(team, proposed, now=None):
             errors.append(_problem("double booked", start, min(cursor, shift.ends_at)))
         cursor = max(cursor, shift.ends_at)
     return errors
+
+
+def validate_secondary(team, proposed, now=None):
+    """
+    Check a team's future secondary shifts and return the list of
+    problems, empty when it is fine. A secondary is optional, so hours
+    with nobody are fine. A secondary shift is at most 24 hours, a team
+    has one secondary at a time, nobody is on call twice at once in any
+    role on any team, and a person rests 24 hours between their secondary
+    shifts.
+    """
+    if now is None:
+        now = timezone.now()
+    errors = []
+    shifts = sorted([s for s in proposed if s.ends_at > s.starts_at and s.ends_at > now],
+                    key=lambda s: s.starts_at)
+    saved_ids = [s.id for s in proposed if s.id]
+
+    for shift in shifts:
+        name = _full_name(shift.solver)
+        if shift.ends_at - shift.starts_at > MAX_SECONDARY_SHIFT:
+            errors.append(f"{name}'s secondary shift on {timezone.localtime(shift.starts_at):%A} "
+                          f"is longer than 24 hours")
+        errors += _solver_problems(shift, team)
+        # Everything this person already has that is not one of the shifts being checked
+        elsewhere = Shift.objects.filter(solver=shift.solver).exclude(id__in=saved_ids).select_related("team", "solver")
+        clash = elsewhere.filter(starts_at__lt=shift.ends_at, ends_at__gt=shift.starts_at).first()
+        if clash:
+            errors.append(_already_on_call(clash))
+        # 24 hours of rest between this person's secondary shifts, on any team
+        others = [s for s in shifts if s is not shift and s.solver_id == shift.solver_id]
+        others += list(elsewhere.filter(on_call_role="secondary"))
+        for other in others:
+            first, second = sorted((shift, other), key=lambda s: s.starts_at)
+            rest = second.starts_at - first.ends_at
+            if timedelta(0) <= rest < SECONDARY_BREAK:
+                errors.append(f"{name} needs a 24 hour break between secondary shifts: one ends "
+                              f"{timezone.localtime(first.ends_at):%A %H:%M} and the next starts "
+                              f"{timezone.localtime(second.starts_at):%A %H:%M}")
+
+    # One secondary at a time on a team
+    for before, after in zip(shifts, shifts[1:]):
+        if after.starts_at < before.ends_at:
+            errors.append(_problem("double booked for the secondary", after.starts_at,
+                                   min(before.ends_at, after.ends_at)))
+    # A pair of shifts is seen from both sides, so say each thing once
+    return list(dict.fromkeys(errors))
 
 
 def reassign(incident, new_solver, by):

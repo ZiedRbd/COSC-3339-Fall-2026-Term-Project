@@ -12,7 +12,7 @@ from .forms import EscalationTierForm, IncidentForm, LoginForm, RegisterForm, Sh
 from .models import EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team, TeamMember, User
 from .notifications import notify
 from .scheduling import (assign_now, assign_on_creation, assign_waiting, is_lead, on_call_roster, reassign,
-                         validate_schedule, who_is_on_call)
+                         validate_schedule, validate_secondary, who_is_on_call)
 from .timeline import log_event
 
 # A ticket leaves Open only by being assigned, automatically on creation or
@@ -461,12 +461,31 @@ def incident_reassign(request, pk):
     return redirect("incident_detail", pk=pk)
 
 
-def _future_shifts(team):
-    """Shifts still running or yet to come, earliest first."""
+def _future_shifts(team, on_call_role="primary"):
+    """Shifts of one role still running or yet to come, earliest first."""
     return (
-        Shift.objects.filter(team=team, on_call_role="primary", ends_at__gt=timezone.now())
+        Shift.objects.filter(team=team, on_call_role=on_call_role, ends_at__gt=timezone.now())
         .select_related("solver").order_by("starts_at")
     )
+
+
+def _schedule_problems(team, shift, others):
+    """
+    What is wrong with the schedule once this shift joins the other
+    future shifts of its role. Primary shifts must cover every hour;
+    secondary shifts only have to respect their own limits.
+    """
+    if shift.on_call_role == "secondary":
+        return validate_secondary(team, others + [shift])
+    return validate_schedule(team, others + [shift])
+
+
+def _schedule_page(request, team, form, editing=None, open_form=False):
+    """The schedule page with both lists of upcoming shifts."""
+    return render(request, "schedule.html", {
+        "team": team, "form": form, "editing": editing, "open_form": open_form,
+        "shifts": _future_shifts(team), "secondary_shifts": _future_shifts(team, "secondary"),
+    })
 
 
 def _solver_name(shift):
@@ -490,10 +509,11 @@ def _lead_only(request, team):
 @login_required
 def schedule(request, team_id):
     """
-    One team's on-call schedule: the upcoming shifts and a form to add one.
-    Only the team's lead gets in. A new shift is checked together with the
-    rest of the future schedule, so a gap or an overlap is refused with a
-    message naming the day and the window.
+    One team's on-call schedule: the upcoming primary and secondary shifts
+    and a form to add one. Only the team's lead gets in. A new shift is
+    checked together with the rest of the future shifts of its role, so a
+    gap or an overlap is refused with a message naming the day and the
+    window.
     """
     team = get_object_or_404(Team, pk=team_id)
     denied = _lead_only(request, team)
@@ -505,21 +525,19 @@ def schedule(request, team_id):
             shift = form.save(commit=False)
             shift.team = team
             shift.created_by = request.user
-            problems = validate_schedule(team, list(_future_shifts(team)) + [shift])
+            problems = _schedule_problems(team, shift, list(_future_shifts(team, shift.on_call_role)))
             if problems:
                 for problem in problems:
                     messages.error(request, problem)
             else:
                 shift.save()
-                messages.success(request, "Shift added")
+                messages.success(request, "Secondary shift added" if shift.on_call_role == "secondary"
+                                 else "Shift added")
                 _report_pickups(request, assign_waiting(team, request.user))
                 return redirect("schedule", team_id=team.pk)
     else:
         form = ShiftForm(team)
-    return render(request, "schedule.html", {
-        "team": team, "form": form, "shifts": _future_shifts(team), "editing": None,
-        "open_form": request.method == "POST",
-    })
+    return _schedule_page(request, team, form, open_form=request.method == "POST")
 
 
 @login_required
@@ -535,16 +553,18 @@ def shift_edit(request, team_id, shift_id):
         form = ShiftForm(team, request.POST, instance=shift)
         if form.is_valid():
             changed = form.save(commit=False)
-            others = [s for s in _future_shifts(team) if s.pk != shift.pk]
-            # Moving a start or an end moves the neighbouring shift's boundary
-            # with it, so the schedule stays whole in one save.
+            others = [s for s in _future_shifts(team, shift.on_call_role) if s.pk != shift.pk]
+            # Moving a primary start or end moves the neighbouring shift's
+            # boundary with it, so the schedule stays whole in one save.
+            # Secondary shifts stand alone, so nothing else moves.
             moved = []
-            if changed.starts_at != original_start:
+            primary = shift.on_call_role == "primary"
+            if primary and changed.starts_at != original_start:
                 before = next((s for s in others if s.ends_at == original_start), None)
                 if before:
                     before.ends_at = changed.starts_at
                     moved.append((before, "ends"))
-            if changed.ends_at != original_end:
+            if primary and changed.ends_at != original_end:
                 after = next((s for s in others if s.starts_at == original_end), None)
                 if after:
                     after.starts_at = changed.ends_at
@@ -552,7 +572,7 @@ def shift_edit(request, team_id, shift_id):
             problems = [f"That would leave {_solver_name(s)} with no time on {timezone.localtime(s.starts_at):%A}"
                         for s, _ in moved if s.ends_at <= s.starts_at]
             if not problems:
-                problems = validate_schedule(team, others + [changed])
+                problems = _schedule_problems(team, changed, others)
             if problems:
                 for problem in problems:
                     messages.error(request, problem)
@@ -567,23 +587,24 @@ def shift_edit(request, team_id, shift_id):
                 return redirect("schedule", team_id=team.pk)
     else:
         form = ShiftForm(team, instance=shift)
-    return render(request, "schedule.html", {
-        "team": team, "form": form, "shifts": _future_shifts(team), "editing": shift,
-        "open_form": True,
-    })
+    return _schedule_page(request, team, form, editing=shift, open_form=True)
 
 
 @login_required
 def shift_delete(request, team_id, shift_id):
-    """Remove one upcoming shift, unless that would leave a hole in the cover."""
+    """
+    Remove one upcoming shift. A primary shift stays if removing it would
+    leave a hole in the cover; a secondary shift can always go.
+    """
     team = get_object_or_404(Team, pk=team_id)
     shift = get_object_or_404(Shift, pk=shift_id, team=team)
     denied = _lead_only(request, team)
     if denied:
         return denied
     if request.method == "POST":
-        others = [s for s in _future_shifts(team) if s.pk != shift.pk]
-        problems = validate_schedule(team, others)
+        problems = []
+        if shift.on_call_role == "primary":
+            problems = validate_schedule(team, [s for s in _future_shifts(team) if s.pk != shift.pk])
         if problems:
             for problem in problems:
                 messages.error(request, problem)
@@ -620,7 +641,7 @@ def calendar(request):
     rows = []
     for team in teams:
         cells = [[] for _ in days]
-        for shift in on_call_roster(team, week_start, week_end):
+        for shift in on_call_roster(team, week_start, week_end, on_call_role=None):
             # A shift can cross midnight, so clip it to each day it touches
             for i, day in enumerate(days):
                 day_start = timezone.make_aware(datetime.combine(day, time.min))
@@ -632,6 +653,7 @@ def calendar(request):
                     cells[i].append({
                         "when": f"{timezone.localtime(begins):%H:%M} to {end_label}",
                         "who": f"{shift.solver.first_name} {shift.solver.last_name}",
+                        "secondary": shift.on_call_role == "secondary",
                         # Already over: shown greyed out, and not on the schedule page
                         "past": ends <= now,
                     })

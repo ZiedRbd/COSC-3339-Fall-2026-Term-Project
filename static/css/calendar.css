@@ -98,3 +98,6 @@
     text-decoration: none;
 }
 .cal-edit:hover { background: var(--navy); color: #ffffff; }
+
+/* The secondary on call is marked, so it is not mistaken for the primary */
+.slot-role { font-weight: 500; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }

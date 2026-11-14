@@ -138,19 +138,26 @@ class DateAndHourWidget(forms.MultiWidget):
 
 class ShiftForm(forms.ModelForm):
     """
-    One on-call shift for a team. The solver list only offers active
-    solvers who are on that team. A shift must end after it starts and
-    cannot already be over.
+    One on-call shift for a team, primary or secondary. The solver list
+    only offers active solvers who are on that team. A shift must end
+    after it starts and cannot already be over. The role is chosen when
+    the shift is added and stays fixed when it is edited.
     """
     starts_at = forms.SplitDateTimeField(label="Starts", widget=DateAndHourWidget)
     ends_at = forms.SplitDateTimeField(label="Ends", widget=DateAndHourWidget)
 
     class Meta:
         model = Shift
-        fields = ["solver", "starts_at", "ends_at"]
+        fields = ["on_call_role", "solver", "starts_at", "ends_at"]
+        labels = {"on_call_role": "Role"}
+        help_texts = {"on_call_role": "Primary is required around the clock. Secondary is optional "
+                                      "and takes tickets once the primary holds 3."}
 
     def __init__(self, team, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Left out, a shift is primary. An existing shift keeps its role.
+        self.fields["on_call_role"].required = False
+        self.fields["on_call_role"].disabled = bool(self.instance.pk)
         self.fields["solver"].queryset = User.objects.filter(
             teammember__team=team, role="solver", is_active=True).order_by("first_name", "last_name")
         self.fields["solver"].label_from_instance = lambda u: f"{u.first_name} {u.last_name}"
