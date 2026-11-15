@@ -25,6 +25,15 @@ class NoParenthesesTests(SimpleTestCase):
                     found.append(f"{path.relative_to(ROOT)}:{number}: {(text + shown).strip()}")
         self.assertEqual(found, [])
 
+    def test_no_text_added_by_a_stylesheet_has_a_parenthesis(self):
+        found = []
+        for path in sorted((ROOT / "static" / "css").glob("*.css")):
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                for added in re.findall(r'content:\s*"([^"]*)"', line):
+                    if "(" in added or ")" in added:
+                        found.append(f"{path.relative_to(ROOT)}:{number}: {added}")
+        self.assertEqual(found, [])
+
     def test_no_message_label_or_error_has_a_parenthesis(self):
         found = []
         for name in SOURCES:

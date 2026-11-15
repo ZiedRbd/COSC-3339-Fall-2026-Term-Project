@@ -436,7 +436,7 @@ def incident_detail(request, pk):
             incident.refresh_from_db()
     timeline = (
         IncidentUpdate.objects.filter(incident=incident)
-        .select_related("author")
+        .select_related("author", "new_assignee")
         .order_by("created_at")
     )
     incident.next_states = ALLOWED_TRANSITIONS.get(incident.status, [])
@@ -460,6 +460,11 @@ def incident_detail(request, pk):
         "max_tickets": MAX_ACTIVE_TICKETS,
         "can_edit": can_edit,
         "can_transition": _can_transition(request.user, incident),
+        # Solvers and the administrator see the team's side of the ticket: the alert when nobody took it,
+        # and why it moved from one person to the next. A reporter sees only where the ticket stands.
+        "team_view": request.user.role == "solver" or request.user.is_superuser,
+        # The administrator reads a ticket but is not part of it, so has nothing to post
+        "can_comment": _can_access_incident(request.user, incident),
         # Which way an unassigned ticket ended: at Administration, or with the policy running out
         "to_administration": (incident.is_unassigned_after_escalation and team is not None
                               and team.escalation_tiers.filter(escalate_to="administration").exists()),

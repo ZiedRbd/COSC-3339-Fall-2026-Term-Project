@@ -270,9 +270,8 @@
 
 .tl-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 14px; }
 .tl-meta strong { font-size: 15px; color: var(--ink); }
-.tl-role { color: var(--muted); }
-.tl-role::before { content: "("; }
-.tl-role::after { content: ")"; }
+.tl-role { color: var(--muted); font-size: 14px; }
+.tl-role::before { content: "· "; }
 .tl-body { margin-top: 3px; }
 .tl-body .badge { font-size: 12px; padding: 2px 9px; }
 
