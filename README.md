@@ -67,6 +67,9 @@ COSC-3339-Fall-2026-Term-Project/
 │   ├── schedule.html           A team lead's shift editor
 │   ├── shift_table.html        One list of shifts on the schedule page
 │   ├── policy.html             A team lead's escalation policy editor
+│   ├── 404.html                Shown when an address leads nowhere
+│   ├── 403_csrf.html           Shown when a form is sent from a page left open too long
+│   ├── 500.html                Shown when the server fails; stands on its own
 │   └── incidents/
 │       ├── landing.html        Links to file a ticket or view the list
 │       ├── list.html           A solver's incident table for their teams, with the severity filter
@@ -159,7 +162,7 @@ Open -> Assigned -> In Progress -> Resolved -> Closed
 
 Only legal moves are accepted; an illegal move (skipping a step, or going backward without reopening) is rejected with a message explaining why. The system makes one backward move itself: when nobody starts a ticket by the end of its team's policy, the ticket returns from Assigned to Open with nobody assigned, and it is not handed out again until the team lead reassigns it. The full diagram is in [`docs/incident-state-machine.puml`](docs/incident-state-machine.puml).
 
-**Timeline.** Each ticket keeps an automatic, non-editable timeline of everything that happens to it: creation, assignment, a failed assignment (why the ticket is waiting), reassignment, escalation, status changes (old to new), severity changes, detail edits (old to new value), comments, and notes. Every entry records a user and the time. An entry the system writes by itself is recorded under the user it concerns: the reporter when the ticket is filed, the solver who receives it from the queue, or the solver who held it when it escalated. The timeline is reached by opening a ticket from the profile or incident list. It is stored in the `IncidentUpdate` table.
+**Timeline.** Each ticket keeps an automatic, non-editable timeline of everything that happens to it: creation, assignment, a failed assignment (why the ticket is waiting), reassignment, escalation, status changes (old to new), severity changes, detail edits (old to new value), comments, and notes. Every entry records a user and the time. An entry the system writes by itself is recorded under the user it concerns: the reporter when the ticket is filed, the solver who receives it from the queue, or the solver who held it when it escalated. A reporter reads a plainer version: who has the ticket now, or that it is waiting for a solver. Why it moved from one solver to the next, and the alert that nobody took it in time, are shown to solvers and the administrator only. The timeline is reached by opening a ticket from the profile or incident list. It is stored in the `IncidentUpdate` table.
 
 ## On-Call Scheduling and Assignment
 

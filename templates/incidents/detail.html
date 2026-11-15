@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="ticket-head sev-{{ incident.priority }} st-{{ incident.status }}{% if incident.is_unassigned_after_escalation %} ran-out{% endif %}">
+<div class="ticket-head sev-{{ incident.priority }} st-{{ incident.status }}{% if incident.is_unassigned_after_escalation and team_view %} ran-out{% endif %}">
   <div class="ticket-stub">
     <span class="stub-no">No.</span>
     <span class="stub-number">{{ incident.pk }}</span>
@@ -19,7 +19,11 @@
       <span class="badge status-pill {{ incident.status }}">{{ incident.get_status_display }}</span>
     </div>
     <p class="ticket-now">
-      {% if incident.is_unassigned_after_escalation %}
+      {% if not team_view and incident.status == "open" %}
+        Waiting for a solver to pick it up.
+      {% elif not team_view and incident.status == "assigned" %}
+        Assigned to {{ incident.assigned_to.first_name }} {{ incident.assigned_to.last_name }}.
+      {% elif incident.is_unassigned_after_escalation %}
         Nobody holds this ticket right now. {% if to_administration %}It was escalated to administration, and the team lead has been told.{% else %}The team lead has been told.{% endif %}
       {% elif incident.status == "open" %}
         Waiting for a solver on call to have room for it.
@@ -43,7 +47,7 @@
     {% endfor %}
   {% endif %}
 
-  {% if incident.is_unassigned_after_escalation %}
+  {% if incident.is_unassigned_after_escalation and team_view %}
     <p class="notice error">{% if to_administration %}Nobody started work on this ticket in time, so it was escalated to administration.{% else %}Nobody started work on this ticket in time and the escalation policy ran out.{% endif %} It is unassigned and needs attention.</p>
   {% endif %}
 
@@ -108,7 +112,7 @@
   <h2 class="section-title">Timeline</h2>
   <ul class="timeline">
     {% for entry in timeline %}
-      <li class="tl-{{ entry.update_type }}">
+      <li class="tl-{% if team_view %}{{ entry.update_type }}{% elif entry.update_type == "escalation" or entry.update_type == "assignment_failed" %}assignment{% else %}{{ entry.update_type }}{% endif %}">
         <div class="tl-meta">
           <strong>{{ entry.author.first_name }} {{ entry.author.last_name }}</strong>
           <span class="tl-role">{{ entry.author.role }}</span>
@@ -124,6 +128,14 @@
             <span class="tl-tag created">Created</span> {{ entry.body }}
           {% elif entry.update_type == "assignment" %}
             <span class="tl-tag assignment">Assigned</span> {{ entry.body }}
+          {% elif entry.update_type == "assignment_failed" and not team_view %}
+            <span class="tl-tag assignment">Waiting</span> Waiting for a solver
+          {% elif entry.update_type == "escalation" and not team_view %}
+            {% if entry.new_assignee %}
+              <span class="tl-tag assignment">Assigned</span> Now with {{ entry.new_assignee.first_name }} {{ entry.new_assignee.last_name }}
+            {% else %}
+              <span class="tl-tag assignment">Waiting</span> Waiting for a solver
+            {% endif %}
           {% elif entry.update_type == "assignment_failed" %}
             <span class="tl-tag assignment">Unassigned</span> {{ entry.body }}
           {% elif entry.update_type == "reassignment" %}
@@ -146,6 +158,7 @@
     {% endfor %}
   </ul>
 
+  {% if can_comment %}
   <h2 class="section-title">{% if user.role == "solver" %}Add a note{% else %}Add a comment{% endif %}</h2>
   <form method="post" action="{% url 'incident_comment' incident.pk %}" class="comment-form">
     {% csrf_token %}
@@ -153,6 +166,7 @@
     <textarea id="comment-body" name="body" rows="3" maxlength="1000" class="form-input" required></textarea>
     <button type="submit" class="btn-small">{% if user.role == "solver" %}Post note{% else %}Post comment{% endif %}</button>
   </form>
+  {% endif %}
 
   <a href="{% url 'incidents' %}" class="back-link">{% if user.role == "solver" %}Back to the incident list{% else %}Back to my tickets{% endif %}</a>
 </div>

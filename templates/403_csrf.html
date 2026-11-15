@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Please try again{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1>Please try again</h1>
+  <p class="lead">This page was open too long, so the form could not be sent safely. Go back, refresh the page, and send it again.</p>
+  <div class="actions">
+    <a href="{% url 'home' %}" class="btn-gold">Go to the home page</a>
+  </div>
+</div>
+{% endblock %}
