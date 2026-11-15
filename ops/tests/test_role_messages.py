@@ -55,7 +55,7 @@ class TicketPageByRoleTests(TestCase):
     def test_a_reporter_is_not_shown_the_alert_that_nobody_took_the_ticket(self):
         page = self.page("r@x.com", self.nobody_took_it())
         for internal in ("escalation policy ran out", "needs attention", "did not start work", "Escalated",
-                         "team lead has been told", "ran-out"):
+                         "team lead has been told", "ran-out", "tl-escalation"):
             self.assertNotContains(page, internal)
         self.assertContains(page, "Waiting for a solver to pick it up.")
 

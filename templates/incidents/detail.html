@@ -112,7 +112,7 @@
   <h2 class="section-title">Timeline</h2>
   <ul class="timeline">
     {% for entry in timeline %}
-      <li class="tl-{{ entry.update_type }}">
+      <li class="tl-{% if team_view %}{{ entry.update_type }}{% elif entry.update_type == "escalation" or entry.update_type == "assignment_failed" %}assignment{% else %}{{ entry.update_type }}{% endif %}">
         <div class="tl-meta">
           <strong>{{ entry.author.first_name }} {{ entry.author.last_name }}</strong>
           <span class="tl-role">{{ entry.author.role }}</span>
