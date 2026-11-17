@@ -104,25 +104,43 @@ def assign_now(incident, by, at=None):
         log_event(incident, by, "assignment_failed",
                   f"Nobody is on call for {incident.service.name} right now, so this ticket is waiting to be assigned")
         return None
-    incident.assigned_team = team
-    # Anything already waiting is older and goes first, in case a slot
-    # opened that nothing has handed out yet
-    assign_waiting(team, skip=incident)
-    solver = pick_solver(team, at)
-    if solver is None:
-        incident.save()
-        if on_call_solvers(team, at):
-            log_event(incident, by, "assignment_failed",
-                      f"Everyone on call for {team.name} is full, so this ticket is waiting in the queue")
-            _notify_about_queue(team, incident,
-                                f"everyone on call for {team.name} holds {MAX_ACTIVE_TICKETS} tickets")
-        else:
-            log_event(incident, by, "assignment_failed",
-                      f"Nobody is on call for {team.name} right now, so this ticket is waiting to be assigned")
-        return None
-    _hand_to(incident, solver, by, "assignment", f"Assigned to {_full_name(solver)}, on call for {team.name}",
-             "assigned", "was assigned to you", at)
-    return solver
+    with transaction.atomic():
+        _one_at_a_time(team)
+        # While this request waited its turn, another one may already have
+        # handed this ticket out. Read it again and leave it alone if so.
+        incident.refresh_from_db()
+        if incident.assigned_to_id is not None:
+            return incident.assigned_to
+        incident.assigned_team = team
+        # Anything already waiting is older and goes first, in case a slot
+        # opened that nothing has handed out yet
+        assign_waiting(team, skip=incident)
+        solver = pick_solver(team, at)
+        if solver is None:
+            incident.save()
+            if on_call_solvers(team, at):
+                log_event(incident, by, "assignment_failed",
+                          f"Everyone on call for {team.name} is full, so this ticket is waiting in the queue")
+                _notify_about_queue(team, incident,
+                                    f"everyone on call for {team.name} holds {MAX_ACTIVE_TICKETS} tickets")
+            else:
+                log_event(incident, by, "assignment_failed",
+                          f"Nobody is on call for {team.name} right now, so this ticket is waiting to be assigned")
+            return None
+        _hand_to(incident, solver, by, "assignment", f"Assigned to {_full_name(solver)}, on call for {team.name}",
+                 "assigned", "was assigned to you", at)
+        return solver
+
+
+def _one_at_a_time(team):
+    """
+    Only one request at a time hands out a team's tickets. Locks the
+    team's row until the surrounding transaction ends, so a second request
+    waits here and then reads what the first one did. Without it two
+    requests can both see the same ticket waiting and both assign it.
+    no_key leaves the row free for new tickets and shifts to point at.
+    """
+    Team.objects.select_for_update(no_key=True).get(pk=team.pk)
 
 
 def _start_clock(incident, at=None, level=0):
@@ -221,14 +239,22 @@ def assign_waiting(team, by=None, skip=None):
     """
     how = "Assigned" if by else "Assigned automatically"
     waiting = _waiting(team).exclude(pk=skip.pk) if skip is not None else _waiting(team)
+    # Nothing waiting is the usual case, and it needs no lock
+    if not waiting.exists():
+        return 0
     count = 0
-    for incident in waiting:
-        solver = pick_solver(team)
-        if solver is None:
-            break
-        _hand_to(incident, solver, by, "assignment", f"{how} to {_full_name(solver)}, on call for {team.name}",
-                 "assigned", "was assigned to you")
-        count += 1
+    with transaction.atomic():
+        _one_at_a_time(team)
+        # Read after the lock, so a ticket another request just handed out
+        # is no longer in the list. A ticket someone is editing or deleting
+        # right now is left for the next pass.
+        for incident in waiting.select_for_update(of=("self",), skip_locked=True):
+            solver = pick_solver(team)
+            if solver is None:
+                break
+            _hand_to(incident, solver, by, "assignment", f"{how} to {_full_name(solver)}, on call for {team.name}",
+                     "assigned", "was assigned to you")
+            count += 1
     return count
 
 

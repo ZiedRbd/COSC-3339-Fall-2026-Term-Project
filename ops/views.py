@@ -223,7 +223,7 @@ def incident_edit(request, pk):
         # The service cannot be changed on edit; force the existing one.
         data = request.POST.copy()
         data["service"] = str(incident.service_id)
-        form = IncidentForm(data)
+        form = IncidentForm(data, keep=incident.service)
         if form.is_valid():
             # Remember the old values so we can log exactly what changed.
             old = {
@@ -265,7 +265,7 @@ def incident_edit(request, pk):
             "room": incident.room,
             "service": incident.service,
             "priority": incident.priority,
-        })
+        }, keep=incident.service)
     return render(request, "incidents/form.html", {"form": form, "incident": incident})
 
 
