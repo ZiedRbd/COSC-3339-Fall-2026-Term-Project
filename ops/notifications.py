@@ -15,6 +15,16 @@ MAIL_PAUSE = timedelta(minutes=5)
 _mail_paused_until = None
 
 
+def pause_email(minutes):
+    """
+    Skip email in this process for this long. Notification rows are still
+    written. The load test uses it so that measuring a page never sends
+    anyone a message.
+    """
+    global _mail_paused_until
+    _mail_paused_until = timezone.now() + timedelta(minutes=minutes)
+
+
 def notify(user, incident, event, message):
     """
     One row in the Notification table, which the bell counts, and the same
