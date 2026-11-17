@@ -20,7 +20,7 @@ python manage.py seed
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000. The `seed` command loads three teams, seven services, seventeen users (six reporters, ten solvers and one administrator), and twenty-four incidents. `python manage.py seed_shifts` adds a week of on-call shifts. `python manage.py escalate` runs one pass of the escalation timer by hand.
+Open http://127.0.0.1:8000. The `seed` command loads three teams, seven services, seventeen users (six reporters, ten solvers and one administrator), and twenty-four incidents. `python manage.py seed_shifts` adds a week of on-call shifts. `python manage.py escalate` runs one pass of the escalation timer by hand. `python manage.py loadtest` times the incident list with 100, 1000 and 10000 tickets inside a transaction that is rolled back, so it saves nothing, sends no email, and is safe on the server.
 
 Local development uses SQLite. No `.env` file is needed; production settings are read from environment variables only when they are present. Without a mail account in the environment, notification emails are printed in the terminal instead of being sent.
 
@@ -55,7 +55,8 @@ COSC-3339-Fall-2026-Term-Project/
 │   └── management/commands/
 │       ├── seed.py             Loads demo data
 │       ├── seed_shifts.py      Seeds 24/7 on-call shifts, for a week or up to a chosen day
-│       └── escalate.py         One pass of the escalation timer, run every minute on the server
+│       ├── escalate.py         One pass of the escalation timer, run every minute on the server
+│       └── loadtest.py         Times the incident list as the number of tickets grows; saves nothing
 ├── templates/                  HTML pages
 │   ├── base.html               Shared layout and navigation
 │   ├── home.html
