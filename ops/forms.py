@@ -101,9 +101,10 @@ class IncidentForm(forms.Form):
         widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Room, optional'})
     )
 
-    # Dropdown of every service in the database
+    # Dropdown of the services that are switched on. The list is narrowed
+    # in __init__ so it is read fresh for every form.
     service = forms.ModelChoiceField(
-        queryset=Service.objects.all(),
+        queryset=Service.objects.none(),
         empty_label="Select a service"
     )
 
@@ -119,6 +120,17 @@ class IncidentForm(forms.Form):
             ("critical", "Critical - safety hazard or full outage"),
         ],
     )
+
+    def __init__(self, *args, keep=None, **kwargs):
+        """
+        `keep` is the service of the ticket being edited. It stays a valid
+        choice after it is switched off, so an old ticket can still be edited.
+        """
+        super().__init__(*args, **kwargs)
+        services = Service.objects.filter(is_active=True)
+        if keep is not None:
+            services = services | Service.objects.filter(pk=keep.pk)
+        self.fields["service"].queryset = services.order_by("id")
 
 
 class DateAndHourWidget(forms.MultiWidget):
