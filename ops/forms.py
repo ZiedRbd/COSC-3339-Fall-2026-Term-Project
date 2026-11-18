@@ -3,7 +3,7 @@ from uuid import uuid4
 from django import forms
 from django.utils import timezone
 
-from .models import EscalationTier, Service, Shift, User
+from .models import Building, EscalationTier, Service, Shift, User
 
 
 class RegisterForm(forms.Form):
@@ -89,21 +89,23 @@ class IncidentForm(forms.Form):
         widget=forms.Textarea(attrs={'class': 'form-input text-field', 'rows': 4})
     )
 
-    # Optional location details
-    building = forms.CharField(
-        max_length=40,
+    # Optional location details. The building comes from the campus list;
+    # its choices are narrowed in __init__.
+    building = forms.ModelChoiceField(
+        queryset=Building.objects.none(),
         required=False,
-        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Building (optional)'})
+        empty_label="Select a building, optional"
     )
     room = forms.CharField(
         max_length=20,
         required=False,
-        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Room (optional)'})
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Room, optional'})
     )
 
-    # Dropdown of every service in the database
+    # Dropdown of the services that are switched on. The list is narrowed
+    # in __init__ so it is read fresh for every form.
     service = forms.ModelChoiceField(
-        queryset=Service.objects.all(),
+        queryset=Service.objects.none(),
         empty_label="Select a service"
     )
 
@@ -119,6 +121,22 @@ class IncidentForm(forms.Form):
             ("critical", "Critical - safety hazard or full outage"),
         ],
     )
+
+    def __init__(self, *args, keep=None, keep_building=None, **kwargs):
+        """
+        `keep` and `keep_building` are the service and the building of the
+        ticket being edited. They stay valid choices after they are removed,
+        so an old ticket can still be edited.
+        """
+        super().__init__(*args, **kwargs)
+        services = Service.objects.filter(is_active=True)
+        if keep is not None:
+            services = services | Service.objects.filter(pk=keep.pk)
+        self.fields["service"].queryset = services.order_by("id")
+        buildings = Building.objects.filter(is_active=True)
+        if keep_building is not None:
+            buildings = buildings | Building.objects.filter(pk=keep_building.pk)
+        self.fields["building"].queryset = buildings.order_by("name")
 
 
 class DateAndHourWidget(forms.MultiWidget):
@@ -216,7 +234,7 @@ class AvatarForm(forms.ModelForm):
 
 
 MAX_TIER_WAIT = 1440
-WAIT_ERROR = f"Wait must be a whole number of minutes above zero, and at most {MAX_TIER_WAIT} (one day)"
+WAIT_ERROR = f"Wait must be a whole number of minutes above zero, and at most {MAX_TIER_WAIT}, which is one day"
 TARGET_ERROR = "Pick the team lead or an active solver on this team"
 
 
@@ -230,7 +248,7 @@ class EscalationTierForm(forms.ModelForm):
     """
     target = forms.ChoiceField(label="Escalate to", error_messages={"required": TARGET_ERROR})
     wait_minutes = forms.IntegerField(
-        label="Wait (minutes)", min_value=1, max_value=MAX_TIER_WAIT,
+        label="Wait in minutes", min_value=1, max_value=MAX_TIER_WAIT,
         error_messages={key: WAIT_ERROR for key in ("required", "invalid", "min_value", "max_value")},
     )
     field_order = ["target", "wait_minutes"]
@@ -252,7 +270,7 @@ class EscalationTierForm(forms.ModelForm):
         if tier.pk and tier.tier_number == 1:
             del self.fields["target"]
             return
-        lead = f"Team lead ({team.lead.first_name} {team.lead.last_name})" if team.lead else "Team lead"
+        lead = f"Team lead: {team.lead.first_name} {team.lead.last_name}" if team.lead else "Team lead"
         choices = [("lead", lead)]
         for person in User.objects.filter(teammember__team=team, role="solver", is_active=True).order_by(
                 "first_name", "last_name"):
@@ -264,7 +282,7 @@ class EscalationTierForm(forms.ModelForm):
             if current not in dict(choices):
                 # Left the team or was deactivated since: the tier is skipped until it is changed
                 gone = tier.escalate_to_user
-                choices.append((current, f"{gone.first_name} {gone.last_name} (not available, tier is skipped)"))
+                choices.append((current, f"{gone.first_name} {gone.last_name}, not available, tier is skipped"))
             self.initial["target"] = current
         self.fields["target"].choices = choices
         self.fields["target"].error_messages["invalid_choice"] = TARGET_ERROR

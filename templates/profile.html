@@ -62,7 +62,7 @@
         <p class="team-label">Team members</p>
         <ul class="team-members">
           {% for member in team.members %}
-          <li>{{ member.first_name }} {{ member.last_name }}{% if member == user %} (you){% endif %}</li>
+          <li>{{ member.first_name }} {{ member.last_name }}{% if member == user %} <span class="you-tag">You</span>{% endif %}</li>
           {% endfor %}
         </ul>
         <a href="{% url 'incidents' %}" class="team-cta">View tickets assigned to {{ team.name }}</a>

@@ -35,7 +35,7 @@ class SolverProfileTests(TestCase):
         html = self.client.get("/profile/").content.decode()
         self.assertIn("Plumbing", html)
         self.assertIn("Team Mate", html)
-        self.assertIn("(you)", html)
+        self.assertIn('<span class="you-tag">You</span>', html)
 
     def test_solver_profile_has_no_edit_links(self):
         """Solvers get no ticket edit links on their profile."""

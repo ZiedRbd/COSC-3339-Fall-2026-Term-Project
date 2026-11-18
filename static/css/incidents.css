@@ -20,7 +20,7 @@
 .ticket-table td.ticket-id,
 .ticket-stub,
 .pi-number,
-.sample-stub {
+.key-stub {
     -webkit-mask-image:
         radial-gradient(circle at 100% 0, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px)),
         radial-gradient(circle at 100% 100%, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px));
@@ -33,7 +33,7 @@
 .ticket-table td.ticket-id + td,
 .ticket-main,
 .pi-main,
-.sample-main {
+.key-main {
     -webkit-mask-image:
         radial-gradient(circle at 0 0, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px)),
         radial-gradient(circle at 0 100%, transparent var(--notch, 7px), #000 calc(var(--notch, 7px) + 0.5px));
@@ -270,9 +270,8 @@
 
 .tl-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 14px; }
 .tl-meta strong { font-size: 15px; color: var(--ink); }
-.tl-role { color: var(--muted); }
-.tl-role::before { content: "("; }
-.tl-role::after { content: ")"; }
+.tl-role { color: var(--muted); font-size: 14px; }
+.tl-role::before { content: "· "; }
 .tl-body { margin-top: 3px; }
 .tl-body .badge { font-size: 12px; padding: 2px 9px; }
 
@@ -314,6 +313,22 @@
 .policy-table .policy-end td { color: var(--muted); border-bottom: 0; }
 .policy-table .policy-end td:first-child { font-family: var(--font); font-size: 15px; font-weight: 600; color: var(--muted); }
 .policy-table .notice { margin: 0; }
+
+/* The tick that adds Administration as the last tier, with its Save beside it */
+.policy-admin {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-top: 16px;
+    padding: 14px 16px;
+    background: #ffffff;
+    border: 1px solid var(--rule-soft);
+    border-radius: 8px;
+}
+.policy-admin-check { display: inline-flex; align-items: center; gap: 10px; margin: 0; font-weight: 600; cursor: pointer; }
+.policy-admin-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--navy); }
+.policy-admin-hint { flex-basis: 100%; margin: 0; font-size: 14px; color: var(--muted); }
 
 /* ---------- Live password checklist ---------- */
 .pw-rules { list-style: none; margin: 10px 0 0; padding: 0; font-size: 14px; color: var(--muted); }

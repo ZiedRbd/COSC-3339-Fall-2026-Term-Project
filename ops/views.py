@@ -78,7 +78,7 @@ def services(request):
         queryset=Service.objects.filter(is_active=True),
         to_attr="active_services",
     )
-    teams = Team.objects.prefetch_related(active_services)
+    teams = Team.objects.filter(is_active=True).prefetch_related(active_services)
     return render(request, "services.html", {"teams": teams})
 
 
@@ -124,15 +124,15 @@ def incident_list(request):
     if request.user.role not in ALLOWED_ROLES:
         return redirect("profile")
     team_ids = set(TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True))
-    led_ids = set(Team.objects.filter(lead=request.user).values_list("id", flat=True))
+    led_ids = set(Team.objects.filter(lead=request.user, is_active=True).values_list("id", flat=True))
     # A ticket that was waiting for someone to come on call is picked up here
-    for team in Team.objects.filter(id__in=team_ids | led_ids):
+    for team in Team.objects.filter(id__in=team_ids | led_ids, is_active=True):
         assign_waiting(team)
     if(request.user.role != "auditor"):
         incidents = (
             Incident.objects.filter(is_deleted=False)
             .filter(Q(assigned_team_id__in=team_ids) | Q(assigned_team_id__in=led_ids))
-            .select_related("service", "reported_by", "assigned_team", "assigned_to")
+            .select_related("service", "reported_by", "assigned_team", "assigned_to", "building")
             .order_by("-is_unassigned_after_escalation", "-created_at")
         )
     else:
@@ -142,9 +142,13 @@ def incident_list(request):
             .order_by("-is_unassigned_after_escalation", "-created_at")
         )
     if(request.user.role != "auditor"):
+        # Teams whose policy ends with Administration, so an unassigned ticket says which way it ended
+        with_administration = set(EscalationTier.objects.filter(
+            team_id__in=team_ids | led_ids, escalate_to="administration").values_list("team_id", flat=True))
         for i in incidents:
-            i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
-            i.can_transition = _can_transition(request.user, i)
+                i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
+                i.can_transition = _can_transition(request.user, i)
+            i.to_administration = i.assigned_team_id in with_administration
     return render(request, "incidents/list.html", {"incidents": incidents})
 
 @login_required
@@ -227,14 +231,14 @@ def incident_edit(request, pk):
         # The service cannot be changed on edit; force the existing one.
         data = request.POST.copy()
         data["service"] = str(incident.service_id)
-        form = IncidentForm(data)
+        form = IncidentForm(data, keep=incident.service, keep_building=incident.building)
         if form.is_valid():
             # Remember the old values so we can log exactly what changed.
             old = {
                 "Title": incident.title,
                 "Description": incident.description,
-                "Building": incident.building or "(none)",
-                "Room": incident.room or "(none)",
+                "Building": incident.building_name or "none",
+                "Room": incident.room or "none",
             }
             old_severity = incident.priority
             incident.title = form.cleaned_data["title"]
@@ -251,8 +255,8 @@ def incident_edit(request, pk):
             new = {
                 "Title": incident.title,
                 "Description": incident.description,
-                "Building": incident.building or "(none)",
-                "Room": incident.room or "(none)",
+                "Building": incident.building_name or "none",
+                "Room": incident.room or "none",
             }
             for field in old:
                 if old[field] != new[field]:
@@ -269,7 +273,7 @@ def incident_edit(request, pk):
             "room": incident.room,
             "service": incident.service,
             "priority": incident.priority,
-        })
+        }, keep=incident.service, keep_building=incident.building)
     return render(request, "incidents/form.html", {"form": form, "incident": incident})
 
 
@@ -293,6 +297,9 @@ def incident_delete(request, pk):
         return redirect("incident_detail", pk=incident.pk)
     if request.method == "POST":
         incident.is_deleted = True
+        # Who deleted it and when
+        incident.removed_by = request.user
+        incident.removed_at = timezone.now()
         incident.save()
         messages.success(request, f"Ticket #{incident.pk} deleted")
         # Its solver has room again for a ticket that was waiting, on any team they cover
@@ -338,8 +345,9 @@ def profile(request):
     # Solvers see the teams they are on and who else is on each team.
     my_teams = []
     if request.user.role == "solver":
-        for team in Team.objects.filter(teammember__user=request.user):
-            team.members = [tm.user for tm in TeamMember.objects.filter(team=team).select_related("user")]
+        for team in Team.objects.filter(teammember__user=request.user, is_active=True):
+            team.members = [tm.user for tm in TeamMember.objects.filter(team=team, user__is_active=True)
+                            .select_related("user")]
             my_teams.append(team)
     # Newest first, so each column reads in date order
     return render(request, "profile.html", {
@@ -408,10 +416,10 @@ def incident_transition(request, pk):
         assign_now(incident, request.user)
     elif new_status == "in_progress":
         notify(incident.reported_by, incident, "work_started",
-               f"Work has started on your ticket #{incident.pk} ({incident.title}).")
+               f"Work has started on your ticket #{incident.pk}, {incident.title}.")
     elif new_status == "resolved":
         notify(incident.reported_by, incident, "resolved",
-               f"Your ticket #{incident.pk} ({incident.title}) was resolved.")
+               f"Your ticket #{incident.pk}, {incident.title}, was resolved.")
     if new_status in ("resolved", "closed"):
         # Its solver has room again for a ticket that was waiting, on any team they cover
         assign_all_waiting()
@@ -440,7 +448,7 @@ def incident_detail(request, pk):
             incident.refresh_from_db()
     timeline = (
         IncidentUpdate.objects.filter(incident=incident)
-        .select_related("author")
+        .select_related("author", "new_assignee")
         .order_by("created_at")
     )
     incident.next_states = ALLOWED_TRANSITIONS.get(incident.status, [])
@@ -464,6 +472,14 @@ def incident_detail(request, pk):
         "max_tickets": MAX_ACTIVE_TICKETS,
         "can_edit": can_edit,
         "can_transition": _can_transition(request.user, incident),
+        # Solvers and the administrator see the team's side of the ticket: the alert when nobody took it,
+        # and why it moved from one person to the next. A reporter sees only where the ticket stands.
+        "team_view": request.user.role == "solver" or request.user.is_superuser,
+        # The administrator reads a ticket but is not part of it, so has nothing to post
+        "can_comment": _can_access_incident(request.user, incident),
+        # Which way an unassigned ticket ended: at Administration, or with the policy running out
+        "to_administration": (incident.is_unassigned_after_escalation and team is not None
+                              and team.escalation_tiers.filter(escalate_to="administration").exists()),
     })
 
 
@@ -481,7 +497,7 @@ def incident_comment(request, pk):
     if request.method == "POST" and request.user.role != "auditor":
         body = request.POST.get("body", "").strip()
         if len(body) > 1000:
-            messages.error(request, "Comment is too long (1000 characters max)")
+            messages.error(request, "Comment is too long. The limit is 1000 characters")
             return redirect("incident_detail", pk=pk)
         if body:
             update_type = "solver_note" if request.user.role == "solver" else "comment"
@@ -573,7 +589,7 @@ def schedule(request, team_id):
     gap or an overlap is refused with a message naming the day and the
     window.
     """
-    team = get_object_or_404(Team, pk=team_id)
+    team = get_object_or_404(Team, pk=team_id, is_active=True)
     denied = _lead_only(request, team)
     if denied:
         return denied
@@ -601,7 +617,7 @@ def schedule(request, team_id):
 @login_required
 def shift_edit(request, team_id, shift_id):
     """Change one upcoming shift. Same checks as adding one."""
-    team = get_object_or_404(Team, pk=team_id)
+    team = get_object_or_404(Team, pk=team_id, is_active=True)
     shift = get_object_or_404(Shift, pk=shift_id, team=team)
     denied = _lead_only(request, team)
     if denied:
@@ -654,7 +670,7 @@ def shift_delete(request, team_id, shift_id):
     Remove one upcoming shift. A primary shift stays if removing it would
     leave a hole in the cover; a secondary shift can always go.
     """
-    team = get_object_or_404(Team, pk=team_id)
+    team = get_object_or_404(Team, pk=team_id, is_active=True)
     shift = get_object_or_404(Shift, pk=shift_id, team=team)
     denied = _lead_only(request, team)
     if denied:
@@ -697,7 +713,7 @@ def calendar(request):
     week_end = week_start + timedelta(days=7)
     now = timezone.now()
 
-    teams = (Team.objects.filter(Q(teammember__user=request.user) | Q(lead=request.user))
+    teams = (Team.objects.filter(Q(teammember__user=request.user) | Q(lead=request.user), is_active=True)
              .distinct().order_by("name"))
     rows = []
     for team in teams:
@@ -737,8 +753,9 @@ def team_policy(request, team_id):
     changed in its row or removed, and a new tier is added at the end.
     Removing a tier renumbers the rest so they stay 1, 2, 3, and moves the
     tickets that were at or past it back one step so they keep their place.
+    A checkbox under the table adds Administration as the last tier.
     """
-    team = get_object_or_404(Team, pk=team_id)
+    team = get_object_or_404(Team, pk=team_id, is_active=True)
     if not is_lead(request.user, team):
         messages.error(request, f"Only the lead of {team.name} can edit its escalation policy")
         return redirect("profile")
@@ -746,7 +763,11 @@ def team_policy(request, team_id):
         # One edit at a time per team, so two submissions never take the same tier number
         Team.objects.select_for_update().get(pk=team.pk)
     ensure_policy(team)
-    tiers = list(team.escalation_tiers.select_related("escalate_to_user"))
+    policy_rows = list(team.escalation_tiers.select_related("escalate_to_user"))
+    # Administration, when the lead ticked it, is the last row. Nobody waits
+    # at it, so it has no form and is kept apart from the tiers people sit at.
+    administration = next((t for t in policy_rows if t.escalate_to == "administration"), None)
+    tiers = [t for t in policy_rows if t.escalate_to != "administration"]
     add_form = EscalationTierForm(team)
     refused = None
     action = request.POST.get("action") if request.method == "POST" else None
@@ -778,12 +799,30 @@ def team_policy(request, team_id):
             messages.success(request, f"Tier {tier.tier_number} saved")
             return redirect("team_policy", team_id=team.pk)
         refused = form
+    if action == "administration":
+        # The checkbox under the table: a ticked box arrives as "on", an unticked one does not arrive at all
+        wanted = request.POST.get("administration") == "on"
+        if wanted and administration is None:
+            # Its wait is never read: nobody waits at administration
+            EscalationTier.objects.create(team=team, tier_number=tiers[-1].tier_number + 1,
+                                          escalate_to="administration", wait_minutes=1)
+        elif not wanted and administration is not None:
+            administration.delete()
+        if wanted:
+            messages.success(request, "Administration is now the last tier of this policy")
+        else:
+            messages.success(request, "Administration is no longer a tier of this policy")
+        return redirect("team_policy", team_id=team.pk)
     if action == "add":
         add_form = EscalationTierForm(team, request.POST)
         if add_form.is_valid():
             tier = add_form.save(commit=False)
             tier.team = team
             tier.tier_number = tiers[-1].tier_number + 1
+            if administration is not None:
+                # Administration stays last: it steps down one place to make room
+                administration.tier_number = tier.tier_number + 1
+                administration.save()
             tier.save()
             messages.success(request, f"Tier {tier.tier_number} added")
             return redirect("team_policy", team_id=team.pk)
@@ -797,6 +836,7 @@ def team_policy(request, team_id):
             rows.append((tier, EscalationTierForm(team, instance=tier, prefix=f"t{tier.pk}")))
     return render(request, "policy.html", {
         "team": team, "rows": rows, "add_form": add_form, "next_number": tiers[-1].tier_number + 1,
+        "has_administration": administration is not None,
     })
 
 

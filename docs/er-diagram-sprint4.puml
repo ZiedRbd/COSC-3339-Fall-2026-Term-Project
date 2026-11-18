@@ -18,7 +18,7 @@ title ER diagram: what changed between Sprint 3 and Sprint 4
 
 legend top left
   |<#C9ECD3>          | New table |
-  |<#FBEFAE>          | Table with new columns, marked **new** |
+  |<#FBEFAE>          | Changed table: every column, new ones marked **new** |
   |<#E4E5EA>          | Unchanged table, name only |
 endlegend
 
@@ -34,7 +34,16 @@ entity "INCIDENT_UPDATE" as upd
 entity "USER" as user #FBEFAE {
   * id : int <<PK>>
   --
-  columns of Sprint 3, unchanged
+  * username : varchar <<UK>>
+  * email : varchar <<UK>>
+  * password : varchar
+  * first_name : varchar
+  * last_name : varchar
+  * role : varchar = 'reporter'
+    bio : text
+  * is_active : bool = true
+  * is_superuser : bool = false
+  * created_at : datetime
   --
     avatar : varchar  **new**
 }
@@ -42,9 +51,23 @@ entity "USER" as user #FBEFAE {
 entity "INCIDENT" as incident #FBEFAE {
   * id : int <<PK>>
   --
-  columns of Sprint 3, unchanged
-  (escalation_level and escalated_at
-  existed and are now written)
+  * title : varchar
+  * description : text
+    building : varchar
+    room : varchar
+  * service_id : int <<FK>>
+  * reported_by_id : int <<FK>>
+    assigned_to_id : int <<FK>>
+    assigned_team_id : int <<FK>>
+  * status : varchar = 'open'
+  * priority : varchar = 'medium'
+  * escalation_level : int = 0
+    escalated_at : datetime
+    sla_due_at : datetime
+    resolved_at : datetime
+  * is_deleted : bool = false
+  * created_at : datetime
+  * updated_at : datetime
   --
     escalation_timer_started_at : datetime  **new**
   * is_unassigned_after_escalation : bool = false  **new**
@@ -53,7 +76,12 @@ entity "INCIDENT" as incident #FBEFAE {
 entity "SHIFT" as shift #FBEFAE {
   * id : int <<PK>>
   --
-  columns of Sprint 3, unchanged
+  * team_id : int <<FK>>
+  * solver_id : int <<FK>>
+  * starts_at : datetime
+  * ends_at : datetime
+  * created_by_id : int <<FK>>
+  * created_at : datetime
   --
   * on_call_role : varchar = 'primary'  **new**
 }

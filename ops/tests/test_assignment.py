@@ -162,8 +162,8 @@ class ReassignmentTests(TestCase):
                              starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=1))
         self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
         html = self.client.get(f"/incidents/{self.inc.pk}/").content.decode()
-        self.assertIn("Reassign to Jane Okoro (primary on call)", html)
-        self.assertIn("Reassign to Bob Ray (secondary on call)", html)
+        self.assertIn("Reassign to Jane Okoro, primary on call", html)
+        self.assertIn("Reassign to Bob Ray, secondary on call", html)
         self.post_as("lead@x.com", bob)
         self.assertEqual(self.inc.assigned_to, bob)
 
@@ -173,7 +173,7 @@ class ReassignmentTests(TestCase):
                                     assigned_team=self.team, assigned_to=self.jane, status="assigned")
         self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
         html = self.client.get(f"/incidents/{self.inc.pk}/").content.decode()
-        self.assertIn("Jane Okoro (primary on call) already holds 3 tickets", html)
+        self.assertIn("Jane Okoro, primary on call, already holds 3 tickets", html)
         self.assertNotIn('class="reassign-form"', html)
 
     def test_holder_who_is_on_call_cannot_be_reassigned(self):
@@ -215,7 +215,7 @@ class ReassignmentTests(TestCase):
         """The button names the on-call solver and shows for the lead alone."""
         self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
         html = self.client.get(f"/incidents/{self.inc.pk}/").content.decode()
-        self.assertIn("Reassign to Jane Okoro (primary on call)", html)
+        self.assertIn("Reassign to Jane Okoro, primary on call", html)
         self.client.login(username="tim@x.com", password=GOOD_PASSWORD)
         self.assertNotIn('class="reassign-form"', self.client.get(f"/incidents/{self.inc.pk}/").content.decode())
 

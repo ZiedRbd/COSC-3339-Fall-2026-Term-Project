@@ -1,0 +1,180 @@
+@startuml CampusDesk ER changes in Sprint 5
+hide circle
+hide empty members
+skinparam nodesep 70
+skinparam ranksep 80
+skinparam padding 6
+skinparam roundCorner 8
+skinparam shadowing false
+skinparam ArrowColor #555555
+skinparam ArrowFontColor #555555
+skinparam class {
+  BackgroundColor #FAFAFA
+  BorderColor #444444
+  HeaderBackgroundColor #E4E5EA
+}
+
+title ER diagram: what changed between Sprint 4 and Sprint 5
+
+legend top left
+  |<#C9ECD3>          | New table |
+  |<#FBEFAE>          | Changed table: every column, new ones marked **new** |
+  |<#E4E5EA>          | Unchanged table, name only |
+endlegend
+
+' ── Unchanged since Sprint 4 ────────────────────
+
+entity "TEAM_MEMBER" as tm
+entity "SHIFT" as shift
+entity "ESCALATION_TIER" as tier
+
+' ── Changed in Sprint 5 ─────────────────────────
+
+entity "USER" as user #FBEFAE {
+  * id : int <<PK>>
+  --
+  * username : varchar <<UK>>
+  * email : varchar <<UK>>
+  * password : varchar
+  * first_name : varchar
+  * last_name : varchar
+  * role : varchar = 'reporter'
+    bio : text
+    avatar : varchar
+  * is_active : bool = true
+  * is_superuser : bool = false
+  * created_at : datetime
+  --
+    removed_at : datetime  **new**
+    removed_by_id : int <<FK>>  **new**
+}
+
+entity "TEAM" as team #FBEFAE {
+  * id : int <<PK>>
+  --
+  * name : varchar <<UK>>
+    description : text
+    lead_id : int <<FK>>
+  * created_at : datetime
+  --
+  * is_active : bool = true  **new**
+    removed_at : datetime  **new**
+    removed_by_id : int <<FK>>  **new**
+}
+
+entity "SERVICE" as service #FBEFAE {
+  * id : int <<PK>>
+  --
+  * name : varchar
+    description : text
+    owning_team_id : int <<FK>>
+  * criticality : varchar = 'medium'
+  * is_active : bool = true
+  * created_at : datetime
+  --
+    removed_at : datetime  **new**
+    removed_by_id : int <<FK>>  **new**
+}
+
+entity "INCIDENT" as incident #FBEFAE {
+  * id : int <<PK>>
+  --
+  * title : varchar
+  * description : text
+    building_typed : varchar  **renamed from building**
+    room : varchar
+  * service_id : int <<FK>>
+  * reported_by_id : int <<FK>>
+    assigned_to_id : int <<FK>>
+    assigned_team_id : int <<FK>>
+  * status : varchar = 'open'
+  * priority : varchar = 'medium'
+  * escalation_level : int = 0
+    escalated_at : datetime
+    escalation_timer_started_at : datetime
+  * is_unassigned_after_escalation : bool = false
+    sla_due_at : datetime
+    resolved_at : datetime
+  * is_deleted : bool = false
+  * created_at : datetime
+  * updated_at : datetime
+  --
+    building_id : int <<FK>>  **new**
+    photo : varchar  **new**
+    rating : int  **new**
+    removed_at : datetime  **new**
+    removed_by_id : int <<FK>>  **new**
+  check (rating from 1 to 5)  **new**
+}
+
+entity "INCIDENT_UPDATE" as upd #FBEFAE {
+  * id : int <<PK>>
+  --
+  * incident_id : int <<FK>>
+  * author_id : int <<FK>>
+  * update_type : varchar = 'note'
+  * body : text
+    old_status : varchar
+    new_status : varchar
+    old_assignee_id : int <<FK>>
+    new_assignee_id : int <<FK>>
+  * created_at : datetime
+  --
+    escalated_to_tier : int  **new**
+  index (update_type, created_at)  **new**
+}
+
+entity "NOTIFICATION" as note #FBEFAE {
+  * id : int <<PK>>
+  --
+  * user_id : int <<FK>>
+    incident_id : int <<FK>>
+  * event : varchar
+  * message : text
+  * created_at : datetime
+    read_at : datetime
+    emailed_at : datetime
+  --
+  event gains two values: override, handover  **new**
+}
+
+' ── New in Sprint 5 ─────────────────────────────
+
+entity "BUILDING" as building #C9ECD3 {
+  * id : int <<PK>>
+  --
+  * name : varchar <<UK>>
+    aliases : varchar
+  * kind : varchar = 'campus'
+  * is_active : bool = true
+    removed_at : datetime
+    removed_by_id : int <<FK>>
+  * created_at : datetime
+}
+
+' ── Relationships ───────────────────────────────
+
+user     ||--o{ tm       : belongs to
+team     ||--o{ tm       : has
+user     |o--o{ team     : leads
+team     |o--o{ service  : owns
+service  ||--o{ incident : has
+user     ||--o{ incident : reports
+user     |o--o{ incident : assigned to
+team     |o--o{ incident : assigned team
+incident ||--o{ upd      : has
+user     ||--o{ upd      : writes
+team     ||--o{ shift    : has
+user     ||--o{ shift    : covers
+team     ||--o{ tier     : has
+user     |o--o{ tier     : named in
+user     ||--o{ note     : receives
+incident |o--o{ note     : is about
+user     |o--o{ user     : removed by  **new**
+user     |o--o{ team     : removed by  **new**
+user     |o--o{ service  : removed by  **new**
+user     |o--o{ incident : removed by  **new**
+user     |o--o{ building : removed by  **new**
+building |o--o{ incident : is where  **new**
+
+@enduml

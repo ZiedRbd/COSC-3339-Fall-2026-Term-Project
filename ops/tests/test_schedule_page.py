@@ -125,7 +125,7 @@ class ShiftFormTests(SchedulePageTests):
         Shift.objects.all().delete()
         resp = self.add_as("lead@x.com", self.jane, self.base + timedelta(hours=12), self.base + timedelta(hours=20))
         self.assertEqual(Shift.objects.count(), 0)
-        self.assertIn("missing coverage from now (", resp.content.decode().lower())
+        self.assertIn("missing coverage from now, ", resp.content.decode().lower())
 
     def test_confirm_modal_is_on_the_page(self):
         self.client.login(username="lead@x.com", password=GOOD_PASSWORD)
