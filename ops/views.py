@@ -78,7 +78,7 @@ def services(request):
         queryset=Service.objects.filter(is_active=True),
         to_attr="active_services",
     )
-    teams = Team.objects.prefetch_related(active_services)
+    teams = Team.objects.filter(is_active=True).prefetch_related(active_services)
     return render(request, "services.html", {"teams": teams})
 
 
@@ -124,9 +124,9 @@ def incident_list(request):
     if request.user.role != "solver":
         return redirect("profile")
     team_ids = set(TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True))
-    led_ids = set(Team.objects.filter(lead=request.user).values_list("id", flat=True))
+    led_ids = set(Team.objects.filter(lead=request.user, is_active=True).values_list("id", flat=True))
     # A ticket that was waiting for someone to come on call is picked up here
-    for team in Team.objects.filter(id__in=team_ids | led_ids):
+    for team in Team.objects.filter(id__in=team_ids | led_ids, is_active=True):
         assign_waiting(team)
     incidents = (
         Incident.objects.filter(is_deleted=False)
@@ -337,8 +337,9 @@ def profile(request):
     # Solvers see the teams they are on and who else is on each team.
     my_teams = []
     if request.user.role == "solver":
-        for team in Team.objects.filter(teammember__user=request.user):
-            team.members = [tm.user for tm in TeamMember.objects.filter(team=team).select_related("user")]
+        for team in Team.objects.filter(teammember__user=request.user, is_active=True):
+            team.members = [tm.user for tm in TeamMember.objects.filter(team=team, user__is_active=True)
+                            .select_related("user")]
             my_teams.append(team)
     # Newest first, so each column reads in date order
     return render(request, "profile.html", {
@@ -580,7 +581,7 @@ def schedule(request, team_id):
     gap or an overlap is refused with a message naming the day and the
     window.
     """
-    team = get_object_or_404(Team, pk=team_id)
+    team = get_object_or_404(Team, pk=team_id, is_active=True)
     denied = _lead_only(request, team)
     if denied:
         return denied
@@ -608,7 +609,7 @@ def schedule(request, team_id):
 @login_required
 def shift_edit(request, team_id, shift_id):
     """Change one upcoming shift. Same checks as adding one."""
-    team = get_object_or_404(Team, pk=team_id)
+    team = get_object_or_404(Team, pk=team_id, is_active=True)
     shift = get_object_or_404(Shift, pk=shift_id, team=team)
     denied = _lead_only(request, team)
     if denied:
@@ -661,7 +662,7 @@ def shift_delete(request, team_id, shift_id):
     Remove one upcoming shift. A primary shift stays if removing it would
     leave a hole in the cover; a secondary shift can always go.
     """
-    team = get_object_or_404(Team, pk=team_id)
+    team = get_object_or_404(Team, pk=team_id, is_active=True)
     shift = get_object_or_404(Shift, pk=shift_id, team=team)
     denied = _lead_only(request, team)
     if denied:
@@ -704,7 +705,7 @@ def calendar(request):
     week_end = week_start + timedelta(days=7)
     now = timezone.now()
 
-    teams = (Team.objects.filter(Q(teammember__user=request.user) | Q(lead=request.user))
+    teams = (Team.objects.filter(Q(teammember__user=request.user) | Q(lead=request.user), is_active=True)
              .distinct().order_by("name"))
     rows = []
     for team in teams:
@@ -746,7 +747,7 @@ def team_policy(request, team_id):
     tickets that were at or past it back one step so they keep their place.
     A checkbox under the table adds Administration as the last tier.
     """
-    team = get_object_or_404(Team, pk=team_id)
+    team = get_object_or_404(Team, pk=team_id, is_active=True)
     if not is_lead(request.user, team):
         messages.error(request, f"Only the lead of {team.name} can edit its escalation policy")
         return redirect("profile")

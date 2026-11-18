@@ -42,7 +42,8 @@ class Command(BaseCommand):
         """
         for step in range(len(solvers)):
             solver = solvers[(i + step) % len(solvers)]
-            elsewhere = Shift.objects.filter(solver=solver, starts_at__lt=ends_at, ends_at__gt=starts_at)
+            elsewhere = Shift.objects.filter(solver=solver, starts_at__lt=ends_at, ends_at__gt=starts_at,
+                                             team__is_active=True)
             if solver != previous and not elsewhere.exclude(team=team).exists():
                 return i + step
         if len(solvers) > 1:
@@ -74,7 +75,7 @@ class Command(BaseCommand):
         Shift.objects.filter(ends_at__gt=now).delete()
 
         total = 0
-        for team in Team.objects.order_by("name"):
+        for team in Team.objects.filter(is_active=True).order_by("name"):
             solvers = [
                 m.user for m in TeamMember.objects.filter(team=team, user__role="solver", user__is_active=True)
                 .select_related("user").order_by("user__id")
@@ -101,7 +102,7 @@ class Command(BaseCommand):
 
         # Secondaries go in after every team's primaries, so a solver who is
         # primary on another team at that hour is never picked.
-        for team in Team.objects.order_by("name"):
+        for team in Team.objects.filter(is_active=True).order_by("name"):
             solvers = [
                 m.user for m in TeamMember.objects.filter(team=team, user__role="solver", user__is_active=True)
                 .select_related("user").order_by("user__id")
@@ -126,5 +127,5 @@ class Command(BaseCommand):
                             break
                 day_start += timedelta(days=1)
 
-        picked = sum(assign_waiting(team) for team in Team.objects.all())
+        picked = sum(assign_waiting(team) for team in Team.objects.filter(is_active=True))
         self.stdout.write(self.style.SUCCESS(f"Seeded {total} shifts, {picked} waiting tickets assigned"))

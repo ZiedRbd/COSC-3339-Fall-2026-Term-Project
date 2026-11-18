@@ -266,7 +266,7 @@ def assign_all_waiting():
         status="open", assigned_to__isnull=True, is_deleted=False, is_unassigned_after_escalation=False,
         assigned_team__isnull=False,
     ).values("assigned_team_id")
-    return sum(assign_waiting(team) for team in Team.objects.filter(id__in=waiting_teams))
+    return sum(assign_waiting(team) for team in Team.objects.filter(id__in=waiting_teams, is_active=True))
 
 
 def is_lead(user, team):
@@ -357,7 +357,9 @@ def validate_schedule(team, proposed, now=None):
         errors += _solver_problems(shift, team)
         # This team's other primary shifts are checked by the walk below
         clash = (
-            Shift.objects.filter(solver=shift.solver, starts_at__lt=shift.ends_at, ends_at__gt=shift.starts_at)
+            # A removed team keeps its old shifts as history; they hold nobody back
+            Shift.objects.filter(solver=shift.solver, starts_at__lt=shift.ends_at, ends_at__gt=shift.starts_at,
+                                 team__is_active=True)
             .exclude(team=team, on_call_role="primary")
             .exclude(id=shift.id)
             .select_related("team", "solver")
@@ -410,7 +412,8 @@ def validate_secondary(team, proposed, now=None):
                           f"is longer than 24 hours")
         errors += _solver_problems(shift, team)
         # Everything this person already has that is not one of the shifts being checked
-        elsewhere = Shift.objects.filter(solver=shift.solver).exclude(id__in=saved_ids).select_related("team", "solver")
+        elsewhere = (Shift.objects.filter(solver=shift.solver, team__is_active=True)
+                     .exclude(id__in=saved_ids).select_related("team", "solver"))
         clash = elsewhere.filter(starts_at__lt=shift.ends_at, ends_at__gt=shift.starts_at).first()
         if clash:
             errors.append(_already_on_call(clash))
