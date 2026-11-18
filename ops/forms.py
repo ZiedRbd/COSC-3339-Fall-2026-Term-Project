@@ -3,7 +3,7 @@ from uuid import uuid4
 from django import forms
 from django.utils import timezone
 
-from .models import EscalationTier, Service, Shift, User
+from .models import Building, EscalationTier, Service, Shift, User
 
 
 class RegisterForm(forms.Form):
@@ -89,11 +89,12 @@ class IncidentForm(forms.Form):
         widget=forms.Textarea(attrs={'class': 'form-input text-field', 'rows': 4})
     )
 
-    # Optional location details
-    building = forms.CharField(
-        max_length=40,
+    # Optional location details. The building comes from the campus list;
+    # its choices are narrowed in __init__.
+    building = forms.ModelChoiceField(
+        queryset=Building.objects.none(),
         required=False,
-        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Building, optional'})
+        empty_label="Select a building, optional"
     )
     room = forms.CharField(
         max_length=20,
@@ -121,16 +122,21 @@ class IncidentForm(forms.Form):
         ],
     )
 
-    def __init__(self, *args, keep=None, **kwargs):
+    def __init__(self, *args, keep=None, keep_building=None, **kwargs):
         """
-        `keep` is the service of the ticket being edited. It stays a valid
-        choice after it is switched off, so an old ticket can still be edited.
+        `keep` and `keep_building` are the service and the building of the
+        ticket being edited. They stay valid choices after they are removed,
+        so an old ticket can still be edited.
         """
         super().__init__(*args, **kwargs)
         services = Service.objects.filter(is_active=True)
         if keep is not None:
             services = services | Service.objects.filter(pk=keep.pk)
         self.fields["service"].queryset = services.order_by("id")
+        buildings = Building.objects.filter(is_active=True)
+        if keep_building is not None:
+            buildings = buildings | Building.objects.filter(pk=keep_building.pk)
+        self.fields["building"].queryset = buildings.order_by("name")
 
 
 class DateAndHourWidget(forms.MultiWidget):

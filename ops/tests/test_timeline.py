@@ -48,14 +48,14 @@ class EditTimelineDetailTests(TestCase):
         self.incident = Incident.objects.create(
             title="Old title", description="old desc", service=self.svc,
             reported_by=self.reporter, assigned_team=self.team, status="open",
-            priority="low", building="A", room="1")
+            priority="low", building_typed="A", room="1")
         self.client.login(username="r@x.com", password=GOOD_PASSWORD)
 
     def test_edit_logs_old_and_new_values(self):
         """Changing the title records an entry naming both the old and new value."""
         self.client.post(f"/incidents/{self.incident.pk}/edit/", {
             "title": "New title", "description": "old desc", "service": self.svc.pk,
-            "priority": "low", "building": "A", "room": "1"})
+            "priority": "low", "building": "", "room": "1"})
         bodies = list(self.incident.incidentupdate_set.filter(update_type="edit")
                       .values_list("body", flat=True))
         self.assertTrue(any("Old title" in b and "New title" in b for b in bodies))

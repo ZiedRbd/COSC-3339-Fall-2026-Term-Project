@@ -28,6 +28,8 @@ entity "USER" as user {
     avatar : varchar
   * is_active : bool = true
   * is_superuser : bool = false
+    removed_at : datetime
+    removed_by_id : int <<FK>>
   * created_at : datetime
 }
 
@@ -46,6 +48,9 @@ entity "TEAM" as team {
   * name : varchar <<UK>>
     description : text
     lead_id : int <<FK>>
+  * is_active : bool = true
+    removed_at : datetime
+    removed_by_id : int <<FK>>
   * created_at : datetime
 }
 
@@ -59,6 +64,20 @@ entity "SERVICE" as service {
     owning_team_id : int <<FK>>
   * criticality : varchar = 'medium'
   * is_active : bool = true
+    removed_at : datetime
+    removed_by_id : int <<FK>>
+  * created_at : datetime
+}
+
+entity "BUILDING" as building {
+  * id : int <<PK>>
+  --
+  * name : varchar <<UK>>
+    aliases : varchar
+  * kind : varchar = 'campus'
+  * is_active : bool = true
+    removed_at : datetime
+    removed_by_id : int <<FK>>
   * created_at : datetime
 }
 
@@ -69,8 +88,10 @@ entity "INCIDENT" as incident {
   --
   * title : varchar
   * description : text
-    building : varchar
+    building_id : int <<FK>>
+    building_typed : varchar
     room : varchar
+    photo : varchar
   * service_id : int <<FK>>
   * reported_by_id : int <<FK>>
     assigned_to_id : int <<FK>>
@@ -84,8 +105,12 @@ entity "INCIDENT" as incident {
     sla_due_at : datetime
     resolved_at : datetime
   * is_deleted : bool = false
+    removed_at : datetime
+    removed_by_id : int <<FK>>
+    rating : int
   * created_at : datetime
   * updated_at : datetime
+  check (rating from 1 to 5)
 }
 
 entity "INCIDENT_UPDATE" as upd {
@@ -99,6 +124,7 @@ entity "INCIDENT_UPDATE" as upd {
     new_status : varchar
     old_assignee_id : int <<FK>>
     new_assignee_id : int <<FK>>
+    escalated_to_tier : int
   * created_at : datetime
 }
 
@@ -171,5 +197,11 @@ team ||--o{ tier : "has"
 user |o--o{ tier : "named in"
 user ||--o{ note : "receives"
 incident |o--o{ note : "is about"
+user |o--o{ user : "removed by"
+user |o--o{ team : "removed by"
+user |o--o{ service : "removed by"
+user |o--o{ incident : "removed by"
+user |o--o{ building : "removed by"
+building |o--o{ incident : "is where"
 
 @enduml

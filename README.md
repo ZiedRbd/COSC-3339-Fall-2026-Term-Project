@@ -47,6 +47,7 @@ COSC-3339-Fall-2026-Term-Project/
 │   ├── notifications.py        Writes a notification and sends it by email
 │   ├── context_processors.py   Unread notifications for the bell on every page
 │   ├── timeline.py             Writes entries to a ticket's timeline
+│   ├── buildings.py            Finds a campus building from what somebody typed
 │   ├── templatetags/status.py  Shows a status by its label
 │   ├── tests/                  Automated tests, one file per purpose
 │   ├── apps.py                 Application configuration
@@ -104,6 +105,7 @@ COSC-3339-Fall-2026-Term-Project/
     ├── ER-DIAGRAM.md           Entity relationship diagram
     ├── er-diagram.puml         Same diagram in PlantUML
     ├── er-diagram-sprint4.puml   ER diagram of the changes from Sprint 3 to Sprint 4
+    ├── er-diagram-sprint5.puml   ER diagram of the changes from Sprint 4 to Sprint 5
     ├── incident-state-machine.puml   Incident lifecycle states and transitions
     ├── solver-sequence.puml    How a solver moves an assigned incident forward
     ├── assignment-sequence.puml  How a filed ticket is assigned to the solver on call
@@ -133,10 +135,12 @@ COSC-3339-Fall-2026-Term-Project/
 | User → EscalationTier (named person) | one-to-many, optional | `EscalationTier.escalate_to_user` |
 | User → Notification | one-to-many | `Notification.user` |
 | Incident → Notification | one-to-many, optional | `Notification.incident` |
+| Building → Incident | one-to-many, optional | `Incident.building` |
+| User → User, Team, Service, Building, Incident (removed by) | one-to-many, optional | `removed_by` on each of the five models |
 
 A user may belong to one or more teams. Each service is owned by at most one team; a ticket against a service with no team cannot be assigned. Each incident is filed against exactly one service by exactly one reporting user, and may optionally be assigned to a handling user and team. Each incident may accumulate any number of updates, each written by one user.
 
-Incidents are never physically deleted. Deleting sets `is_deleted` so the ticket leaves the list but its history is kept.
+Nothing is physically deleted. Removing a user, a team, a service or a building sets its `is_active` to false, and deleting a ticket sets `is_deleted`. The row leaves every list and dropdown but its history is kept, and `removed_at` and `removed_by` record when it was removed and by whom. A ticket points at a row of `Building`, the campus list of buildings and residence halls, and keeps in `building_typed` what was typed before that list existed. It can carry an optional `photo` of the problem and the reporter's `rating` of the fix, from 1 to 5. Each escalation entry on a timeline stores the tier it moved the ticket to in `escalated_to_tier`.
 
 Full ER diagram: [`docs/ER-DIAGRAM.md`](docs/ER-DIAGRAM.md)
 

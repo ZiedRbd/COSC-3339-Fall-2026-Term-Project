@@ -164,11 +164,12 @@ def _ticket_label(incident):
 TAKE_IT = "Open it and move it to In Progress to take responsibility, or it escalates"
 
 
-def _hand_to(incident, solver, by, update_type, body, event, happened, at=None, level=0):
+def _hand_to(incident, solver, by, update_type, body, event, happened, at=None, level=0, tier=None):
     """
     The one place a ticket gets an owner. Sets the solver, starts the
     escalation clock, saves, writes the timeline entry and notifies the
     solver with the ticket number, service, severity and what to do next.
+    An escalation passes `tier`, the number of the tier it moved to.
     """
     old = incident.assigned_to
     incident.assigned_to = solver
@@ -176,7 +177,8 @@ def _hand_to(incident, solver, by, update_type, body, event, happened, at=None, 
         incident.status = "assigned"
     _start_clock(incident, at, level)
     incident.save()
-    log_event(incident, by or solver, update_type, body, old_assignee=old, new_assignee=solver)
+    log_event(incident, by or solver, update_type, body, old_assignee=old, new_assignee=solver,
+              escalated_to_tier=tier)
     action = TAKE_IT if incident.status == "assigned" else "It is already In Progress, so carry on with the work"
     notify(solver, incident, event, f"{_ticket_label(incident)} {happened}. {action}.")
 
@@ -584,7 +586,8 @@ def _move_up(incident, tiers, position, minutes, now, to_administration=False):
         if person is not None:
             _hand_to(incident, person, author, "escalation",
                      f"{reason}.{skipped()} Escalated to tier {index + 1}: {_full_name(person)}",
-                     "escalated", f"escalated to you at tier {index + 1}", at=now, level=index)
+                     "escalated", f"escalated to you at tier {index + 1}", at=now, level=index,
+                     tier=index + 1)
             return
         passed.append(str(index + 1))
 
@@ -608,11 +611,11 @@ def _move_up(incident, tiers, position, minutes, now, to_administration=False):
                    f"{_ticket_label(incident)} ran out of escalation tiers and is unassigned. {action}")
         return
 
-    # The lead ticked Administration on the policy page: it is the last tier.
-    # The administrators are told as well as the lead.
+    # The lead ticked Administration on the policy page: it is the last tier,
+    # one past the tiers people sit at. The administrators are told as well as the lead.
     log_event(incident, author, "escalation",
               f"{reason}.{skipped()} Escalated to administration: this ticket is unassigned and needs attention",
-              old_assignee=holder)
+              old_assignee=holder, escalated_to_tier=len(tiers) + 1)
     lead = team.lead if team.lead is not None and team.lead.is_active else None
     told = f"{_ticket_label(incident)} escalated to administration and is unassigned."
     if lead is not None:
