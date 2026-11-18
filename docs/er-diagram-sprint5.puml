@@ -17,6 +17,7 @@ skinparam class {
 title ER diagram: what changed between Sprint 4 and Sprint 5
 
 legend top left
+  |<#C9ECD3>          | New table |
   |<#FBEFAE>          | Changed table: every column, new ones marked **new** |
   |<#E4E5EA>          | Unchanged table, name only |
 endlegend
@@ -80,7 +81,7 @@ entity "INCIDENT" as incident #FBEFAE {
   --
   * title : varchar
   * description : text
-    building : varchar
+    building_typed : varchar  **renamed from building**
     room : varchar
   * service_id : int <<FK>>
   * reported_by_id : int <<FK>>
@@ -98,9 +99,12 @@ entity "INCIDENT" as incident #FBEFAE {
   * created_at : datetime
   * updated_at : datetime
   --
+    building_id : int <<FK>>  **new**
     photo : varchar  **new**
+    rating : int  **new**
     removed_at : datetime  **new**
     removed_by_id : int <<FK>>  **new**
+  check (rating from 1 to 5)  **new**
 }
 
 entity "INCIDENT_UPDATE" as upd #FBEFAE {
@@ -134,6 +138,20 @@ entity "NOTIFICATION" as note #FBEFAE {
   event gains two values: override, handover  **new**
 }
 
+' ── New in Sprint 5 ─────────────────────────────
+
+entity "BUILDING" as building #C9ECD3 {
+  * id : int <<PK>>
+  --
+  * name : varchar <<UK>>
+    aliases : varchar
+  * kind : varchar = 'campus'
+  * is_active : bool = true
+    removed_at : datetime
+    removed_by_id : int <<FK>>
+  * created_at : datetime
+}
+
 ' ── Relationships ───────────────────────────────
 
 user     ||--o{ tm       : belongs to
@@ -156,5 +174,7 @@ user     |o--o{ user     : removed by  **new**
 user     |o--o{ team     : removed by  **new**
 user     |o--o{ service  : removed by  **new**
 user     |o--o{ incident : removed by  **new**
+user     |o--o{ building : removed by  **new**
+building |o--o{ incident : is where  **new**
 
 @enduml

@@ -1,6 +1,6 @@
 # ER Diagram
 
-Nine tables. Every line is a foreign key. The same diagram in PlantUML is in [`er-diagram.puml`](er-diagram.puml).
+Ten tables. Every line is a foreign key. The same diagram in PlantUML is in [`er-diagram.puml`](er-diagram.puml).
 
 ```mermaid
 erDiagram
@@ -26,6 +26,8 @@ erDiagram
     USER o|--o{ TEAM : "removed by"
     USER o|--o{ SERVICE : "removed by"
     USER o|--o{ INCIDENT : "removed by"
+    USER o|--o{ BUILDING : "removed by"
+    BUILDING o|--o{ INCIDENT : "is where"
     INCIDENT o|--o{ NOTIFICATION : "is about"
 
     USER {
@@ -79,7 +81,8 @@ erDiagram
         int id PK
         string title
         string description
-        string building "optional"
+        int building_id FK "nullable, the building on the campus list"
+        string building_typed "what was typed before the campus list existed"
         string room "optional"
         string photo "optional, path of a picture of the problem under media/"
         int service_id FK
@@ -97,8 +100,20 @@ erDiagram
         bool is_deleted "true once the ticket is deleted"
         datetime removed_at "nullable, when the ticket was deleted"
         int removed_by_id FK "nullable, who deleted the ticket"
+        int rating "nullable, the reporter score for the fix, from 1 to 5"
         datetime created_at
         datetime updated_at
+    }
+
+    BUILDING {
+        int id PK
+        string name UK
+        string aliases "short names people type, separated by commas"
+        string kind "campus or residence"
+        bool is_active "false once the building is removed"
+        datetime removed_at "nullable, when the building was removed"
+        int removed_by_id FK "nullable, who removed the building"
+        datetime created_at
     }
 
     INCIDENT_UPDATE {
@@ -170,6 +185,7 @@ erDiagram
 | User → Escalation Tier (named person) | one-to-many, optional | `ESCALATION_TIER.escalate_to_user_id` |
 | User → Notification | one-to-many | `NOTIFICATION.user_id` |
 | Incident → Notification | one-to-many, optional | `NOTIFICATION.incident_id` |
-| User → User, Team, Service, Incident (removed by) | one-to-many, optional | `removed_by_id` on each of the four tables |
+| Building → Incident | one-to-many, optional | `INCIDENT.building_id` |
+| User → User, Team, Service, Building, Incident (removed by) | one-to-many, optional | `removed_by_id` on each of the five tables |
 
-Nothing is physically deleted. A removed user, team or service has `is_active` set to false, and a deleted ticket has `is_deleted` set to true. The row leaves every list and dropdown and its history is kept. `removed_at` and `removed_by_id` on the same four tables record when it was removed and by whom, and are emptied when it is restored. The changes made in Sprint 5 are in [`er-diagram-sprint5.puml`](er-diagram-sprint5.puml). A shift covers `starts_at` up to, but not including, `ends_at`. The database refuses a shift whose end is not after its start.
+Nothing is physically deleted. A removed user, team, service or building has `is_active` set to false, and a deleted ticket has `is_deleted` set to true. The row leaves every list and dropdown and its history is kept. `removed_at` and `removed_by_id` on the same five tables record when it was removed and by whom, and are emptied when it is restored. `BUILDING` is a lookup table holding the campus buildings and residence halls. A ticket points at one of them; `building_typed` keeps what reporters typed before the list existed. The changes made in Sprint 5 are in [`er-diagram-sprint5.puml`](er-diagram-sprint5.puml). A shift covers `starts_at` up to, but not including, `ends_at`. The database refuses a shift whose end is not after its start.

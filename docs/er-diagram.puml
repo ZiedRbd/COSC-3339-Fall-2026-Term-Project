@@ -69,6 +69,18 @@ entity "SERVICE" as service {
   * created_at : datetime
 }
 
+entity "BUILDING" as building {
+  * id : int <<PK>>
+  --
+  * name : varchar <<UK>>
+    aliases : varchar
+  * kind : varchar = 'campus'
+  * is_active : bool = true
+    removed_at : datetime
+    removed_by_id : int <<FK>>
+  * created_at : datetime
+}
+
 ' ── Tickets ─────────────────────────────────────
 
 entity "INCIDENT" as incident {
@@ -76,7 +88,8 @@ entity "INCIDENT" as incident {
   --
   * title : varchar
   * description : text
-    building : varchar
+    building_id : int <<FK>>
+    building_typed : varchar
     room : varchar
     photo : varchar
   * service_id : int <<FK>>
@@ -94,8 +107,10 @@ entity "INCIDENT" as incident {
   * is_deleted : bool = false
     removed_at : datetime
     removed_by_id : int <<FK>>
+    rating : int
   * created_at : datetime
   * updated_at : datetime
+  check (rating from 1 to 5)
 }
 
 entity "INCIDENT_UPDATE" as upd {
@@ -186,5 +201,7 @@ user |o--o{ user : "removed by"
 user |o--o{ team : "removed by"
 user |o--o{ service : "removed by"
 user |o--o{ incident : "removed by"
+user |o--o{ building : "removed by"
+building |o--o{ incident : "is where"
 
 @enduml
