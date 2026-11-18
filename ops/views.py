@@ -146,9 +146,9 @@ def incident_list(request):
         with_administration = set(EscalationTier.objects.filter(
             team_id__in=team_ids | led_ids, escalate_to="administration").values_list("team_id", flat=True))
         for i in incidents:
-                i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
-                i.can_transition = _can_transition(request.user, i)
-            i.to_administration = i.assigned_team_id in with_administration
+            i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
+            i.can_transition = _can_transition(request.user, i)
+        i.to_administration = i.assigned_team_id in with_administration
     return render(request, "incidents/list.html", {"incidents": incidents})
 
 @login_required
