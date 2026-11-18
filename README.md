@@ -104,6 +104,7 @@ COSC-3339-Fall-2026-Term-Project/
     ├── ER-DIAGRAM.md           Entity relationship diagram
     ├── er-diagram.puml         Same diagram in PlantUML
     ├── er-diagram-sprint4.puml   ER diagram of the changes from Sprint 3 to Sprint 4
+    ├── er-diagram-sprint5.puml   ER diagram of the changes from Sprint 4 to Sprint 5
     ├── incident-state-machine.puml   Incident lifecycle states and transitions
     ├── solver-sequence.puml    How a solver moves an assigned incident forward
     ├── assignment-sequence.puml  How a filed ticket is assigned to the solver on call
@@ -133,10 +134,11 @@ COSC-3339-Fall-2026-Term-Project/
 | User → EscalationTier (named person) | one-to-many, optional | `EscalationTier.escalate_to_user` |
 | User → Notification | one-to-many | `Notification.user` |
 | Incident → Notification | one-to-many, optional | `Notification.incident` |
+| User → User, Team, Service, Incident (removed by) | one-to-many, optional | `removed_by` on each of the four models |
 
 A user may belong to one or more teams. Each service is owned by at most one team; a ticket against a service with no team cannot be assigned. Each incident is filed against exactly one service by exactly one reporting user, and may optionally be assigned to a handling user and team. Each incident may accumulate any number of updates, each written by one user.
 
-Incidents are never physically deleted. Deleting sets `is_deleted` so the ticket leaves the list but its history is kept.
+Nothing is physically deleted. Removing a user, a team or a service sets its `is_active` to false, and deleting a ticket sets `is_deleted`. The row leaves every list and dropdown but its history is kept, and `removed_at` and `removed_by` record when it was removed and by whom. A ticket can carry an optional `photo` of the problem. Each escalation entry on a timeline stores the tier it moved the ticket to in `escalated_to_tier`.
 
 Full ER diagram: [`docs/ER-DIAGRAM.md`](docs/ER-DIAGRAM.md)
 
