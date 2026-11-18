@@ -16,7 +16,7 @@
 </div>
 
 <div class="choices">
-  {% if user.role == "solver" %}
+  {% if user.role == "solver" or user.role == "auditor" %}
     <a href="{% url 'incidents' %}" class="choice primary">
       <strong>View team incidents</strong>
       <span>Every ticket for your teams, with yours marked.</span>

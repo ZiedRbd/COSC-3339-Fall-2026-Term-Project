@@ -112,7 +112,7 @@ def landing(request):
     """Dashboard shown after sign in with links to file or view tickets."""
     return render(request, "incidents/landing.html")
 
-
+ALLOWED_ROLES = ["solver", "auditor"]
 @login_required
 def incident_list(request):
     """
@@ -121,22 +121,30 @@ def incident_list(request):
     """
     # The full incident list is for solvers only. Reporters see their own
     # tickets on their profile page instead.
-    if request.user.role != "solver":
+    if request.user.role not in ALLOWED_ROLES:
         return redirect("profile")
     team_ids = set(TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True))
     led_ids = set(Team.objects.filter(lead=request.user).values_list("id", flat=True))
     # A ticket that was waiting for someone to come on call is picked up here
     for team in Team.objects.filter(id__in=team_ids | led_ids):
         assign_waiting(team)
-    incidents = (
-        Incident.objects.filter(is_deleted=False)
-        .filter(Q(assigned_team_id__in=team_ids) | Q(assigned_team_id__in=led_ids))
-        .select_related("service", "reported_by", "assigned_team", "assigned_to")
-        .order_by("-is_unassigned_after_escalation", "-created_at")
-    )
-    for i in incidents:
-        i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
-        i.can_transition = _can_transition(request.user, i)
+    if(request.user.role != "auditor"):
+        incidents = (
+            Incident.objects.filter(is_deleted=False)
+            .filter(Q(assigned_team_id__in=team_ids) | Q(assigned_team_id__in=led_ids))
+            .select_related("service", "reported_by", "assigned_team", "assigned_to")
+            .order_by("-is_unassigned_after_escalation", "-created_at")
+        )
+    else:
+        incidents = (
+            Incident.objects
+            .select_related("service", "reported_by", "assigned_team", "assigned_to")
+            .order_by("-is_unassigned_after_escalation", "-created_at")
+        )
+    if(request.user.role != "auditor"):
+        for i in incidents:
+            i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
+            i.can_transition = _can_transition(request.user, i)
     return render(request, "incidents/list.html", {"incidents": incidents})
 
 @login_required
@@ -347,7 +355,7 @@ def _can_access_incident(user, incident):
     A user may work with an incident if they reported it, or they are a
     solver on the team it is assigned to, or they lead that team.
     """
-    if incident.reported_by_id == user.id:
+    if incident.reported_by_id == user.id or user.role == "auditor":
         return True
     if user.role == "solver" and incident.assigned_team_id:
         if TeamMember.objects.filter(user=user, team_id=incident.assigned_team_id).exists():
@@ -470,7 +478,7 @@ def incident_comment(request, pk):
     if not _can_access_incident(request.user, incident):
         messages.error(request, "You do not have access to that ticket")
         return redirect("incidents")
-    if request.method == "POST":
+    if request.method == "POST" and request.user.role != "auditor":
         body = request.POST.get("body", "").strip()
         if len(body) > 1000:
             messages.error(request, "Comment is too long (1000 characters max)")
@@ -814,3 +822,15 @@ def notifications_read_all(request):
     if url_has_allowed_host_and_scheme(back, allowed_hosts={request.get_host()}):
         return redirect(back)
     return redirect("home")
+
+
+def auditor_notify_admin(request, pk):
+    incident = get_object_or_404(Incident.objects.select_for_update(of=("self",)), pk=pk, is_deleted=False)
+    if request.method == "POST":
+        body = request.POST.get("body", "").strip()
+        if len(body) > 1000:
+            messages.error(request, "Report is too long, please keep report to less than 1000 characyers")
+            return redirect("incident_detail", pk=pk)
+        notify(request.user, incident, "auditor_report",
+                    f"This is a report for ticket #{incident.pk} ({incident.title}) from auditor {request.user.get_full_name()}:\n\n{body}")
+    return redirect("incident_detail", pk=pk)
