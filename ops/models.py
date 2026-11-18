@@ -2,6 +2,13 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 
+# Nothing is ever erased. Removing a user, a team, a service or a ticket
+# sets a flag on its row, so it leaves every list and dropdown while its
+# history stays: is_active on User, Team and Service, is_deleted on
+# Incident. removed_at and removed_by on the same four tables record when
+# it was removed and by whom.
+
+
 # Anyone who can sign in. AbstractUser supplies username, password,
 # first_name, last_name, and is_active. The email is also stored as the
 # username so it acts as the login field.
@@ -13,6 +20,12 @@ class User(AbstractUser):
     # Profile picture. The database holds only the file's path under
     # MEDIA_ROOT; the image itself is a file in media/avatars/.
     avatar = models.ImageField(upload_to="avatars/", blank=True)
+    # Set when an administrator removes this user: when, and by whom. Empty
+    # while it is in use, and emptied again when it is restored.
+    removed_at = models.DateTimeField(null=True, blank=True)
+    removed_by = models.ForeignKey(
+        "User", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
 
 
     def __str__(self):
@@ -28,6 +41,14 @@ class Team(models.Model):
     description = models.TextField(blank=True)
     lead = models.ForeignKey(
         "User", on_delete=models.PROTECT, null=True, blank=True, related_name="led_teams"
+    )
+    # False once the team is removed
+    is_active = models.BooleanField(default=True)
+    # Set when an administrator removes this team: when, and by whom. Empty
+    # while it is in use, and emptied again when it is restored.
+    removed_at = models.DateTimeField(null=True, blank=True)
+    removed_by = models.ForeignKey(
+        "User", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -60,6 +81,12 @@ class Service(models.Model):
     owning_team = models.ForeignKey(Team, on_delete=models.PROTECT, null=True, blank=True)
     criticality = models.CharField(max_length=20, default="medium")
     is_active = models.BooleanField(default=True)
+    # Set when an administrator removes this service: when, and by whom. Empty
+    # while it is in use, and emptied again when it is restored.
+    removed_at = models.DateTimeField(null=True, blank=True)
+    removed_by = models.ForeignKey(
+        "User", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -76,6 +103,9 @@ class Incident(models.Model):
     # Where on campus the problem is. Both optional.
     building = models.CharField(max_length=100, blank=True)
     room = models.CharField(max_length=50, blank=True)
+    # An optional picture of the problem, added when the ticket is filed.
+    # The database holds only the file's path under MEDIA_ROOT.
+    photo = models.ImageField(upload_to="tickets/", blank=True)
     service = models.ForeignKey(Service, on_delete=models.PROTECT)
     reported_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="reported_incidents")
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="assigned_incidents")
@@ -105,6 +135,12 @@ class Incident(models.Model):
     resolved_at = models.DateTimeField(null=True, blank=True)
     # Soft delete flag. Deleted tickets are hidden, never removed.
     is_deleted = models.BooleanField(default=False)
+    # Set when this ticket is deleted: when, and by whom. Empty
+    # while it is in use, and emptied again when it is restored.
+    removed_at = models.DateTimeField(null=True, blank=True)
+    removed_by = models.ForeignKey(
+        "User", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -130,6 +166,13 @@ class IncidentUpdate(models.Model):
     new_assignee = models.ForeignKey(
         User, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
     )
+    # Set on escalation entries only: the number of the tier the ticket
+    # moved to. Empty when the policy ran out and no tier took it.
+    escalated_to_tier = models.PositiveIntegerField(null=True, blank=True)
+
+    class Meta:
+        # Analytics count entries of one kind inside a span of time
+        indexes = [models.Index(fields=["update_type", "created_at"])]
 
     def __str__(self):
         return f"Update on {self.incident}"
@@ -218,6 +261,8 @@ class Notification(models.Model):
         ("queued", "Ticket is waiting in the queue"),
         ("work_started", "Work started on your ticket"),
         ("resolved", "Your ticket was resolved"),
+        ("override", "Override on a ticket"),
+        ("handover", "Handed over to you"),
     ]
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
     incident = models.ForeignKey(Incident, on_delete=models.CASCADE, null=True, blank=True)

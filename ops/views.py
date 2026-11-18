@@ -289,6 +289,9 @@ def incident_delete(request, pk):
         return redirect("incident_detail", pk=incident.pk)
     if request.method == "POST":
         incident.is_deleted = True
+        # Who deleted it and when
+        incident.removed_by = request.user
+        incident.removed_at = timezone.now()
         incident.save()
         messages.success(request, f"Ticket #{incident.pk} deleted")
         # Its solver has room again for a ticket that was waiting, on any team they cover
