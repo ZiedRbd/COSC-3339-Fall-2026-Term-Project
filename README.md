@@ -48,6 +48,8 @@ COSC-3339-Fall-2026-Term-Project/
 │   ├── context_processors.py   Unread notifications for the bell on every page
 │   ├── timeline.py             Writes entries to a ticket's timeline
 │   ├── buildings.py            Finds a campus building from what somebody typed
+│   ├── access.py               Who may do what: the administrator check
+│   ├── removal.py              Removing and restoring users, teams, services, buildings and tickets
 │   ├── templatetags/status.py  Shows a status by its label
 │   ├── tests/                  Automated tests, one file per purpose
 │   ├── apps.py                 Application configuration
@@ -167,7 +169,7 @@ Open -> Assigned -> In Progress -> Resolved -> Closed
 
 Only legal moves are accepted; an illegal move (skipping a step, or going backward without reopening) is rejected with a message explaining why. The system makes one backward move itself: when nobody starts a ticket by the end of its team's policy, the ticket returns from Assigned to Open with nobody assigned, and it is not handed out again until the team lead reassigns it. The full diagram is in [`docs/incident-state-machine.puml`](docs/incident-state-machine.puml).
 
-**Timeline.** Each ticket keeps an automatic, non-editable timeline of everything that happens to it: creation, assignment, a failed assignment (why the ticket is waiting), reassignment, escalation, status changes (old to new), severity changes, detail edits (old to new value), comments, and notes. Every entry records a user and the time. An entry the system writes by itself is recorded under the user it concerns: the reporter when the ticket is filed, the solver who receives it from the queue, or the solver who held it when it escalated. A reporter reads a plainer version: who has the ticket now, or that it is waiting for a solver. Why it moved from one solver to the next, and the alert that nobody took it in time, are shown to solvers and the administrator only. The timeline is reached by opening a ticket from the profile or incident list. It is stored in the `IncidentUpdate` table.
+**Timeline.** Each ticket keeps an automatic, non-editable timeline of everything that happens to it: creation, assignment, a failed assignment (why the ticket is waiting), reassignment, escalation, status changes (old to new), severity changes, detail edits (old to new value), comments, notes, and a removal or restoring by an administrator. Every entry records a user and the time. An entry the system writes by itself is recorded under the user it concerns: the reporter when the ticket is filed, the solver who receives it from the queue, or the solver who held it when it escalated. A reporter reads a plainer version: who has the ticket now, or that it is waiting for a solver. Why it moved from one solver to the next, and the alert that nobody took it in time, are shown to solvers and the administrator only. The timeline is reached by opening a ticket from the profile or incident list. It is stored in the `IncidentUpdate` table.
 
 ## On-Call Scheduling and Assignment
 
@@ -192,6 +194,16 @@ Only legal moves are accepted; an illegal move (skipping a step, or going backwa
 **The timer.** A solver takes responsibility for a ticket by moving it to In Progress. Until then the clock runs from the moment the ticket was assigned, and when the wait of its tier is up the ticket moves to the next tier: the solver changes, the timeline records it, and the new solver is notified. Severity changes every wait: critical tickets wait half as long, high three quarters, medium as written, low twice as long. A tier whose person cannot take the ticket (deactivated, no longer on the team, already holding three tickets, or already the holder) is passed over and named on the timeline. Reopening or reassigning a ticket starts the clock again at tier 1. The check is a scheduled task: a systemd timer runs `python manage.py escalate` once a minute, so it does not depend on anyone having the site open.
 
 **Notifications.** Every notification is a row in the `Notification` table, shown under the bell in the navigation bar, and is also sent by email. A solver is notified when a ticket is assigned to them automatically, reassigned to them by the lead, or escalated to them; the message carries the ticket number, the service, the severity and what to do next. The reporter is notified when work starts on their ticket and when it is resolved, and at no other point. A failed email is logged and never stops the action that caused it; after a failure, email pauses for five minutes so later requests are not slowed down.
+
+## Removing and Restoring
+
+**Nothing is erased.** An administrator, the `is_superuser` flag on a user, removes a user, a team, a service, a building or a ticket. The row is flagged, with who removed it and when, leaves every list and dropdown, and stays on the timelines and in the counts. Restoring it clears the flag. A removed user can no longer log in, is signed out by their next click, and cannot register again because the email is still taken. The rules are in `ops/removal.py`; each one answers with what was done or why it was refused.
+
+**One rule for what people hold.** Nobody is removed until someone else has taken over what they hold. A solver with upcoming shifts, the lead of a team, and a person named in an escalation tier are each refused, with a sentence saying what to hand over first, and each has its own handover: transfer the shifts, appoint a new lead, replace the person in the tier. Taking a solver off one team follows the same rule for that team.
+
+**Transferring shifts.** A removed solver's shifts cannot all go to one person, because nobody may take two shifts in a row. The team's upcoming shifts are walked in order: a shift keeps its solver when it can, and one that cannot goes to the solver the administrator prefers if they are free, otherwise to someone who does not have the next shift, then to whoever has been given the fewest. The result is checked with the same rules as a lead's edit and saved only if it passes, so the team stays covered around the clock. A shift the solver is working now is cut at that moment, and their secondary shifts are dropped.
+
+**Tickets, services and teams.** The tickets a removed solver was working on go back to waiting and the queue hands them out again. A removed service takes no new tickets, and the ones it has carry on. A team cannot be removed while it owns a service or has an unfinished ticket: its services move to another team first and its open tickets follow them into that team's queue. An administrator can remove a ticket at any status with a reason, which is written to its timeline; a restored ticket that someone was working on waits for a solver again.
 
 ## Branching Strategy
 
