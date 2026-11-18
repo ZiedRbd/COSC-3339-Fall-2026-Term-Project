@@ -12,8 +12,9 @@ escalation tier each have their own handover below, and remove_user
 refuses until all three are done. A team hands its services to another
 team in the same way before it can go.
 
-Every function returns an Outcome: ok says whether it happened, and lines
-says what was done or why it was refused, ready to show on a page.
+Every function returns an Outcome: ok says whether it happened, and
+messages holds the sentences saying what was done or why it was refused,
+ready to show on a page.
 """
 from collections import Counter
 from dataclasses import dataclass, field
@@ -35,15 +36,15 @@ ADMIN_ONLY = "Only an administrator can do this"
 @dataclass
 class Outcome:
     ok: bool
-    lines: list = field(default_factory=list)
+    messages: list = field(default_factory=list)
 
 
-def done(*lines):
-    return Outcome(True, list(lines))
+def done(*messages):
+    return Outcome(True, list(messages))
 
 
-def refused(*lines):
-    return Outcome(False, list(lines))
+def refused(*messages):
+    return Outcome(False, list(messages))
 
 
 def _count(number, word):
@@ -98,13 +99,13 @@ def holdings(user, team=None):
 def _what_is_held(user, held, lead=True):
     """One sentence for each thing that has to be handed over first."""
     name = _full_name(user)
-    lines = [f"{name} holds {_count(count, 'upcoming shift')} on {team.name}. Transfer them first."
+    messages = [f"{name} holds {_count(count, 'upcoming shift')} on {team.name}. Transfer them first."
              for team, count in held["shifts"].items()]
     if lead:
-        lines += [f"{name} is the lead of {team.name}. Appoint a new lead first." for team in held["led"]]
-    lines += [f"Tier {tier.tier_number} of {tier.team.name} names {name}. Replace them in that tier first."
+        messages += [f"{name} is the lead of {team.name}. Appoint a new lead first." for team in held["led"]]
+    messages += [f"Tier {tier.tier_number} of {tier.team.name} names {name}. Replace them in that tier first."
               for tier in held["tiers"]]
-    return lines
+    return messages
 
 
 # ── The three handovers ───────────────────────────────────────────────
@@ -203,15 +204,15 @@ def transfer_shifts(user, team, by, prefer=None):
         notify(solver, None, "handover",
                f"You were given {_count(count, 'on-call shift')} on {team.name}. The schedule changed because "
                f"{name} no longer covers that team. Check the calendar for your hours.")
-    lines = []
+    messages = []
     if mine:
         takers = " and ".join(_full_name(solver) for solver in sorted(given, key=pool.index))
-        lines.append(f"{name}'s {_count(len(mine), 'upcoming shift')} on {team.name} "
+        messages.append(f"{name}'s {_count(len(mine), 'upcoming shift')} on {team.name} "
                      f"{'is' if len(mine) == 1 else 'are'} now covered by {takers}.")
     if secondaries:
-        lines.append(f"{name}'s {_count(len(secondaries), 'secondary shift')} on {team.name} "
+        messages.append(f"{name}'s {_count(len(secondaries), 'secondary shift')} on {team.name} "
                      f"{'was' if len(secondaries) == 1 else 'were'} dropped. A secondary is optional.")
-    return done(*lines)
+    return done(*messages)
 
 
 @transaction.atomic
@@ -282,10 +283,10 @@ def remove_user(user, by):
     _mark_removed(user, by)
     user.save()
     assign_all_waiting()
-    lines = [f"{name} was removed and can no longer log in."]
+    messages = [f"{name} was removed and can no longer log in."]
     if tickets:
-        lines.append(f"{_count(len(tickets), 'ticket')} went back to waiting for a solver.")
-    return done(*lines)
+        messages.append(f"{_count(len(tickets), 'ticket')} went back to waiting for a solver.")
+    return done(*messages)
 
 
 @transaction.atomic
@@ -344,11 +345,11 @@ def remove_service(service, by):
     tickets = list(Incident.objects.filter(service=service, status__in=UNFINISHED, is_deleted=False))
     for ticket in tickets:
         log_event(ticket, by, "removal", f"The service {service.name} was removed. This ticket carries on as normal.")
-    lines = [f"{service.name} was removed. No new ticket can be filed against it."]
+    messages = [f"{service.name} was removed. No new ticket can be filed against it."]
     if tickets:
-        lines.append(f"Its {_count(len(tickets), 'open ticket')} "
+        messages.append(f"Its {_count(len(tickets), 'open ticket')} "
                      f"{'carries' if len(tickets) == 1 else 'carry'} on as normal.")
-    return done(*lines)
+    return done(*messages)
 
 
 @transaction.atomic
@@ -428,13 +429,13 @@ def remove_team(team, by):
         return refused(f"{team.name} is already removed")
     services = Service.objects.filter(owning_team=team, is_active=True).count()
     tickets = Incident.objects.filter(assigned_team=team, status__in=UNFINISHED, is_deleted=False).count()
-    lines = []
+    messages = []
     if services:
-        lines.append(f"{team.name} still owns {_count(services, 'service')}. Move them to another team first.")
+        messages.append(f"{team.name} still owns {_count(services, 'service')}. Move them to another team first.")
     if tickets:
-        lines.append(f"{team.name} still has {_count(tickets, 'open ticket')}. Move them to another team first.")
-    if lines:
-        return refused(*lines)
+        messages.append(f"{team.name} still has {_count(tickets, 'open ticket')}. Move them to another team first.")
+    if messages:
+        return refused(*messages)
     team.is_active = False
     _mark_removed(team, by)
     team.save()
