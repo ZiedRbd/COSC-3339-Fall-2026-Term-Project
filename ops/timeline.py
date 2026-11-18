@@ -11,6 +11,5 @@ def log_event(incident, author, update_type, body, old_status="", new_status="",
     IncidentUpdate.objects.create(
         incident=incident, author=author, update_type=update_type, body=body,
         old_status=old_status, new_status=new_status,
-        old_assignee=old_assignee, new_assignee=new_assignee,
-        escalated_to_tier=escalated_to_tier,
+        old_assignee=old_assignee, new_assignee=new_assignee, escalated_to_tier=escalated_to_tier
     )

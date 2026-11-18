@@ -2,11 +2,11 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 
-# Nothing is ever erased. Removing a user, a team, a service or a ticket
-# sets a flag on its row, so it leaves every list and dropdown while its
-# history stays: is_active on User, Team and Service, is_deleted on
-# Incident. removed_at and removed_by on the same four tables record when
-# it was removed and by whom.
+# Nothing is ever erased. Removing a user, a team, a service, a building
+# or a ticket sets a flag on its row, so it leaves every list and dropdown
+# while its history stays: is_active on User, Team, Service and Building,
+# is_deleted on Incident. removed_at and removed_by on the same five
+# tables record when it was removed and by whom.
 
 
 # Anyone who can sign in. AbstractUser supplies username, password,
@@ -93,6 +93,35 @@ class Service(models.Model):
         return self.name
 
 
+# One place on campus a ticket can be about: a building, a residence
+# hall or an apartment complex. A lookup table: the ticket form offers
+# the active rows and a ticket points at one of them. aliases holds the
+# short names people type, separated by commas, which the search in
+# ops/buildings.py matches as well as the name.
+class Building(models.Model):
+    KIND_CHOICES = [
+        ("campus", "Campus building"),
+        ("residence", "Residence hall or apartments"),
+    ]
+    name = models.CharField(max_length=100, unique=True)
+    aliases = models.CharField(max_length=200, blank=True)
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default="campus")
+    is_active = models.BooleanField(default=True)
+    # Set when an administrator removes this building: when, and by whom. Empty
+    # while it is in use, and emptied again when it is restored.
+    removed_at = models.DateTimeField(null=True, blank=True)
+    removed_by = models.ForeignKey(
+        "User", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 # A ticket filed by a user about a service. On creation it is routed to
 # the team that owns the service and, when someone is on call, assigned
 # to that solver. The escalation fields record where the ticket stands
@@ -100,8 +129,11 @@ class Service(models.Model):
 class Incident(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
-    # Where on campus the problem is. Both optional.
-    building = models.CharField(max_length=100, blank=True)
+    # Where on campus the problem is. Both optional. building points at
+    # the campus list. building_typed is what reporters typed before that
+    # list existed, kept so that no old ticket loses its location.
+    building = models.ForeignKey(Building, on_delete=models.PROTECT, null=True, blank=True)
+    building_typed = models.CharField(max_length=100, blank=True)
     room = models.CharField(max_length=50, blank=True)
     # An optional picture of the problem, added when the ticket is filed.
     # The database holds only the file's path under MEDIA_ROOT.
@@ -141,11 +173,26 @@ class Incident(models.Model):
     removed_by = models.ForeignKey(
         "User", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
     )
+    # The reporter's score for the fix, 1 to 5, given once the ticket is resolved
+    rating = models.PositiveSmallIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(rating__isnull=True) | models.Q(rating__gte=1, rating__lte=5),
+                name="rating_is_one_to_five",
+            )
+        ]
+
     def __str__(self):
         return self.title
+
+    @property
+    def building_name(self):
+        """The building's name from the campus list, or what was typed before the list existed."""
+        return self.building.name if self.building_id else self.building_typed
 
 
 # One entry on a ticket's timeline: creation, a status change, an edit,

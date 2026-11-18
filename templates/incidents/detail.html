@@ -55,7 +55,7 @@
     <div class="field"><span class="field-label">Service</span>
       <span class="field-value">{{ incident.service.name }}</span></div>
     <div class="field"><span class="field-label">Location</span>
-      <span class="field-value">{% if incident.building or incident.room %}{{ incident.building }} {{ incident.room }}{% else %}<span class="muted">Not given</span>{% endif %}</span></div>
+      <span class="field-value">{% if incident.building_name or incident.room %}{{ incident.building_name }} {{ incident.room }}{% else %}<span class="muted">Not given</span>{% endif %}</span></div>
     <div class="field"><span class="field-label">Reported by</span>
       <span class="field-value">{{ incident.reported_by.first_name }} {{ incident.reported_by.last_name }}</span></div>
     <div class="field"><span class="field-label">Assigned to</span>

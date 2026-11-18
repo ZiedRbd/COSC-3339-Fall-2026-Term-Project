@@ -131,7 +131,7 @@ def incident_list(request):
     incidents = (
         Incident.objects.filter(is_deleted=False)
         .filter(Q(assigned_team_id__in=team_ids) | Q(assigned_team_id__in=led_ids))
-        .select_related("service", "reported_by", "assigned_team", "assigned_to")
+        .select_related("service", "reported_by", "assigned_team", "assigned_to", "building")
         .order_by("-is_unassigned_after_escalation", "-created_at")
     )
     # Teams whose policy ends with Administration, so an unassigned ticket says which way it ended
@@ -223,13 +223,13 @@ def incident_edit(request, pk):
         # The service cannot be changed on edit; force the existing one.
         data = request.POST.copy()
         data["service"] = str(incident.service_id)
-        form = IncidentForm(data, keep=incident.service)
+        form = IncidentForm(data, keep=incident.service, keep_building=incident.building)
         if form.is_valid():
             # Remember the old values so we can log exactly what changed.
             old = {
                 "Title": incident.title,
                 "Description": incident.description,
-                "Building": incident.building or "none",
+                "Building": incident.building_name or "none",
                 "Room": incident.room or "none",
             }
             old_severity = incident.priority
@@ -247,7 +247,7 @@ def incident_edit(request, pk):
             new = {
                 "Title": incident.title,
                 "Description": incident.description,
-                "Building": incident.building or "none",
+                "Building": incident.building_name or "none",
                 "Room": incident.room or "none",
             }
             for field in old:
@@ -265,7 +265,7 @@ def incident_edit(request, pk):
             "room": incident.room,
             "service": incident.service,
             "priority": incident.priority,
-        }, keep=incident.service)
+        }, keep=incident.service, keep_building=incident.building)
     return render(request, "incidents/form.html", {"form": form, "incident": incident})
 
 

@@ -10,7 +10,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
-from ops.models import Incident, Service, Team, TeamMember, User
+from ops.models import Building, Incident, Service, Team, TeamMember, User
 from ops.notifications import pause_email
 
 TITLE = "Load test ticket"
@@ -20,7 +20,7 @@ VIEWER = "loadtest.solver@campusdesk.invalid"
 ID_GAP = 1_000_000
 STATUSES = ["resolved", "closed", "in_progress", "resolved", "closed"]
 PRIORITIES = ["low", "medium", "high", "critical"]
-PLACES = [("Library", "210"), ("Science Hall", "B12"), ("", ""), ("Student Center", "")]
+ROOMS = ["210", "B12", "", ""]
 # Statements the surrounding transaction adds, which a real request does not run
 NOT_A_QUERY = ("SAVEPOINT", "RELEASE SAVEPOINT", "ROLLBACK TO SAVEPOINT")
 
@@ -117,15 +117,16 @@ class Command(BaseCommand):
 
     def add_tickets(self, team, services, holders, reporters, first_id, count):
         now = timezone.now()
+        # Three buildings from the campus list, and one ticket in four with no location
+        buildings = list(Building.objects.filter(is_active=True)[:3]) + [None]
         tickets = []
         for n in range(count):
             status = STATUSES[n % len(STATUSES)]
-            building, room = PLACES[n % len(PLACES)]
             tickets.append(Incident(
                 id=first_id + n,
                 title=f"{TITLE} {first_id + n}",
                 description="Created by the load test and rolled back when it ends.",
-                building=building, room=room,
+                building=buildings[n % len(buildings)], room=ROOMS[n % len(ROOMS)],
                 service=services[n % len(services)],
                 reported_by=reporters[n % len(reporters)],
                 assigned_team=team,
