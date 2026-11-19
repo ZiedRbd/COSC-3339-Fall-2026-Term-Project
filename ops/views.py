@@ -125,9 +125,10 @@ def incident_list(request):
             .order_by("-is_unassigned_after_escalation", "-created_at")
         )
     else:
+        # An auditor reads every ticket on the system. A deleted ticket is off every list, this one too.
         incidents = (
-            Incident.objects
-            .select_related("service", "reported_by", "assigned_team", "assigned_to")
+            Incident.objects.filter(is_deleted=False)
+            .select_related("service", "reported_by", "assigned_team", "assigned_to", "building")
             .order_by("-is_unassigned_after_escalation", "-created_at")
         )
     with_administration = set(EscalationTier.objects.filter(
@@ -151,8 +152,9 @@ def incident_form(request):
     incident, recording the signed-in user as the reporter. Solvers cannot
     file tickets; only reporters can.
     """
-    if request.user.role == "solver":
-        messages.error(request, "Solvers cannot file tickets")
+    if request.user.role in ("solver", "auditor"):
+        messages.error(request, "Solvers cannot file tickets" if request.user.role == "solver"
+                       else "Auditors cannot file tickets")
         return redirect("incidents")
     if request.method == "POST":
         form = IncidentForm(request.POST)
@@ -281,6 +283,10 @@ def incident_delete(request, pk):
     # Solvers work tickets, they do not remove them. Only the reporter deletes.
     if request.user.role == "solver":
         messages.error(request, "Solvers cannot delete tickets")
+        return redirect("incident_detail", pk=incident.pk)
+    # An auditor reads every ticket and changes none
+    if request.user.role == "auditor":
+        messages.error(request, "Auditors cannot delete tickets")
         return redirect("incident_detail", pk=incident.pk)
     if not _can_access_incident(request.user, incident):
         messages.error(request, "You do not have access to that ticket")
@@ -865,9 +871,13 @@ def auditor_notify_admin(request, pk):
     incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
     if request.method == "POST" and request.user.role == "auditor":
         body = request.POST.get("body", "").strip()
+        if not body:
+            messages.error(request, "Write a note before sending the report")
+            return redirect("incident_detail", pk=pk)
         if len(body) > 1000:
             messages.error(request, "Report is too long, please keep report to less than 1000 characters")
             return redirect("incident_detail", pk=pk)
+        messages.success(request, "Your report was sent to the administrator")
         audit_report(request.user, incident, "auditor_report",
                     f"This is a report for ticket #{incident.pk}, {incident.title}, from auditor {request.user.get_full_name()}:\n\n{body}")
     return redirect("incident_detail", pk=pk)

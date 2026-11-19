@@ -66,8 +66,6 @@ def notify(user, incident, event, message):
 
 def audit_report(user, incident, event, message):
     """user = auditor who reported"""
-    admins = list(User.objects.filter(is_superuser = True))
-    if(len(admins) == 0):
-        print("No admins")
+    admins = User.objects.filter(is_superuser=True, is_active=True)
     for admin in admins:
         notify(admin, incident, event, message)

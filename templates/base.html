@@ -48,7 +48,7 @@
                 </svg>
                 <span class="nav-label">Services</span>
             </a>
-            <a href="{% if user.role == 'solver' %}{% url 'incidents' %}{% else %}{% url 'landing' %}{% endif %}" class="nav-btn" title="Incidents"{% if here == 'landing' or here == 'incidents' or here == 'form' or here == 'incident_detail' or here == 'incident_edit' %} aria-current="page"{% endif %}>
+            <a href="{% if user.role == 'solver' or user.role == 'auditor' %}{% url 'incidents' %}{% else %}{% url 'landing' %}{% endif %}" class="nav-btn" title="Incidents"{% if here == 'landing' or here == 'incidents' or here == 'form' or here == 'incident_detail' or here == 'incident_edit' %} aria-current="page"{% endif %}>
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 3 2 20h20L12 3z"/>
                     <path d="M12 10v4"/>
@@ -83,7 +83,7 @@
         </nav>
         <div class="nav-user-section">
         {% if user.is_authenticated %}
-            {% if user.role != "solver" and here != 'form' and here != 'landing' %}
+            {% if user.role != "solver" and user.role != "auditor" and here != 'form' and here != 'landing' %}
                 <a href="{% url 'form' %}" class="nav-btn nav-cta" title="Report a problem">
                     <span class="cta-long">Report a problem</span><span class="cta-short">Report</span>
                 </a>
