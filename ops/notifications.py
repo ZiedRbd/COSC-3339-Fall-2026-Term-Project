@@ -5,7 +5,7 @@ from datetime import timedelta
 from django.core.mail import send_mail
 from django.utils import timezone
 
-from .models import Notification
+from .models import Notification, User
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,8 @@ def notify(user, incident, event, message):
     global _mail_paused_until
     if user is None or not user.is_active:
         return None
-    note = Notification.objects.create(user=user, incident=incident, event=event, message=message)
+
+    note = Notification.objects.create(user = user, incident=incident, event=event, message=message)
     now = timezone.now()
     if not user.email or (_mail_paused_until and now < _mail_paused_until):
         return note
@@ -53,6 +54,7 @@ def notify(user, incident, event, message):
             recipient_list=[user.email],
             using="notifications",
         )
+
     except Exception:
         _mail_paused_until = now + MAIL_PAUSE
         logger.exception("Email to %s about %s failed. Email is paused for %s minutes.",
@@ -61,3 +63,11 @@ def notify(user, incident, event, message):
     note.emailed_at = timezone.now()
     note.save(update_fields=["emailed_at"])
     return note
+
+def audit_report(user, incident, event, message):
+    """user = auditor who reported"""
+    admins = list(User.objects.filter(is_superuser = True))
+    if(len(admins) == 0):
+        print("No admins")
+    for admin in admins:
+        notify(admin, incident, event, message)

@@ -165,17 +165,26 @@
       <li class="muted">Nothing has happened to this ticket yet.</li>
     {% endfor %}
   </ul>
-
+  
   {% if can_comment %}
-  <h2 class="section-title">{% if user.role == "solver" %}Add a note{% else %}Add a comment{% endif %}</h2>
-  <form method="post" action="{% url 'incident_comment' incident.pk %}" class="comment-form">
-    {% csrf_token %}
-    <label for="comment-body" class="hint">{% if user.role == "solver" %}The reporter sees your note on this timeline.{% else %}The team sees your comment on this timeline.{% endif %}</label>
-    <textarea id="comment-body" name="body" rows="3" maxlength="1000" class="form-input" required></textarea>
-    <button type="submit" class="btn-small">{% if user.role == "solver" %}Post note{% else %}Post comment{% endif %}</button>
-  </form>
+    {% if user.role != "auditor" %}
+      <h2 class="section-title">{% if user.role == "solver" %}Add a note{% else %}Add a comment{% endif %}</h2>
+      <form method="post" action="{% url 'incident_comment' incident.pk %}" class="comment-form">
+        {% csrf_token %}
+        <label for="comment-body" class="hint">{% if user.role == "solver" %}The reporter sees your note on this timeline.{% else %}The team sees your comment on this timeline.{% endif %}</label>
+        <textarea id="comment-body" name="body" rows="3" maxlength="1000" class="form-input" required></textarea>
+        <button type="submit" class="btn-small">{% if user.role == "solver" %}Post note{% else %}Post comment{% endif %}</button>
+      </form>
+    {% else %}
+      <h2 class="section-title">Report to Admin</h2>
+      <form method="post" action="{% url 'auditor_incident_report' incident.pk %}" class="comment-form">
+        {% csrf_token %}
+        <label for="comment-body" class="hint">Admin will be notified with any notes regarding this ticket</label>
+        <textarea id="comment-body" name="body" rows="3" maxlength="1000" class="form-input" required></textarea>
+        <button type="submit" class="btn-small">Send to Admin</button>
+      </form>
+    {% endif %}
   {% endif %}
-
   <a href="{% url 'incidents' %}" class="back-link">{% if user.role == "solver" %}Back to the incident list{% else %}Back to my tickets{% endif %}</a>
 </div>
 

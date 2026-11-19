@@ -14,7 +14,7 @@ from django.views.decorators.cache import never_cache
 from .forms import AvatarForm, EscalationTierForm, IncidentForm, LoginForm, RegisterForm, ShiftForm
 from .lifecycle import ALLOWED_TRANSITIONS, STATUS_LABELS
 from .models import EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team, TeamMember, User
-from .notifications import notify
+from .notifications import notify, audit_report
 from .scheduling import (MAX_ACTIVE_TICKETS, active_ticket_count, assign_all_waiting, assign_now,
                          assign_on_creation, assign_waiting, ensure_policy, is_lead, on_call_roster,
                          on_call_solvers, reassign,
@@ -100,7 +100,7 @@ def landing(request):
     """Dashboard shown after sign in with links to file or view tickets."""
     return render(request, "incidents/landing.html")
 
-
+ALLOWED_ROLES = ["solver", "auditor"]
 @login_required
 def incident_list(request):
     """
@@ -109,27 +109,41 @@ def incident_list(request):
     """
     # The full incident list is for solvers only. Reporters see their own
     # tickets on their profile page instead.
-    if request.user.role != "solver":
+    if request.user.role not in ALLOWED_ROLES:
         return redirect("profile")
     team_ids = set(TeamMember.objects.filter(user=request.user).values_list("team_id", flat=True))
     led_ids = set(Team.objects.filter(lead=request.user, is_active=True).values_list("id", flat=True))
     # A ticket that was waiting for someone to come on call is picked up here
     for team in Team.objects.filter(id__in=team_ids | led_ids, is_active=True):
         assign_waiting(team)
-    incidents = (
-        Incident.objects.filter(is_deleted=False)
-        .filter(Q(assigned_team_id__in=team_ids) | Q(assigned_team_id__in=led_ids))
-        .select_related("service", "reported_by", "assigned_team", "assigned_to", "building")
-        .order_by("-is_unassigned_after_escalation", "-created_at")
-    )
-    # Teams whose policy ends with Administration, so an unassigned ticket says which way it ended
+    if(request.user.role != "auditor"):
+        incidents = (
+            Incident.objects.filter(is_deleted=False)
+            .filter(Q(assigned_team_id__in=team_ids) | Q(assigned_team_id__in=led_ids))
+            .select_related("service", "reported_by", "assigned_team", "assigned_to", "building")
+            .order_by("-is_unassigned_after_escalation", "-created_at")
+        )
+    else:
+        incidents = (
+            Incident.objects
+            .select_related("service", "reported_by", "assigned_team", "assigned_to")
+            .order_by("-is_unassigned_after_escalation", "-created_at")
+        )
     with_administration = set(EscalationTier.objects.filter(
-        team_id__in=team_ids | led_ids, escalate_to="administration").values_list("team_id", flat=True))
+    team_id__in=team_ids | led_ids, escalate_to="administration").values_list("team_id", flat=True))
     for i in incidents:
         i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
         i.can_transition = _can_transition(request.user, i)
         i.to_administration = i.assigned_team_id in with_administration
-    return render(request, "incidents/list.html", {"incidents": incidents})
+    if(request.user.role != "auditor"):
+        services = set(Service.objects.filter(Q(owning_team__in=team_ids) | Q(owning_team__in=led_ids)).filter(is_active=True))
+        print(services)
+        # Teams whose policy ends with Administration, so an unassigned ticket says which way it ended
+        
+    else: 
+        services = set(Service.objects.filter(is_active=True))
+        print(services)
+    return render(request, "incidents/list.html", {"incidents": incidents, "services": services})
 
 @login_required
 def incident_form(request):
@@ -343,7 +357,7 @@ def _can_access_incident(user, incident):
     A user may work with an incident if they reported it, or they are a
     solver on the team it is assigned to, or they lead that team.
     """
-    if incident.reported_by_id == user.id:
+    if incident.reported_by_id == user.id or user.role == "auditor":
         return True
     if user.role == "solver" and incident.assigned_team_id:
         if TeamMember.objects.filter(user=user, team_id=incident.assigned_team_id).exists():
@@ -476,7 +490,7 @@ def incident_comment(request, pk):
     if not _can_access_incident(request.user, incident):
         messages.error(request, "You do not have access to that ticket")
         return redirect("incidents")
-    if request.method == "POST":
+    if request.method == "POST" and request.user.role != "auditor":
         body = request.POST.get("body", "").strip()
         if len(body) > 1000:
             messages.error(request, "Comment is too long. The limit is 1000 characters")
@@ -844,3 +858,15 @@ def notifications_read_all(request):
     if url_has_allowed_host_and_scheme(back, allowed_hosts={request.get_host()}):
         return redirect(back)
     return redirect("home")
+
+@login_required
+def auditor_notify_admin(request, pk):
+    incident = get_object_or_404(Incident.objects.select_for_update(of=("self",)), pk=pk, is_deleted=False)
+    if request.method == "POST":
+        body = request.POST.get("body", "").strip()
+        if len(body) > 1000:
+            messages.error(request, "Report is too long, please keep report to less than 1000 characyers")
+            return redirect("incident_detail", pk=pk)
+        audit_report(request.user, incident, "auditor_report",
+                    f"This is a report for ticket #{incident.pk} ({incident.title}) from auditor {request.user.get_full_name()}:\n\n{body}")
+    return redirect("incident_detail", pk=pk)

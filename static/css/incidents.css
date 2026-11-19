@@ -55,47 +55,164 @@
 }
 .page-head .lead { margin: 6px 0 0; }
 
-/* ---------- Severity filter: a row of toggles above the list ---------- */
+/* ---------- Severity filter: dropdown menu above the list ---------- */
 .filter-sidebar {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px 14px;
-    margin: 0 0 4px;
+    position: relative;
+    z-index: 30;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    height: 36px;
+    overflow: visible;
+    margin: 0 0 8px;
 }
+
+/* Dropdown trigger button */
 .filter-sidebar h3 {
-    font-family: var(--font);
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--on-page-muted);
-}
-.filter-group { display: flex; flex-wrap: wrap; gap: 8px; }
-.filter-group label {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
+    height: 36px;
+    flex-shrink: 0;
     margin: 0;
-    padding: 5px 12px 5px 9px;
+    padding: 0 14px;
     background: var(--sheet);
     border: 1px solid var(--rule);
-    border-radius: 999px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-}
-.filter-group label:has(input:checked) { border-color: var(--gold-dark); background: var(--gold); color: var(--navy-dark); }
-.filter-group input { width: 16px; height: 16px; margin: 0; accent-color: var(--navy); }
-.filter-sidebar > button {
-    min-height: 32px;
-    padding: 4px 12px;
-    background: transparent;
-    border: 0;
-    color: var(--on-page);
+    border-radius: 6px;
     font-family: var(--font);
     font-size: 14px;
     font-weight: 600;
+    color: var(--ink, var(--navy-dark));
+    cursor: pointer;
+    user-select: none;
+}
+.filter-sidebar h3::after {
+    content: "▾";
+    font-size: 12px;
+    color: var(--muted);
+    transition: transform 0.15s ease;
+}
+.filter-sidebar:hover h3::after,
+.filter-sidebar:focus-within h3::after {
+    transform: rotate(180deg);
+}
+
+/* Highlight the trigger when any filter is active */
+.filter-sidebar:has(input:checked) h3 {
+    border-color: var(--gold-dark);
+    background: var(--gold);
+    color: var(--navy-dark);
+}
+
+/* Dropdown panel sections (hidden until hover or keyboard focus) */
+.filter-group,
+.filter-sidebar > button {
+    display: none;
+    flex-shrink: 0;
+    width: 240px;
+    box-sizing: border-box;
+    background: var(--sheet);
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+}
+
+.filter-sidebar:hover,
+.filter-sidebar:focus-within {
+    filter: drop-shadow(0 8px 18px rgba(27, 29, 58, 0.14));
+}
+
+.filter-sidebar:hover .filter-group,
+.filter-sidebar:focus-within .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.filter-sidebar:hover > button,
+.filter-sidebar:focus-within > button {
+    display: block;
+}
+
+.filter-group {
+    position: relative;
+    padding: 8px;
+    border-bottom: 1px solid var(--rule-soft, var(--rule));
+}
+
+/* Top section of the floating menu + invisible bridge so hover doesn't drop */
+.filter-group:first-of-type {
+    margin-top: 4px;
+    border-top: 1px solid var(--rule);
+    border-radius: 8px 8px 0 0;
+}
+.filter-group:first-of-type::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 0;
+    right: 0;
+    height: 6px;
+}
+
+/* Expand naturally up to 240px, then scroll if there are many services */
+.filter-group + .filter-group {
+    max-height: 240px;
+    overflow-y: auto;
+}
+.filter-group:empty {
+    display: none !important;
+}
+
+/* Option rows */
+.filter-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 6px 10px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink, var(--navy-dark));
+    cursor: pointer;
+}
+.filter-group label:hover {
+    background: var(--grey-tint, rgba(27, 29, 58, 0.05));
+}
+.filter-group label:has(input:checked) {
+    border-color: var(--gold-dark);
+    background: var(--gold);
+    color: var(--navy-dark);
+}
+.filter-group input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    flex-shrink: 0;
+    accent-color: var(--navy);
+    cursor: pointer;
+}
+
+/* Footer reset action */
+.filter-sidebar > button {
+    min-height: 36px;
+    padding: 8px 14px;
+    border-top: 0;
+    border-bottom: 1px solid var(--rule);
+    border-radius: 0 0 8px 8px;
+    color: var(--muted);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
     text-decoration: underline;
     cursor: pointer;
+}
+.filter-sidebar > button:hover {
+    color: var(--ink, var(--navy-dark));
+    background: var(--grey-tint, rgba(27, 29, 58, 0.05));
 }
 
 /* ---------- The list: one ticket per row, lying on the page ---------- */

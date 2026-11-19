@@ -18,6 +18,7 @@ urlpatterns = [
     path("incidents/<int:pk>/transition/", views.incident_transition, name="incident_transition"),
     path("incidents/<int:pk>/", views.incident_detail, name="incident_detail"),
     path("incidents/<int:pk>/comment/", views.incident_comment, name="incident_comment"),
+    path("incidents/<int:pk>/report/", views.auditor_notify_admin, name="auditor_incident_report"),
     path("incidents/<int:pk>/reassign/", views.incident_reassign, name="incident_reassign"),
     path("calendar/", views.calendar, name="calendar"),
     path("schedule/<int:team_id>/", views.schedule, name="schedule"),
