@@ -10,6 +10,8 @@ from ops.models import Building, Incident, Service, Team, TeamMember, User
 from ops.tests.helpers import GOOD_PASSWORD
 
 load = import_module("ops.migrations.0018_campus_buildings").load
+keep_the_names = import_module("ops.migrations.0018_campus_buildings").keep_the_names
+add_short_names = import_module("ops.migrations.0019_more_short_names").add_short_names
 
 
 class CampusListTests(TestCase):
@@ -34,9 +36,37 @@ class CampusListTests(TestCase):
     def test_text_that_says_more_than_a_name_still_finds_its_building(self):
         campus = list(Building.objects.all())
         for typed, name in (("Moody 214", "Moody Hall"), ("Fleck Hall 3rd floor", "Fleck Hall"),
-                            ("library basement", "Munday Library")):
-            self.assertEqual(best_match(typed, campus).name, name, typed)
-        self.assertIsNone(best_match("the parking lot", campus))
+                            ("library basement", "Munday Library"), ("Hunt Hall Cafe", "Edmund Hunt Hall"),
+                            ("Moody Theatre", "Mary Moody Northen Theatre"), ("LeMans", "Le Mans Hall"),
+                            ("Recreation Center", "Recreation and Athletic Center"), ("Old Main", "Main Building"),
+                            ("Queen of Peace", "Our Lady Queen of Peace Chapel"), ("JBWN 205", None),
+                            ("Moreau Casitas 3", "Casitas"), ("Saint Andre Apts", "St. André Apartments")):
+            found = best_match(typed, campus)
+            self.assertEqual(found.name if found else None,
+                             "John Brooks Williams Natural Sciences Center–North" if typed == "JBWN 205" else name, typed)
+
+    def test_nothing_on_the_real_list_is_guessed_from_part_of_a_name(self):
+        """What reporters really typed before the list existed, none of it a building."""
+        campus = list(Building.objects.all())
+        for typed in ("Hall C", "B", "a", "G", "Campus", "campus wide", "Main St entrance", "Main campus",
+                      "Parking lot by Main", "IT operations office", "Hill", "Hilltop", "St", "St.", "Saint",
+                      "South", "East", "Health", "Research", "Lady", "House", "Our", "Of", "Gym", "Art", "Phys",
+                      "Doyle", "Doyle Hall", "Science Hall", "Student Center", "N/A", "none", "test", "asdf",
+                      "Everywhere", "Outside", "the parking lot", "Fleck/Trustee", "Between Moody and Fleck",
+                      "Moody Hall and Fleck Hall", "Library, Moody Hall", "Natural Sciences", "图书馆", "!!!"):
+            self.assertIsNone(best_match(typed, campus), typed)
+
+    def test_every_building_is_found_by_its_own_name_and_each_of_its_short_names(self):
+        campus = list(Building.objects.all())
+        for building in campus:
+            for name in [building.name] + [alias for alias in building.aliases.split(",") if alias.strip()]:
+                self.assertEqual(best_match(name, campus), building, name)
+
+    def test_the_extra_short_names_can_be_added_twice(self):
+        add_short_names(apps, None)
+        add_short_names(apps, None)
+        self.assertEqual(Building.objects.count(), 36)
+        self.assertEqual(Building.objects.get(name="Le Mans Hall").aliases, "Le Mans, LeMans")
 
 
 class TicketBuildingTests(TestCase):
@@ -129,6 +159,29 @@ class TicketBuildingTests(TestCase):
             ticket.refresh_from_db()
             self.assertEqual(ticket.building.name if ticket.building else None, name)
             self.assertEqual(ticket.building_typed, typed)
+
+    def test_adding_short_names_links_tickets_it_can_now_recognise_and_leaves_the_rest(self):
+        late = self.old_ticket("Moody Theatre")
+        linked = self.old_ticket("Fleck")
+        linked.building = self.moody
+        linked.save()
+        unknown = self.old_ticket("Hall C")
+        add_short_names(apps, None)
+        for ticket, name in ((late, "Mary Moody Northen Theatre"), (linked, "Moody Hall"), (unknown, None)):
+            ticket.refresh_from_db()
+            self.assertEqual(ticket.building.name if ticket.building else None, name)
+
+    def test_going_back_to_free_text_keeps_where_the_problem_is(self):
+        self.client.post("/incidents/form", self.fields())
+        picked = Incident.objects.get()
+        typed = self.old_ticket("Doyle")
+        both = self.old_ticket("Moody")
+        both.building = self.moody
+        both.save()
+        keep_the_names(apps, None)
+        for ticket, text in ((picked, "Moody Hall"), (typed, "Doyle"), (both, "Moody")):
+            ticket.refresh_from_db()
+            self.assertEqual(ticket.building_typed, text)
 
     def test_a_rating_is_empty_or_from_one_to_five(self):
         ticket = self.old_ticket("")

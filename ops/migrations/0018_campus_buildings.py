@@ -68,6 +68,17 @@ def load(apps, schema_editor):
             Incident.objects.filter(pk=ticket.pk).update(building=building)
 
 
+def keep_the_names(apps, schema_editor):
+    """
+    Going back to free text: a ticket that only has a building from the
+    list gets that building's name written into its text, so undoing the
+    migrations does not lose where the problem is.
+    """
+    Incident = apps.get_model("ops", "Incident")
+    for ticket in Incident.objects.filter(building__isnull=False, building_typed="").select_related("building"):
+        Incident.objects.filter(pk=ticket.pk).update(building_typed=ticket.building.name)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -75,5 +86,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(load, migrations.RunPython.noop),
+        migrations.RunPython(load, keep_the_names),
     ]
