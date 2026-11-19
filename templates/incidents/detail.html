@@ -89,7 +89,7 @@
           {% if target.holds %}
             <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }} is on call and already has this ticket</p>
           {% elif target.full %}
-            <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }}, {{ target.role }} on call, already holds {{ max_tickets }} tickets</p>
+            <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }}, {{ target.role }} on call, already holds {{ target.held }} tickets</p>
           {% else %}
             <form method="post" action="{% url 'incident_reassign' incident.pk %}" class="reassign-form">
               {% csrf_token %}
@@ -112,10 +112,10 @@
   <h2 class="section-title">Timeline</h2>
   <ul class="timeline">
     {% for entry in timeline %}
-      <li class="tl-{% if team_view %}{{ entry.update_type }}{% elif entry.update_type == "escalation" or entry.update_type == "assignment_failed" %}assignment{% else %}{{ entry.update_type }}{% endif %}">
+      <li class="tl-{% if team_view %}{{ entry.update_type }}{% elif entry.update_type == "escalation" or entry.update_type == "assignment_failed" %}assignment{% elif entry.update_type == "override" and not entry.new_status %}assignment{% else %}{{ entry.update_type }}{% endif %}">
         <div class="tl-meta">
           <strong>{{ entry.author.first_name }} {{ entry.author.last_name }}</strong>
-          <span class="tl-role">{% if entry.author.is_superuser %}administrator{% else %}{{ entry.author.role }}{% endif %}</span>
+          <span class="tl-role">{% if entry.author.is_superuser %}administrator{% elif entry.update_type == "override" %}team lead{% else %}{{ entry.author.role }}{% endif %}</span>
           <span class="muted">{{ entry.created_at|date:"M j, g:i A" }}</span>
         </div>
         <div class="tl-body">
@@ -142,6 +142,10 @@
             <span class="tl-tag assignment">Reassigned</span> {{ entry.body }}
           {% elif entry.update_type == "escalation" %}
             <span class="tl-tag severity">Escalated</span> {{ entry.body }}
+          {% elif entry.update_type == "override" and not team_view and not entry.new_status %}
+            <span class="tl-tag assignment">Assigned</span> Now with {{ entry.new_assignee.first_name }} {{ entry.new_assignee.last_name }}
+          {% elif entry.update_type == "override" %}
+            <span class="tl-tag severity">Override</span> {{ entry.body }}
           {% elif entry.update_type == "removal" %}
             <span class="tl-tag edit">Removed</span> {{ entry.body }}
           {% elif entry.update_type == "restored" %}

@@ -99,6 +99,11 @@
 }
 
 /* ---------- The list: one ticket per row, lying on the page ---------- */
+/* Nine columns need more room than the reading column gives. This page takes
+   the whole window, so a full screen shows every column with nothing to
+   scroll sideways. A narrow window still scrolls the table inside its frame. */
+.page:has(> .ticket-list) { max-width: none; }
+
 .card.ticket-list {
     background: transparent;
     border: 0;
@@ -264,7 +269,7 @@
     background: var(--sheet);
     border: 2px solid var(--navy);
 }
-.timeline li.tl-escalation::before { background: var(--red); border-color: var(--red); }
+.timeline li.tl-escalation::before, .timeline li.tl-override::before { background: var(--red); border-color: var(--red); }
 .timeline li.tl-assignment_failed::before { border-color: var(--red); }
 .timeline li.tl-status_change::before { background: var(--navy); }
 
