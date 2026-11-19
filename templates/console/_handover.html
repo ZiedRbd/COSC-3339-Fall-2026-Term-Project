@@ -1,0 +1,95 @@
+<h2>{% if team %}Take {{ name }} off {{ team.name }}{% else %}Remove {{ name }}{% endif %}</h2>
+{% if outcome %}
+  {% for sentence in outcome.messages %}<p class="notice {% if outcome.ok %}success{% else %}error{% endif %}">{{ sentence }}</p>{% endfor %}
+{% endif %}
+
+{% if not clear %}
+  <p class="lead">Other people depend on {{ person.first_name }} for the following. Hand each one over first.</p>
+  <ol class="console-steps">
+    {% for held in shifts %}
+      <li>
+        <form method="post" action="{{ action }}">
+          {% csrf_token %}
+          <input type="hidden" name="step" value="shifts">
+          <input type="hidden" name="team" value="{{ held.team.pk }}">
+          <p class="console-step-what">{{ held.count }} upcoming shift{{ held.count|pluralize }} on {{ held.team.name }}</p>
+          {% if held.others %}
+            <label class="form-label" for="shifts-{{ held.team.pk }}">Hand over to</label>
+            <div class="console-step-row">
+              <select name="person" id="shifts-{{ held.team.pk }}" class="form-input">
+                <option value="">The rest of the team, shared</option>
+                {% for other in held.others %}<option value="{{ other.pk }}">{{ other.first_name }} {{ other.last_name }}, where the rules allow</option>{% endfor %}
+              </select>
+              <button type="submit" class="btn-small">Transfer shifts</button>
+            </div>
+          {% else %}
+            <p class="notice warning">Nobody else is on {{ held.team.name }}. Add another solver to the team first.</p>
+          {% endif %}
+        </form>
+      </li>
+    {% endfor %}
+    {% for held in led %}
+      <li>
+        <form method="post" action="{{ action }}">
+          {% csrf_token %}
+          <input type="hidden" name="step" value="lead">
+          <input type="hidden" name="team" value="{{ held.team.pk }}">
+          <p class="console-step-what">Lead of {{ held.team.name }}</p>
+          {% if held.candidates %}
+            <label class="form-label" for="lead-{{ held.team.pk }}">New lead</label>
+            <div class="console-step-row">
+              <select name="person" id="lead-{{ held.team.pk }}" class="form-input">
+                {% for other in held.candidates %}<option value="{{ other.pk }}">{{ other.first_name }} {{ other.last_name }}</option>{% endfor %}
+              </select>
+              <button type="submit" class="btn-small">Appoint as lead</button>
+            </div>
+          {% else %}
+            <p class="notice warning">There is no other solver to lead {{ held.team.name }}. Add a solver first.</p>
+          {% endif %}
+        </form>
+      </li>
+    {% endfor %}
+    {% for held in tiers %}
+      <li>
+        <form method="post" action="{{ action }}">
+          {% csrf_token %}
+          <input type="hidden" name="step" value="tier">
+          <input type="hidden" name="tier" value="{{ held.tier.pk }}">
+          <p class="console-step-what">Tier {{ held.tier.tier_number }} of the {{ held.tier.team.name }} escalation policy</p>
+          {% if held.candidates %}
+            <label class="form-label" for="tier-{{ held.tier.pk }}">Replace with</label>
+            <div class="console-step-row">
+              <select name="person" id="tier-{{ held.tier.pk }}" class="form-input">
+                {% for other in held.candidates %}<option value="{{ other.pk }}">{{ other.first_name }} {{ other.last_name }}</option>{% endfor %}
+              </select>
+              <button type="submit" class="btn-small">Replace in the tier</button>
+            </div>
+          {% else %}
+            <p class="notice warning">Nobody else is on {{ held.tier.team.name }}. Add another solver to the team first.</p>
+          {% endif %}
+        </form>
+      </li>
+    {% endfor %}
+  </ol>
+{% else %}
+  <ul class="console-points">
+    {% if team %}
+      <li>{{ name }} holds nothing on {{ team.name }} that needs handing over.</li>
+      <li>Their unfinished tickets on this team go back to its queue.</li>
+    {% else %}
+      <li>{{ name }} holds nothing that needs handing over.</li>
+      <li>They can no longer log in, and the email stays taken.</li>
+      {% if unfinished %}<li>Their {{ unfinished }} unfinished ticket{{ unfinished|pluralize }} go back to the queue.</li>{% endif %}
+      <li>The account can be reactivated from the Removed tab.</li>
+    {% endif %}
+  </ul>
+{% endif %}
+
+<form method="post" action="{{ action }}">
+  {% csrf_token %}
+  <input type="hidden" name="step" value="finish">
+  <div class="actions">
+    <button type="button" class="btn-small" data-close>Cancel</button>
+    <button type="submit" class="btn-small danger"{% if not clear %} disabled title="Hand over everything above first"{% endif %}>{% if team %}Take off the team{% else %}Remove {{ person.first_name }}{% endif %}</button>
+  </div>
+</form>

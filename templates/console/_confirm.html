@@ -1,0 +1,25 @@
+<h2>{{ title }}</h2>
+{% for sentence in refusals %}<p class="notice error">{{ sentence }}</p>{% endfor %}
+{% if submit %}
+  <ul class="console-points">
+    {% for sentence in consequences %}<li>{{ sentence }}</li>{% endfor %}
+  </ul>
+  <form method="post" action="{{ action }}">
+    {% csrf_token %}
+    {% if needs_reason %}
+      <div class="form-item">
+        <label class="form-label" for="console-reason">Reason</label>
+        <textarea id="console-reason" name="reason" class="form-input" rows="3" maxlength="500" required>{{ reason }}</textarea>
+        <p class="hint">Required. It is written on the timeline of the ticket.</p>
+      </div>
+    {% endif %}
+    <div class="actions">
+      <button type="button" class="btn-small" data-close>Cancel</button>
+      <button type="submit" class="btn-small danger">{{ submit }}</button>
+    </div>
+  </form>
+{% else %}
+  <div class="actions">
+    <button type="button" class="btn-small" data-close>Close</button>
+  </div>
+{% endif %}

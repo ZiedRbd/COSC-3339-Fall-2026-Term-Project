@@ -1,0 +1,42 @@
+<h2>Remove {{ team.name }}</h2>
+{% if outcome %}
+  {% for sentence in outcome.messages %}<p class="notice {% if outcome.ok %}success{% else %}error{% endif %}">{{ sentence }}</p>{% endfor %}
+{% endif %}
+
+{% if not clear %}
+  <p class="lead">{{ team.name }} still has work that needs a team. Move it to another team first.</p>
+  <ul class="console-points">
+    {% if services %}<li>Services: {% for service in services %}{{ service.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</li>{% endif %}
+    {% if unfinished %}<li>{{ unfinished }} unfinished ticket{{ unfinished|pluralize }}</li>{% endif %}
+  </ul>
+  {% if other_teams %}
+    <form method="post" action="{{ action }}">
+      {% csrf_token %}
+      <input type="hidden" name="step" value="move">
+      <label class="form-label" for="move-to">Move its services and unfinished tickets to</label>
+      <div class="console-step-row">
+        <select name="team" id="move-to" class="form-input">
+          {% for other in other_teams %}<option value="{{ other.pk }}">{{ other.name }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="btn-small">Move</button>
+      </div>
+    </form>
+  {% else %}
+    <p class="notice warning">There is no other team to take them. Add a team first.</p>
+  {% endif %}
+{% else %}
+  <ul class="console-points">
+    <li>{{ team.name }} has no service and no unfinished ticket left.</li>
+    <li>Its upcoming shifts are dropped. It keeps its members and its escalation policy.</li>
+    <li>It can be restored from the Removed tab.</li>
+  </ul>
+{% endif %}
+
+<form method="post" action="{{ action }}">
+  {% csrf_token %}
+  <input type="hidden" name="step" value="finish">
+  <div class="actions">
+    <button type="button" class="btn-small" data-close>Cancel</button>
+    <button type="submit" class="btn-small danger"{% if not clear %} disabled title="Move its work to another team first"{% endif %}>Remove team</button>
+  </div>
+</form>

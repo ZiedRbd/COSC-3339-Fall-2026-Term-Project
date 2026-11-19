@@ -1,0 +1,2 @@
+<td>{% if item.removed_at %}{{ item.removed_at|date:"M j, Y, g:i A" }}{% else %}<span class="muted">Unknown</span>{% endif %}</td>
+<td>{% if item.removed_by %}{{ item.removed_by.first_name }} {{ item.removed_by.last_name }}{% else %}<span class="muted">Unknown</span>{% endif %}</td>

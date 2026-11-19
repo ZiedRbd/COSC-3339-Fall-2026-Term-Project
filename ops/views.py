@@ -11,6 +11,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
+from .access import can_override
 from .forms import AvatarForm, EscalationTierForm, IncidentForm, LoginForm, RegisterForm, ShiftForm
 from .lifecycle import ALLOWED_TRANSITIONS, STATUS_LABELS
 from .models import EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team, TeamMember, User
@@ -137,12 +138,10 @@ def incident_list(request):
         i.to_administration = i.assigned_team_id in with_administration
     if(request.user.role != "auditor"):
         services = set(Service.objects.filter(Q(owning_team__in=team_ids) | Q(owning_team__in=led_ids)).filter(is_active=True))
-        print(services)
         # Teams whose policy ends with Administration, so an unassigned ticket says which way it ended
         
     else: 
         services = set(Service.objects.filter(is_active=True))
-        print(services)
     return render(request, "incidents/list.html", {"incidents": incidents, "services": services})
 
 @login_required
@@ -468,6 +467,8 @@ def incident_detail(request, pk):
         "max_tickets": MAX_ACTIVE_TICKETS,
         "can_edit": can_edit,
         "can_transition": _can_transition(request.user, incident),
+        # An administrator on any ticket, a lead on the tickets of their own teams
+        "can_override": not incident.is_deleted and can_override(request.user, incident),
         # Solvers and the administrator see the team's side of the ticket: the alert when nobody took it,
         # and why it moved from one person to the next. A reporter sees only where the ticket stands.
         "team_view": request.user.role == "solver" or request.user.is_superuser,
@@ -861,12 +862,12 @@ def notifications_read_all(request):
 
 @login_required
 def auditor_notify_admin(request, pk):
-    incident = get_object_or_404(Incident.objects.select_for_update(of=("self",)), pk=pk, is_deleted=False)
-    if request.method == "POST":
+    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    if request.method == "POST" and request.user.role == "auditor":
         body = request.POST.get("body", "").strip()
         if len(body) > 1000:
-            messages.error(request, "Report is too long, please keep report to less than 1000 characyers")
+            messages.error(request, "Report is too long, please keep report to less than 1000 characters")
             return redirect("incident_detail", pk=pk)
         audit_report(request.user, incident, "auditor_report",
-                    f"This is a report for ticket #{incident.pk} ({incident.title}) from auditor {request.user.get_full_name()}:\n\n{body}")
+                    f"This is a report for ticket #{incident.pk}, {incident.title}, from auditor {request.user.get_full_name()}:\n\n{body}")
     return redirect("incident_detail", pk=pk)
