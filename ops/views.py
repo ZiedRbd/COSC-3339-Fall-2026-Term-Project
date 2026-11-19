@@ -859,7 +859,7 @@ def notifications_read_all(request):
         return redirect(back)
     return redirect("home")
 
-
+@login_required
 def auditor_notify_admin(request, pk):
     incident = get_object_or_404(Incident.objects.select_for_update(of=("self",)), pk=pk, is_deleted=False)
     if request.method == "POST":

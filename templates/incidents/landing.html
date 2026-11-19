@@ -16,7 +16,7 @@
 </div>
 
 <div class="choices">
-  {% if user.role == "solver" or user.role == "auditor" %}
+  {% if user.role == "solver" %}
     <a href="{% url 'incidents' %}" class="choice primary">
       <strong>View team incidents</strong>
       <span>Every ticket for your teams, with yours marked.</span>
@@ -25,7 +25,20 @@
       <strong>On-call calendar</strong>
       <span>Who covers which hours this week.</span>
     </a>
+  {% elif user.role == "reporter" %}
+    <a href="{% url 'form' %}" class="choice primary">
+      <strong>Report a problem</strong>
+      <span>Say what is broken and where. It goes to the team that fixes it.</span>
+    </a>
+    <a href="{% url 'profile' %}" class="choice">
+      <strong>View my incidents</strong>
+      <span>See where each of your tickets stands.</span>
+    </a>
   {% else %}
+    <a href="{% url 'incidents' %}" class="choice primary">
+      <strong>View all incidents</strong>
+      <span>Every ticket that has ever been submitted</span>
+    </a>
     <a href="{% url 'form' %}" class="choice primary">
       <strong>Report a problem</strong>
       <span>Say what is broken and where. It goes to the team that fixes it.</span>
