@@ -26,4 +26,5 @@ urlpatterns = [
     path("policy/<int:team_id>/", views.team_policy, name="team_policy"),
     path("notifications/<int:pk>/open/", views.notification_open, name="notification_open"),
     path("notifications/read-all/", views.notifications_read_all, name="notifications_read_all"),
+    path("analytics/",view.analytics,name="analytics"),
 ]

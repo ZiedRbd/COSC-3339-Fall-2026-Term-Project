@@ -850,3 +850,22 @@ def notifications_read_all(request):
     if url_has_allowed_host_and_scheme(back, allowed_hosts={request.get_host()}):
         return redirect(back)
     return redirect("home")
+
+@login_required
+def analytics(request):
+    """Admin analytics panel. Only the administrator (superuser) can see it."""
+    if not request.user.is_super_user:
+        return redirect("home")
+    context = { 
+        "month_label": timezone.localdate.strftime("%B %Y"),
+
+        #1 Totals.
+        "total_users": None,
+        "total_incidents": None,
+        "incidents_this_month":None,
+
+        
+
+
+    }
+    return render(request, "analytics.html",context)
