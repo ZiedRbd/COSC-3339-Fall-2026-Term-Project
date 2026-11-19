@@ -4,6 +4,7 @@
 {% block title %}Ticket #{{ incident.pk }}{% endblock %}
 {% block extra_js %}
   <script src="{% static 'js/transition.js' %}?v=1" defer></script>
+  <script src="{% static 'js/console.js' %}?v=1" defer></script>
 {% endblock %}
 
 {% block content %}
@@ -64,7 +65,7 @@
       <span class="field-value">{{ incident.description }}</span></div>
   </div>
 
-  {% if can_transition and incident.next_states or can_edit or reassign_targets %}
+  {% if can_transition and incident.next_states or can_edit or reassign_targets or can_override %}
     <div class="ticket-actions">
       {% if can_transition %}
         {% for state in incident.next_states %}
@@ -104,6 +105,12 @@
         <div class="action">
           <a href="{% url 'incident_edit' incident.pk %}" class="btn-small">Edit details</a>
           <p class="action-hint">Change the title, description, place or severity.</p>
+        </div>
+      {% endif %}
+      {% if can_override %}
+        <div class="action">
+          <button type="button" class="btn-small danger" data-dialog="{% url 'console_ticket_override' incident.pk %}">Override</button>
+          <p class="action-hint">Force a status or a solver. A reason is required and goes on the timeline.</p>
         </div>
       {% endif %}
     </div>
@@ -198,4 +205,5 @@
     </div>
   </div>
 </div>
+{% if can_override %}{% include "console/_dialog.html" %}{% endif %}
 {% endblock %}

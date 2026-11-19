@@ -1,0 +1,142 @@
+/* ---------- Administrator console ----------
+   One page. The tabs sit on the dark ground like the tabs of a card
+   index, and the open one is brass, the colour that means "you are here". */
+.page:has(> .console-tabs) { max-width: 1320px; }
+
+.console-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 18px 0 0;
+}
+.console-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 8px 8px 0 0;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--on-page);
+    font: 600 15px var(--font);
+    cursor: pointer;
+}
+.console-tab:hover { background: rgba(255, 255, 255, 0.18); }
+.console-tab:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.console-tab[aria-selected="true"] {
+    background: var(--sheet);
+    color: var(--ink);
+    box-shadow: inset 0 3px 0 var(--gold);
+}
+.console-count {
+    min-width: 24px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+}
+.console-tab[aria-selected="true"] .console-count { background: var(--gold-tint); color: var(--ink); }
+
+.console-panel { margin-top: 0; border-top-left-radius: 0; }
+.console-panel[hidden] { display: none; }
+
+.console-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.console-filter { width: min(320px, 100%); }
+.console-bar .btn-gold { width: auto; margin: 0; }
+
+.console-table td { vertical-align: middle; }
+.console-table .row-actions { white-space: nowrap; }
+.console-table .row-actions form { display: inline; }
+.console-table tr[hidden] { display: none; }
+
+.console-flag {
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--red-tint);
+    color: var(--red);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+/* ---------- The dialog every action opens in ---------- */
+.console-dialog { width: min(600px, 100%); }
+.console-dialog[aria-busy="true"] { opacity: 0.6; }
+.console-dialog .form-item { margin-bottom: 14px; }
+.console-dialog .form-input { width: 100%; }
+.console-dialog textarea.form-input { resize: vertical; }
+.console-dialog .notice { margin: 8px 0; }
+.console-dialog .actions .btn-gold { width: auto; margin: 0; }
+.console-dialog button[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+.console-points {
+    margin: 12px 0 16px;
+    padding-left: 20px;
+    color: var(--ink);
+}
+.console-points li { margin-bottom: 6px; }
+
+.console-steps {
+    margin: 14px 0 18px;
+    padding: 0;
+    list-style: none;
+    counter-reset: handover;
+}
+.console-steps > li {
+    position: relative;
+    margin-bottom: 12px;
+    padding: 14px 14px 14px 52px;
+    border: 1px solid var(--rule-soft);
+    border-radius: 8px;
+    background: var(--field);
+    counter-increment: handover;
+}
+.console-steps > li::before {
+    content: counter(handover);
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: var(--gold);
+    color: var(--ink);
+    font: 700 14px/26px var(--display);
+    text-align: center;
+}
+.console-step-what { margin: 0 0 8px; font-weight: 700; }
+.console-step-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.console-step-row .form-input { flex: 1 1 220px; width: auto; }
+
+.console-sub {
+    margin: 18px 0 6px;
+    font: 700 13px var(--font);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.console-current { margin: 0 0 10px; font-weight: 700; }
+.console-list { margin: 0 0 12px; padding: 0; list-style: none; }
+.console-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--rule-soft);
+}
+.console-warning ul { margin: 6px 0 0; padding-left: 20px; }
+.console-warning p { margin: 0; }
+
+@media (max-width: 640px) {
+    .console-tab { padding: 8px 12px; font-size: 14px; }
+    .console-table .row-actions { white-space: normal; }
+}

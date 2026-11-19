@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import console, views
 
 
 # Each line maps an address to the function that handles it
@@ -27,4 +27,23 @@ urlpatterns = [
     path("policy/<int:team_id>/", views.team_policy, name="team_policy"),
     path("notifications/<int:pk>/open/", views.notification_open, name="notification_open"),
     path("notifications/read-all/", views.notifications_read_all, name="notifications_read_all"),
+    # The administrator console: one page, and the pieces its dialog asks for
+    path("console/", console.console, name="console"),
+    path("console/users/add/", console.user_add, name="console_user_add"),
+    path("console/users/<int:pk>/edit/", console.user_edit, name="console_user_edit"),
+    path("console/users/<int:pk>/remove/", console.user_remove, name="console_user_remove"),
+    path("console/teams/add/", console.team_add, name="console_team_add"),
+    path("console/teams/<int:pk>/edit/", console.team_edit, name="console_team_edit"),
+    path("console/teams/<int:pk>/members/", console.team_members, name="console_team_members"),
+    path("console/teams/<int:pk>/members/<int:user_pk>/leave/", console.team_leave, name="console_team_leave"),
+    path("console/teams/<int:pk>/remove/", console.team_remove, name="console_team_remove"),
+    path("console/services/add/", console.service_add, name="console_service_add"),
+    path("console/services/<int:pk>/edit/", console.service_edit, name="console_service_edit"),
+    path("console/services/<int:pk>/remove/", console.service_remove, name="console_service_remove"),
+    path("console/buildings/add/", console.building_add, name="console_building_add"),
+    path("console/buildings/<int:pk>/edit/", console.building_edit, name="console_building_edit"),
+    path("console/buildings/<int:pk>/remove/", console.building_remove, name="console_building_remove"),
+    path("console/tickets/<int:pk>/remove/", console.ticket_remove, name="console_ticket_remove"),
+    path("console/tickets/<int:pk>/override/", console.ticket_override, name="console_ticket_override"),
+    path("console/restore/<str:kind>/<int:pk>/", console.restore, name="console_restore"),
 ]

@@ -1,0 +1,17 @@
+<h2>{{ title }}</h2>
+<form method="post" action="{{ action }}" class="console-form" novalidate>
+  {% csrf_token %}
+  {% for error in form.non_field_errors %}<p class="notice error">{{ error }}</p>{% endfor %}
+  {% for field in form %}
+    <div class="form-item">
+      <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<p class="hint">{{ field.help_text }}</p>{% endif %}
+      {% for error in field.errors %}<p class="notice error">{{ error }}</p>{% endfor %}
+    </div>
+  {% endfor %}
+  <div class="actions">
+    <button type="button" class="btn-small" data-close>Cancel</button>
+    <button type="submit" class="btn-gold">{{ submit }}</button>
+  </div>
+</form>

@@ -1,0 +1,38 @@
+<h2>Override ticket {{ incident.pk }}</h2>
+<p class="lead">{{ incident.title }}. It is {{ status_label }} now{% if incident.assigned_to %}, with {{ incident.assigned_to.first_name }} {{ incident.assigned_to.last_name }}{% else %}, with nobody{% endif %}.</p>
+{% for sentence in refusals %}<p class="notice error">{{ sentence }}</p>{% endfor %}
+{% if warnings %}
+  <div class="notice warning console-warning">
+    <p><strong>This steps over the normal rules. Check before you confirm.</strong></p>
+    <ul>
+      {% for sentence in warnings %}<li>{{ sentence }}</li>{% endfor %}
+    </ul>
+  </div>
+{% endif %}
+<form method="post" action="{{ action }}">
+  {% csrf_token %}
+  {% if warnings %}<input type="hidden" name="confirmed" value="{{ signature }}">{% endif %}
+  <div class="form-item">
+    <label class="form-label" for="override-status">New status</label>
+    <select name="new_status" id="override-status" class="form-input">
+      <option value="">Keep it {{ status_label }}</option>
+      {% for value, label in statuses %}<option value="{{ value }}"{% if chosen.status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="form-item">
+    <label class="form-label" for="override-solver">Give it to</label>
+    <select name="new_solver" id="override-solver" class="form-input">
+      <option value="">{% if incident.assigned_to %}Keep it with {{ incident.assigned_to.first_name }} {{ incident.assigned_to.last_name }}{% else %}Nobody in particular{% endif %}</option>
+      {% for row in solvers %}<option value="{{ row.person.pk }}"{% if row.selected %} selected{% endif %}>{{ row.person.first_name }} {{ row.person.last_name }}, holds {{ row.held }} now</option>{% endfor %}
+    </select>
+  </div>
+  <div class="form-item">
+    <label class="form-label" for="override-reason">Reason</label>
+    <textarea id="override-reason" name="reason" class="form-input" rows="3" maxlength="500" required>{{ chosen.reason }}</textarea>
+    <p class="hint">Required. It is written on the timeline of the ticket.</p>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn-small" data-close>Cancel</button>
+    <button type="submit" class="{% if warnings %}btn-small danger{% else %}btn-gold{% endif %}">{% if warnings %}Override anyway{% else %}Override{% endif %}</button>
+  </div>
+</form>
