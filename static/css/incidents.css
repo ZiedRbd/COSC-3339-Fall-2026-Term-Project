@@ -99,6 +99,11 @@
 }
 
 /* ---------- The list: one ticket per row, lying on the page ---------- */
+/* Nine columns need more room than the reading column gives. This page takes
+   the whole window, so a full screen shows every column with nothing to
+   scroll sideways. A narrow window still scrolls the table inside its frame. */
+.page:has(> .ticket-list) { max-width: none; }
+
 .card.ticket-list {
     background: transparent;
     border: 0;
