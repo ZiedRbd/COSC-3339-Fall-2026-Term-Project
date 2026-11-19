@@ -26,8 +26,8 @@ from .access import is_admin
 from .models import EscalationTier, Incident, Service, Shift, Team, TeamMember, User
 from .notifications import notify
 from .outcome import done, refused
-from .scheduling import (_full_name, _window, assign_all_waiting, assign_waiting, release_to_queue, team_for,
-                         validate_schedule)
+from .scheduling import (_full_name, _ticket_label, _window, assign_all_waiting, assign_waiting, release_to_queue,
+                         team_for, validate_schedule)
 from .timeline import MAX_REASON, clean_reason, log_event
 
 UNFINISHED = ("open", "assigned", "in_progress")
@@ -227,8 +227,11 @@ def appoint_lead(team, new_lead, by):
         return refused("The lead of a team has to be an active solver")
     if team.lead_id == new_lead.pk:
         return refused(f"{_full_name(new_lead)} already leads {team.name}")
+    old_lead = team.lead
     team.lead = new_lead
     team.save()
+    if old_lead is not None and old_lead.is_active and old_lead.pk != by.pk:
+        notify(old_lead, None, "handover", f"You no longer lead {team.name}. {_full_name(new_lead)} leads it now.")
     notify(new_lead, None, "handover",
            f"You now lead {team.name}. You schedule its on-call shifts, set its escalation policy and can "
            f"reassign its tickets.")
@@ -305,7 +308,11 @@ def restore_user(user, by):
     user.is_active = True
     _mark_restored(user)
     user.save()
-    return done(f"{_full_name(user)} can log in again. Their shifts and roles stayed with whoever took them over.")
+    messages = [f"{_full_name(user)} can log in again."]
+    # Only a solver had shifts, a team to lead or a tier to hand over
+    if user.role == "solver":
+        messages.append("Their shifts and roles stayed with whoever took them over.")
+    return done(*messages)
 
 
 @transaction.atomic
@@ -334,10 +341,16 @@ def leave_team(user, team, by):
         release_to_queue(ticket)
         log_event(ticket, by, "removal", f"{name} left {team.name}, so this ticket is waiting for a solver again.",
                   old_assignee=user)
+        notify(user, ticket, "override",
+               f"{_ticket_label(ticket)} went back to the queue because you are no longer on {team.name}. "
+               f"You no longer hold it.")
     membership.delete()
-    if team.is_active:
-        assign_waiting(team)
-    return done(f"{name} is no longer on {team.name}.")
+    # They have room again for a ticket that was waiting, on any team they still cover
+    assign_all_waiting()
+    messages = [f"{name} is no longer on {team.name}."]
+    if tickets:
+        messages.append(f"{_count(len(tickets), 'ticket')} went back to waiting for a solver.")
+    return done(*messages)
 
 
 # ── Services, buildings and teams ─────────────────────────────────────
@@ -359,7 +372,7 @@ def remove_service(service, by):
         log_event(ticket, by, "removal", f"The service {service.name} was removed. This ticket carries on as normal.")
     messages = [f"{service.name} was removed. No new ticket can be filed against it."]
     if tickets:
-        messages.append(f"Its {_count(len(tickets), 'open ticket')} "
+        messages.append(f"Its {_count(len(tickets), 'unfinished ticket')} "
                         f"{'carries' if len(tickets) == 1 else 'carry'} on as normal.")
     return done(*messages)
 
@@ -423,7 +436,7 @@ def move_services(team, to_team, by):
                    .filter(assigned_team=team, status__in=UNFINISHED, is_deleted=False))
     services = Service.objects.filter(owning_team=team).count()
     if not services and not tickets:
-        return refused(f"{team.name} has no service or open ticket to move")
+        return refused(f"{team.name} has no service or unfinished ticket to move")
     Service.objects.filter(owning_team=team).update(owning_team=to_team)
     for ticket in tickets:
         holder = ticket.assigned_to
@@ -431,8 +444,12 @@ def move_services(team, to_team, by):
         release_to_queue(ticket)
         log_event(ticket, by, "removal", f"This ticket moved from {team.name} to {to_team.name} with its service.",
                   old_assignee=holder)
+        if holder is not None and holder.pk != by.pk:
+            notify(holder, ticket, "override",
+                   f"{_ticket_label(ticket)} moved from {team.name} to {to_team.name} with its service. "
+                   f"You no longer hold it.")
     assign_waiting(to_team)
-    return done(f"{_count(services, 'service')} and {_count(len(tickets), 'open ticket')} moved from "
+    return done(f"{_count(services, 'service')} and {_count(len(tickets), 'unfinished ticket')} moved from "
                 f"{team.name} to {to_team.name}.")
 
 
@@ -458,7 +475,7 @@ def remove_team(team, by):
         messages.append(f"{team.name} still owns {_count(services, 'service')}. "
                         f"Move {_it(services)} to another team first.")
     if tickets:
-        messages.append(f"{team.name} still has {_count(tickets, 'open ticket')}. "
+        messages.append(f"{team.name} still has {_count(tickets, 'unfinished ticket')}. "
                         f"Move {_it(tickets)} to another team first.")
     if messages:
         return refused(*messages)
@@ -505,7 +522,13 @@ def restore_team(team, by):
     team.is_active = True
     _mark_restored(team)
     team.save()
-    return done(f"{team.name} was restored. Its services stayed with the team that took them.",
+    still_its_own = Service.objects.filter(owning_team=team).count()
+    if still_its_own:
+        services = (f"Its {_count(still_its_own, 'service')} {'is' if still_its_own == 1 else 'are'} still removed. "
+                    f"Restore {_it(still_its_own)} from the same list.")
+    else:
+        services = "It owns no service now. Any service it had stayed with the team that took it."
+    return done(f"{team.name} was restored. {services}",
                 f"It has no on-call schedule yet. {_full_name(team.lead)} has to add shifts before its tickets "
                 f"can be assigned.")
 
@@ -544,6 +567,13 @@ def remove_ticket(incident, by, reason):
     return done(f"Ticket #{incident.pk} was removed.")
 
 
+def _tell_reporter_it_is_back(incident, by):
+    """The reporter was told their ticket was removed, so they are told it is back."""
+    if incident.reported_by_id != by.pk:
+        notify(incident.reported_by, incident, "override",
+               f"Your ticket #{incident.pk}, {incident.title}, was restored by an administrator.")
+
+
 @transaction.atomic
 def restore_ticket(incident, by):
     """
@@ -564,6 +594,7 @@ def restore_ticket(incident, by):
     if incident.status not in UNFINISHED:
         incident.save()
         log_event(incident, by, "restored", "Ticket restored.")
+        _tell_reporter_it_is_back(incident, by)
         return done(*messages)
 
     team = team_for(incident)
@@ -575,6 +606,7 @@ def restore_ticket(incident, by):
     else:
         incident.save()
         log_event(incident, by, "restored", "Ticket restored.")
+    _tell_reporter_it_is_back(incident, by)
     if team is None:
         messages.append("No team handles its service now, so it will wait until one does.")
     else:

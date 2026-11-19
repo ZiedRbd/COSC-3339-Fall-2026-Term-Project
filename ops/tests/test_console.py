@@ -126,7 +126,7 @@ class UserTests(ConsoleCase):
         self.assertNotIn(self.ann.pk, [shift.solver_id for shift in self.upcoming()])
         after_tier = self.client.post(address, {"step": "tier", "tier": tier.pk, "person": self.bob.pk})
         self.assertContains(after_tier, "Ann Ames holds nothing that needs handing over.")
-        self.assertContains(after_tier, "Their 1 unfinished ticket go back to the queue.")
+        self.assertContains(after_tier, "Their 1 unfinished ticket goes back to the queue.")
         tier.refresh_from_db()
         self.assertEqual(tier.escalate_to_user, self.bob)
         self.done(self.client.post(address, {"step": "finish"}))
