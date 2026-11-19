@@ -4,7 +4,7 @@
 {% load status %}
 {% block extra_js %}
   <script src="{% static 'js/incidents.js' %}?v=2" defer></script>
-  <script src="{% static 'js/filter.js' %}?v=1" defer></script>
+  <script src="{% static 'js/filter.js' %}?v=5" defer></script>
   <script src="{% static 'js/transition.js' %}?v=1" defer></script>
 {% endblock %}
 
@@ -25,10 +25,15 @@
 <aside class="filter-sidebar" aria-label="Filter by severity">
   <h3>Show only</h3>
   <div class="filter-group">
-    <label><input type="checkbox" class="filter-priority" value="critical" onchange="filterTable()">Critical</label>
-    <label><input type="checkbox" class="filter-priority" value="high" onchange="filterTable()">High</label>
-    <label><input type="checkbox" class="filter-priority" value="medium" onchange="filterTable()">Medium</label>
-    <label><input type="checkbox" class="filter-priority" value="low" onchange="filterTable()">Low</label>
+    <label><input type="checkbox" class="filter-priority" value="critical" onchange="priorityFilterTable()">Critical</label>
+    <label><input type="checkbox" class="filter-priority" value="high" onchange="priorityFilterTable()">High</label>
+    <label><input type="checkbox" class="filter-priority" value="medium" onchange="priorityFilterTable()">Medium</label>
+    <label><input type="checkbox" class="filter-priority" value="low" onchange="priorityFilterTable()">Low</label>
+  </div>
+  <div class="filter-group">
+    {% for service in services %}
+      <label><input type="checkbox" class="filter-service" value="{{service}}" onchange="serviceFilterTable()">{{service}}</label>
+    {% endfor %}
   </div>
   <button type="button" onclick="clearFilters()">Show all</button>
 </aside>

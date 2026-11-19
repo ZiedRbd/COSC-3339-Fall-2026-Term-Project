@@ -13,7 +13,7 @@ from django.views.decorators.cache import never_cache
 
 from .forms import AvatarForm, EscalationTierForm, IncidentForm, LoginForm, RegisterForm, ShiftForm
 from .models import EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team, TeamMember, User
-from .notifications import notify
+from .notifications import notify, audit_report
 from .scheduling import (MAX_ACTIVE_TICKETS, active_ticket_count, assign_all_waiting, assign_now,
                          assign_on_creation, assign_waiting, ensure_policy, is_lead, on_call_roster,
                          on_call_solvers, reassign,
@@ -141,15 +141,21 @@ def incident_list(request):
             .select_related("service", "reported_by", "assigned_team", "assigned_to")
             .order_by("-is_unassigned_after_escalation", "-created_at")
         )
-    if(request.user.role != "auditor"):
-        # Teams whose policy ends with Administration, so an unassigned ticket says which way it ended
-        with_administration = set(EscalationTier.objects.filter(
-            team_id__in=team_ids | led_ids, escalate_to="administration").values_list("team_id", flat=True))
-        for i in incidents:
-            i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
-            i.can_transition = _can_transition(request.user, i)
+    with_administration = set(EscalationTier.objects.filter(
+    team_id__in=team_ids | led_ids, escalate_to="administration").values_list("team_id", flat=True))
+    for i in incidents:
+        i.next_states = ALLOWED_TRANSITIONS.get(i.status, [])
+        i.can_transition = _can_transition(request.user, i)
         i.to_administration = i.assigned_team_id in with_administration
-    return render(request, "incidents/list.html", {"incidents": incidents})
+    if(request.user.role != "auditor"):
+        services = set(Service.objects.filter(Q(owning_team__in=team_ids) | Q(owning_team__in=led_ids)).filter(is_active=True))
+        print(services)
+        # Teams whose policy ends with Administration, so an unassigned ticket says which way it ended
+        
+    else: 
+        services = set(Service.objects.filter(is_active=True))
+        print(services)
+    return render(request, "incidents/list.html", {"incidents": incidents, "services": services})
 
 @login_required
 def incident_form(request):
@@ -871,6 +877,6 @@ def auditor_notify_admin(request, pk):
         if len(body) > 1000:
             messages.error(request, "Report is too long, please keep report to less than 1000 characyers")
             return redirect("incident_detail", pk=pk)
-        notify(request.user, incident, "auditor_report",
+        audit_report(request.user, incident, "auditor_report",
                     f"This is a report for ticket #{incident.pk} ({incident.title}) from auditor {request.user.get_full_name()}:\n\n{body}")
     return redirect("incident_detail", pk=pk)

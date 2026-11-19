@@ -310,6 +310,7 @@ class Notification(models.Model):
         ("resolved", "Your ticket was resolved"),
         ("override", "Override on a ticket"),
         ("handover", "Handed over to you"),
+        ("auditor_report", "Audit Report")
     ]
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
     incident = models.ForeignKey(Incident, on_delete=models.CASCADE, null=True, blank=True)
