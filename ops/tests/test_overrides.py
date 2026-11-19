@@ -490,10 +490,38 @@ class WarningTests(OverrideCase):
 
     def test_a_finished_ticket_only_changes_its_solvers_name(self):
         ticket = self.ticket_in("closed")
-        self.assertEqual(override_warnings(ticket, new_solver=self.cy), [
-            "Ann Ames holds this ticket and will lose it.",
-            "This ticket is Closed. Only the name of its solver changes.",
-        ])
+        # Nobody holds a finished ticket, so nobody is said to lose it
+        self.assertEqual(override_warnings(ticket, new_solver=self.cy),
+                         ["This ticket is Closed. Only the name of its solver changes."])
+        override(ticket, self.admin, "Cy did the work", new_solver=self.cy)
+        self.assertEqual(self.told(self.ann), [f"Ticket #{ticket.pk} for Pipes, medium severity, is no longer under "
+                                               f"your name by an override. Reason: Cy did the work"])
+
+    def test_reopening_a_finished_ticket_says_nothing_about_losing_it(self):
+        self.on_call(self.bob)
+        for status in ("resolved", "closed"):
+            self.assertEqual(override_warnings(self.ticket_in(status), new_status="open"),
+                             ["The ticket goes back to the queue, and whoever on call has room gets it."])
+
+    def test_the_queue_sentence_says_when_everyone_on_call_is_full(self):
+        self.on_call(self.bob)
+        for n in range(3):
+            self.ticket(f"Held {n}", status="assigned", assigned_to=self.bob)
+        ticket = self.ticket_in("in_progress")
+        self.assertEqual(override_warnings(ticket, new_status="open")[-1],
+                         "Everyone on call for Plumbing holds 3 tickets, so the ticket will wait in the queue.")
+
+    def test_the_queue_sentence_says_when_the_ticket_can_come_straight_back(self):
+        self.on_call(self.ann)
+        for n in range(2):
+            self.ticket(f"Held {n}", status="assigned", assigned_to=self.ann)
+        ticket = self.ticket_in("assigned")
+        self.assertEqual(override_warnings(ticket, new_status="open")[-1],
+                         "The ticket goes back to the queue. Ann Ames is on call with room, so it can come straight "
+                         "back to them. Choose a solver to give it to someone else.")
+        override(ticket, self.admin, "back to the queue", new_status="open")
+        ticket.refresh_from_db()
+        self.assertEqual((ticket.status, ticket.assigned_to), ("assigned", self.ann))
 
     def test_resolving_by_override_does_not_count_as_the_solvers_work(self):
         ticket = self.ticket_in("in_progress")
