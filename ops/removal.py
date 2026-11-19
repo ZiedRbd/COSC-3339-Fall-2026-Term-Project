@@ -17,7 +17,6 @@ messages holds the sentences saying what was done or why it was refused,
 ready to show on a page.
 """
 from collections import Counter
-from dataclasses import dataclass, field
 
 from django.db import transaction
 from django.utils import timezone
@@ -25,26 +24,14 @@ from django.utils import timezone
 from .access import is_admin
 from .models import EscalationTier, Incident, Service, Shift, Team, TeamMember, User
 from .notifications import notify
-from .scheduling import _full_name, _window, assign_all_waiting, assign_waiting, validate_schedule
+from .outcome import done, refused
+from .scheduling import (_full_name, _window, assign_all_waiting, assign_waiting, release_to_queue,
+                         validate_schedule)
 from .timeline import log_event
 
 UNFINISHED = ("open", "assigned", "in_progress")
 HELD = ("assigned", "in_progress")
 ADMIN_ONLY = "Only an administrator can do this"
-
-
-@dataclass
-class Outcome:
-    ok: bool
-    messages: list = field(default_factory=list)
-
-
-def done(*messages):
-    return Outcome(True, list(messages))
-
-
-def refused(*messages):
-    return Outcome(False, list(messages))
 
 
 def _count(number, word):
@@ -61,16 +48,6 @@ def _mark_removed(row, by):
 def _mark_restored(row):
     row.removed_by = None
     row.removed_at = None
-
-
-def _release(incident):
-    """The ticket has no solver any more and waits in its team's queue. Does not write the timeline."""
-    incident.assigned_to = None
-    incident.status = "open"
-    incident.escalation_level = 0
-    incident.escalation_timer_started_at = None
-    incident.is_unassigned_after_escalation = False
-    incident.save()
 
 
 # ── What a user holds ─────────────────────────────────────────────────
@@ -276,7 +253,7 @@ def remove_user(user, by):
     tickets = list(Incident.objects.select_for_update(of=("self",))
                    .filter(assigned_to=user, status__in=HELD, is_deleted=False))
     for ticket in tickets:
-        _release(ticket)
+        release_to_queue(ticket)
         log_event(ticket, by, "removal", f"{name} was removed, so this ticket is waiting for a solver again.",
                   old_assignee=user)
     user.is_active = False
@@ -321,7 +298,7 @@ def leave_team(user, team, by):
     tickets = list(Incident.objects.select_for_update(of=("self",))
                    .filter(assigned_to=user, assigned_team=team, status__in=HELD, is_deleted=False))
     for ticket in tickets:
-        _release(ticket)
+        release_to_queue(ticket)
         log_event(ticket, by, "removal", f"{name} left {team.name}, so this ticket is waiting for a solver again.",
                   old_assignee=user)
     membership.delete()
@@ -412,7 +389,7 @@ def move_services(team, to_team, by):
     for ticket in tickets:
         holder = ticket.assigned_to
         ticket.assigned_team = to_team
-        _release(ticket)
+        release_to_queue(ticket)
         log_event(ticket, by, "removal", f"This ticket moved from {team.name} to {to_team.name} with its service.",
                   old_assignee=holder)
     assign_waiting(to_team)
@@ -500,7 +477,7 @@ def restore_ticket(incident, by):
         incident.assigned_team = owner if owner is not None and owner.is_active else None
     if waits:
         holder = incident.assigned_to
-        _release(incident)
+        release_to_queue(incident)
         log_event(incident, by, "restored", "Ticket restored. It is waiting for a solver again.", old_assignee=holder)
     else:
         incident.save()

@@ -264,7 +264,7 @@
     background: var(--sheet);
     border: 2px solid var(--navy);
 }
-.timeline li.tl-escalation::before { background: var(--red); border-color: var(--red); }
+.timeline li.tl-escalation::before, .timeline li.tl-override::before { background: var(--red); border-color: var(--red); }
 .timeline li.tl-assignment_failed::before { border-color: var(--red); }
 .timeline li.tl-status_change::before { background: var(--navy); }
 
