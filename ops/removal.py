@@ -14,7 +14,8 @@ team in the same way before it can go.
 
 Every function returns an Outcome: ok says whether it happened, and
 messages holds the sentences saying what was done or why it was refused,
-ready to show on a page.
+ready to show on a page. Each one checks everything first and only then
+writes, so a refusal never leaves half a change behind.
 """
 from collections import Counter
 
@@ -25,9 +26,9 @@ from .access import is_admin
 from .models import EscalationTier, Incident, Service, Shift, Team, TeamMember, User
 from .notifications import notify
 from .outcome import done, refused
-from .scheduling import (_full_name, _window, assign_all_waiting, assign_waiting, release_to_queue,
+from .scheduling import (_full_name, _window, assign_all_waiting, assign_waiting, release_to_queue, team_for,
                          validate_schedule)
-from .timeline import log_event
+from .timeline import MAX_REASON, clean_reason, log_event
 
 UNFINISHED = ("open", "assigned", "in_progress")
 HELD = ("assigned", "in_progress")
@@ -37,6 +38,21 @@ ADMIN_ONLY = "Only an administrator can do this"
 def _count(number, word):
     """ "1 shift", "3 shifts". """
     return f"{number} {word}" if number == 1 else f"{number} {word}s"
+
+
+def _it(number):
+    """ "it" for one thing, "them" for several. """
+    return "it" if number == 1 else "them"
+
+
+def _lock(row):
+    """
+    Wait for anyone else who is changing this row right now, then read it
+    again. Two people pressing the same button at the same moment are
+    taken one after the other, and the second sees what the first did.
+    """
+    type(row).objects.select_for_update(no_key=True).filter(pk=row.pk).first()
+    row.refresh_from_db()
 
 
 def _mark_removed(row, by):
@@ -57,7 +73,8 @@ def holdings(user, team=None):
     """
     What other people depend on this user for, on one team or on every
     team: upcoming shifts as {team: how many}, the teams they lead, and
-    the escalation tiers that name them. Removed teams do not count.
+    the escalation tiers that name them. A removed team has no upcoming
+    shifts and depends on nobody, so it does not count.
     """
     now = timezone.now()
     shifts = Shift.objects.filter(solver=user, ends_at__gt=now, team__is_active=True)
@@ -76,12 +93,12 @@ def holdings(user, team=None):
 def _what_is_held(user, held, lead=True):
     """One sentence for each thing that has to be handed over first."""
     name = _full_name(user)
-    messages = [f"{name} holds {_count(count, 'upcoming shift')} on {team.name}. Transfer them first."
-             for team, count in held["shifts"].items()]
+    messages = [f"{name} holds {_count(count, 'upcoming shift')} on {team.name}. Transfer {_it(count)} first."
+                for team, count in held["shifts"].items()]
     if lead:
         messages += [f"{name} is the lead of {team.name}. Appoint a new lead first." for team in held["led"]]
     messages += [f"Tier {tier.tier_number} of {tier.team.name} names {name}. Replace them in that tier first."
-              for tier in held["tiers"]]
+                 for tier in held["tiers"]]
     return messages
 
 
@@ -109,12 +126,14 @@ def transfer_shifts(user, team, by, prefer=None):
     Giving every shift to one person rarely works, because nobody may
     take two shifts in a row. So the shifts are walked in time order. A
     shift keeps its solver when it can. One that cannot, because it was
-    this user's or because the shift before it now has the same person,
-    goes to `prefer` when they are free for it. Otherwise it goes to
-    somebody who does not already have the shift right after it, and
-    among those to whoever has been given the fewest so far. The result
-    is checked with the same rules a lead's edit goes through, and
-    nothing is saved unless it passes.
+    this user's or because the handover just gave the shift before it to
+    the same person, goes to `prefer` when they are free for it.
+    Otherwise it goes to somebody who does not already have the shift
+    right after it, and among those to whoever has been given the fewest
+    so far. The result is checked with the same rules a lead's edit goes
+    through. Nothing is saved if the handover would add a problem to the
+    schedule; a problem that was already there is not this function's to
+    judge.
 
     A shift this user is working right now is cut at this moment: they
     keep the part that is over and somebody else takes the rest. Their
@@ -122,31 +141,37 @@ def transfer_shifts(user, team, by, prefer=None):
     """
     if not is_admin(by):
         return refused(ADMIN_ONLY)
+    _lock(user)
     now = timezone.now()
     name = _full_name(user)
     primaries = list(Shift.objects.select_for_update().filter(team=team, on_call_role="primary", ends_at__gt=now)
                      .order_by("starts_at", "pk"))
-    secondaries = list(Shift.objects.filter(team=team, on_call_role="secondary", solver=user, ends_at__gt=now))
+    secondaries = list(Shift.objects.select_for_update()
+                       .filter(team=team, on_call_role="secondary", solver=user, ends_at__gt=now))
     mine = [shift for shift in primaries if shift.solver_id == user.pk]
     if not mine and not secondaries:
         return refused(f"{name} holds no upcoming shift on {team.name}")
     pool = _others_on(team, user)
     if prefer is not None and prefer not in pool:
         return refused(f"{_full_name(prefer)} is not an active solver on {team.name}")
+    already_wrong = set(validate_schedule(team, primaries, now))
 
-    cut = None          # this user's shift that is running now, which ends at this moment
-    proposed = []       # the team's upcoming shifts as they will be
-    changed = []        # the ones that get a new solver
-    given = Counter()   # how many each solver has been handed
-    before = None
+    cut = None              # this user's shift that is running now, which ends at this moment
+    proposed = []           # the team's upcoming shifts as they will be
+    changed = []            # the ones that get a new solver
+    given = Counter()       # how many each solver has been handed
+    before = None           # the shift before, as it will be
+    before_changed = False
     for position, shift in enumerate(primaries):
         following = primaries[position + 1] if position + 1 < len(primaries) else None
         if shift.solver_id == user.pk and shift.starts_at < now:
             cut = shift
             shift = Shift(team=team, solver=user, on_call_role="primary", starts_at=now,
                           ends_at=shift.ends_at, created_by=by)
+        # Two in a row only matters here when the handover caused it
         in_a_row = before.solver_id if before is not None and before.ends_at == shift.starts_at else None
-        if shift.solver_id == user.pk or shift.solver_id == in_a_row:
+        needs_someone = shift.solver_id == user.pk or (before_changed and shift.solver_id == in_a_row)
+        if needs_someone:
             free = [solver for solver in pool if solver.pk != in_a_row
                     and not _busy_elsewhere(solver, team, shift.starts_at, shift.ends_at)]
             if not free:
@@ -160,11 +185,11 @@ def transfer_shifts(user, team, by, prefer=None):
             given[shift.solver] += 1
             changed.append(shift)
         proposed.append(shift)
-        before = shift
+        before, before_changed = shift, needs_someone
 
-    problems = validate_schedule(team, proposed, now)
-    if problems:
-        return refused(*problems)
+    new_problems = [problem for problem in validate_schedule(team, proposed, now) if problem not in already_wrong]
+    if new_problems:
+        return refused(*new_problems)
     if cut is not None:
         cut.ends_at = now
         cut.save()
@@ -185,10 +210,10 @@ def transfer_shifts(user, team, by, prefer=None):
     if mine:
         takers = " and ".join(_full_name(solver) for solver in sorted(given, key=pool.index))
         messages.append(f"{name}'s {_count(len(mine), 'upcoming shift')} on {team.name} "
-                     f"{'is' if len(mine) == 1 else 'are'} now covered by {takers}.")
+                        f"{'is' if len(mine) == 1 else 'are'} now covered by {takers}.")
     if secondaries:
         messages.append(f"{name}'s {_count(len(secondaries), 'secondary shift')} on {team.name} "
-                     f"{'was' if len(secondaries) == 1 else 'were'} dropped. A secondary is optional.")
+                        f"{'was' if len(secondaries) == 1 else 'were'} dropped. A secondary is optional.")
     return done(*messages)
 
 
@@ -197,6 +222,7 @@ def appoint_lead(team, new_lead, by):
     """The team gets a new lead, who must be an active solver. Each team has exactly one."""
     if not is_admin(by):
         return refused(ADMIN_ONLY)
+    _lock(team)
     if new_lead is None or new_lead.role != "solver" or not new_lead.is_active:
         return refused("The lead of a team has to be an active solver")
     if team.lead_id == new_lead.pk:
@@ -214,6 +240,7 @@ def replace_in_tier(tier, new_person, by):
     """An escalation tier that names one person names another solver on the same team instead."""
     if not is_admin(by):
         return refused(ADMIN_ONLY)
+    _lock(tier)
     team = tier.team
     if tier.escalate_to != "user":
         return refused(f"Tier {tier.tier_number} of {team.name} does not name a person")
@@ -225,7 +252,7 @@ def replace_in_tier(tier, new_person, by):
     tier.escalate_to_user = new_person
     tier.save()
     told = f"Tier {tier.tier_number} of the escalation policy of {team.name} now names {_full_name(new_person)}."
-    for person in {new_person, team.lead} - {None}:
+    for person in {new_person, team.lead} - {None, by}:
         notify(person, None, "handover", told)
     return done(f"Tier {tier.tier_number} of {team.name} now names {_full_name(new_person)}.")
 
@@ -244,6 +271,7 @@ def remove_user(user, by):
         return refused(ADMIN_ONLY)
     if user.pk == by.pk:
         return refused("You cannot remove your own account")
+    _lock(user)
     if not user.is_active:
         return refused(f"{_full_name(user)} is already removed")
     held = _what_is_held(user, holdings(user))
@@ -271,6 +299,7 @@ def restore_user(user, by):
     """The account can log in again. What it handed over stays with whoever took it."""
     if not is_admin(by):
         return refused(ADMIN_ONLY)
+    _lock(user)
     if user.is_active:
         return refused(f"{_full_name(user)} is not removed")
     user.is_active = True
@@ -288,6 +317,7 @@ def leave_team(user, team, by):
     """
     if not is_admin(by):
         return refused(ADMIN_ONLY)
+    _lock(user)
     membership = TeamMember.objects.filter(user=user, team=team)
     if not membership.exists():
         return refused(f"{_full_name(user)} is not on {team.name}")
@@ -297,12 +327,16 @@ def leave_team(user, team, by):
     name = _full_name(user)
     tickets = list(Incident.objects.select_for_update(of=("self",))
                    .filter(assigned_to=user, assigned_team=team, status__in=HELD, is_deleted=False))
+    # The lead may hold a ticket of a team they are not on, so a lead who leaves keeps theirs
+    if team.lead_id == user.pk:
+        tickets = []
     for ticket in tickets:
         release_to_queue(ticket)
         log_event(ticket, by, "removal", f"{name} left {team.name}, so this ticket is waiting for a solver again.",
                   old_assignee=user)
     membership.delete()
-    assign_waiting(team)
+    if team.is_active:
+        assign_waiting(team)
     return done(f"{name} is no longer on {team.name}.")
 
 
@@ -314,6 +348,7 @@ def remove_service(service, by):
     """No new ticket can be filed against it. The tickets it already has carry on."""
     if not is_admin(by):
         return refused(ADMIN_ONLY)
+    _lock(service)
     if not service.is_active:
         return refused(f"{service.name} is already removed")
     service.is_active = False
@@ -325,7 +360,7 @@ def remove_service(service, by):
     messages = [f"{service.name} was removed. No new ticket can be filed against it."]
     if tickets:
         messages.append(f"Its {_count(len(tickets), 'open ticket')} "
-                     f"{'carries' if len(tickets) == 1 else 'carry'} on as normal.")
+                        f"{'carries' if len(tickets) == 1 else 'carry'} on as normal.")
     return done(*messages)
 
 
@@ -334,6 +369,7 @@ def restore_service(service, by):
     """Tickets can be filed against it again, as long as the team that owns it is still there."""
     if not is_admin(by):
         return refused(ADMIN_ONLY)
+    _lock(service)
     if service.is_active:
         return refused(f"{service.name} is not removed")
     team = service.owning_team
@@ -350,6 +386,7 @@ def remove_building(building, by):
     """It leaves the ticket form. Tickets that point at it keep it."""
     if not is_admin(by):
         return refused(ADMIN_ONLY)
+    _lock(building)
     if not building.is_active:
         return refused(f"{building.name} is already removed")
     building.is_active = False
@@ -360,8 +397,10 @@ def remove_building(building, by):
 
 @transaction.atomic
 def restore_building(building, by):
+    """It is offered on the ticket form again."""
     if not is_admin(by):
         return refused(ADMIN_ONLY)
+    _lock(building)
     if building.is_active:
         return refused(f"{building.name} is not removed")
     building.is_active = True
@@ -373,19 +412,19 @@ def restore_building(building, by):
 @transaction.atomic
 def move_services(team, to_team, by):
     """
-    A team's handover: its services go to another team, and its
-    unfinished tickets follow them into that team's queue.
+    A team's handover: its services go to another team, the removed ones
+    too, and its unfinished tickets follow them into that team's queue.
     """
     if not is_admin(by):
         return refused(ADMIN_ONLY)
     if to_team is None or not to_team.is_active or to_team.pk == team.pk:
         return refused("Choose another team that is still active to take the services")
-    services = list(Service.objects.filter(owning_team=team, is_active=True))
     tickets = list(Incident.objects.select_for_update(of=("self",))
                    .filter(assigned_team=team, status__in=UNFINISHED, is_deleted=False))
+    services = Service.objects.filter(owning_team=team).count()
     if not services and not tickets:
         return refused(f"{team.name} has no service or open ticket to move")
-    Service.objects.filter(pk__in=[service.pk for service in services]).update(owning_team=to_team)
+    Service.objects.filter(owning_team=team).update(owning_team=to_team)
     for ticket in tickets:
         holder = ticket.assigned_to
         ticket.assigned_team = to_team
@@ -393,42 +432,82 @@ def move_services(team, to_team, by):
         log_event(ticket, by, "removal", f"This ticket moved from {team.name} to {to_team.name} with its service.",
                   old_assignee=holder)
     assign_waiting(to_team)
-    return done(f"{_count(len(services), 'service')} and {_count(len(tickets), 'open ticket')} moved from "
+    return done(f"{_count(services, 'service')} and {_count(len(tickets), 'open ticket')} moved from "
                 f"{team.name} to {to_team.name}.")
 
 
 @transaction.atomic
 def remove_team(team, by):
-    """Refused while the team still owns a service or has an unfinished ticket. Its history stays."""
+    """
+    Refused while the team still owns a service or has an unfinished
+    ticket. The team keeps its members, its policy and the shifts that
+    were worked. Shifts that have not started are dropped and a shift
+    running now ends at this moment, because a team that is gone covers
+    nothing: its solvers are free for other teams, and may themselves be
+    removed without anything to hand over.
+    """
     if not is_admin(by):
         return refused(ADMIN_ONLY)
+    _lock(team)
     if not team.is_active:
         return refused(f"{team.name} is already removed")
     services = Service.objects.filter(owning_team=team, is_active=True).count()
     tickets = Incident.objects.filter(assigned_team=team, status__in=UNFINISHED, is_deleted=False).count()
     messages = []
     if services:
-        messages.append(f"{team.name} still owns {_count(services, 'service')}. Move them to another team first.")
+        messages.append(f"{team.name} still owns {_count(services, 'service')}. "
+                        f"Move {_it(services)} to another team first.")
     if tickets:
-        messages.append(f"{team.name} still has {_count(tickets, 'open ticket')}. Move them to another team first.")
+        messages.append(f"{team.name} still has {_count(tickets, 'open ticket')}. "
+                        f"Move {_it(tickets)} to another team first.")
     if messages:
         return refused(*messages)
+    now = timezone.now()
+    upcoming = Shift.objects.filter(team=team, ends_at__gt=now)
+    dropped = upcoming.filter(starts_at__gte=now).count()
+    upcoming.filter(starts_at__gte=now).delete()
+    upcoming.filter(starts_at__lt=now).update(ends_at=now)
     team.is_active = False
     _mark_removed(team, by)
     team.save()
-    return done(f"{team.name} was removed.")
+    messages = [f"{team.name} was removed."]
+    if dropped:
+        messages.append(f"Its {_count(dropped, 'upcoming shift')} {'was' if dropped == 1 else 'were'} dropped.")
+    return done(*messages)
 
 
 @transaction.atomic
 def restore_team(team, by):
+    """
+    The team is back with its members and its policy, and with no
+    schedule: its lead has to lay one. Refused until the team has an
+    active lead and every tier of its policy that names a person names
+    one who is still an active solver on the team, so a restored team
+    never depends on somebody who is gone.
+    """
     if not is_admin(by):
         return refused(ADMIN_ONLY)
+    _lock(team)
     if team.is_active:
         return refused(f"{team.name} is not removed")
+    messages = []
+    if team.lead is None or not team.lead.is_active or team.lead.role != "solver":
+        messages.append(f"{team.name} has no active lead. Appoint one first.")
+    for tier in team.escalation_tiers.filter(escalate_to="user").select_related("escalate_to_user"):
+        person = tier.escalate_to_user
+        if (person is None or not person.is_active or person.role != "solver"
+                or not TeamMember.objects.filter(user=person, team=team).exists()):
+            who = _full_name(person) if person is not None else "nobody"
+            messages.append(f"Tier {tier.tier_number} of {team.name} names {who}, who cannot take a ticket for it. "
+                            f"Replace them in that tier first.")
+    if messages:
+        return refused(*messages)
     team.is_active = True
     _mark_restored(team)
     team.save()
-    return done(f"{team.name} was restored. Its services stayed with the team that took them.")
+    return done(f"{team.name} was restored. Its services stayed with the team that took them.",
+                f"It has no on-call schedule yet. {_full_name(team.lead)} has to add shifts before its tickets "
+                f"can be assigned.")
 
 
 # ── Tickets ───────────────────────────────────────────────────────────
@@ -439,19 +518,27 @@ def remove_ticket(incident, by, reason):
     """An administrator deletes a ticket at any status. A reason is required and goes on the timeline."""
     if not is_admin(by):
         return refused(ADMIN_ONLY)
-    reason = (reason or "").strip()
+    reason = clean_reason(reason)
     if not reason:
         return refused("A reason is needed to remove a ticket")
+    if len(reason) > MAX_REASON:
+        return refused(f"The reason can be at most {MAX_REASON} characters")
+    _lock(incident)
     if incident.is_deleted:
         return refused(f"Ticket #{incident.pk} is already removed")
     incident.is_deleted = True
     _mark_removed(incident, by)
     incident.save()
     log_event(incident, by, "removal", f"Ticket removed. Reason: {reason}")
-    told = f"ticket #{incident.pk}, {incident.title}, was removed by an administrator. Reason: {reason}"
-    notify(incident.reported_by, None, "override", f"Your {told}")
-    if incident.assigned_to is not None and incident.status in HELD:
-        notify(incident.assigned_to, None, "override", f"The {told} You no longer hold it.")
+    # A removed ticket's notifications leave the bell with it, so these two carry no ticket
+    ticket = f"ticket #{incident.pk}, {incident.title},"
+    if incident.reported_by_id != by.pk:
+        notify(incident.reported_by, None, "override",
+               f"Your {ticket} was removed by an administrator. Reason: {reason}")
+    holder = incident.assigned_to
+    if holder is not None and incident.status in HELD and holder.pk not in (by.pk, incident.reported_by_id):
+        notify(holder, None, "override",
+               f"The {ticket} which you held, was removed by an administrator. Reason: {reason}")
     # Its solver has room again for a ticket that was waiting
     assign_all_waiting()
     return done(f"Ticket #{incident.pk} was removed.")
@@ -462,26 +549,34 @@ def restore_ticket(incident, by):
     """
     The ticket is back on every list. One that somebody was working on
     goes back to waiting, and the queue hands it out again, so nobody
-    ends up holding more tickets than they may.
+    ends up holding more tickets than they may. An unfinished ticket
+    goes to the team that handles its service today, which may not be
+    the team it was with when it was removed.
     """
     if not is_admin(by):
         return refused(ADMIN_ONLY)
+    _lock(incident)
     if not incident.is_deleted:
         return refused(f"Ticket #{incident.pk} is not removed")
-    waits = incident.status in HELD
     incident.is_deleted = False
     _mark_restored(incident)
-    if incident.status in UNFINISHED and incident.assigned_team is not None and not incident.assigned_team.is_active:
-        # Its team was removed meanwhile: it goes to the team that owns its service now
-        owner = incident.service.owning_team
-        incident.assigned_team = owner if owner is not None and owner.is_active else None
-    if waits:
+    messages = [f"Ticket #{incident.pk} was restored."]
+    if incident.status not in UNFINISHED:
+        incident.save()
+        log_event(incident, by, "restored", "Ticket restored.")
+        return done(*messages)
+
+    team = team_for(incident)
+    incident.assigned_team = team
+    if incident.status in HELD:
         holder = incident.assigned_to
         release_to_queue(incident)
         log_event(incident, by, "restored", "Ticket restored. It is waiting for a solver again.", old_assignee=holder)
     else:
         incident.save()
         log_event(incident, by, "restored", "Ticket restored.")
-    if incident.assigned_team is not None:
-        assign_waiting(incident.assigned_team)
-    return done(f"Ticket #{incident.pk} was restored.")
+    if team is None:
+        messages.append("No team handles its service now, so it will wait until one does.")
+    else:
+        assign_waiting(team)
+    return done(*messages)

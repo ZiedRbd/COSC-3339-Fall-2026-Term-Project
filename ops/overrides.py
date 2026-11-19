@@ -28,13 +28,11 @@ from .notifications import notify
 from .outcome import done, refused
 from .scheduling import (MAX_ACTIVE_TICKETS, TAKE_IT, _full_name, _start_clock, _ticket_label, active_ticket_count,
                          assign_all_waiting, assign_now, on_call_solvers, release_to_queue, team_for)
-from .timeline import log_event
+from .timeline import MAX_REASON, clean_reason, log_event
 
 # Somebody holds a ticket in these two statuses, and it counts against their three
 HELD = ("assigned", "in_progress")
 FINISHED = ("resolved", "closed")
-# A reason is one or two sentences, not a report
-MAX_REASON = 500
 
 
 def possible_solvers(incident):
@@ -185,7 +183,7 @@ def override(incident, by, reason, new_status=None, new_solver=None):
         return refused(f"Ticket #{incident.pk} was removed. Restore it first.")
     if not can_override(by, incident):
         return refused("Only an administrator, or the lead of the ticket's team, can override a ticket")
-    reason = " ".join((reason or "").split())
+    reason = clean_reason(reason)
     if not reason:
         return refused("An override needs a reason")
     if len(reason) > MAX_REASON:

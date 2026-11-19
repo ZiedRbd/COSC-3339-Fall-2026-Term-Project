@@ -342,6 +342,8 @@ SECONDARY_BREAK = timedelta(hours=24)
 def _solver_problems(shift, team):
     """Why this person cannot take a shift on this team at all, as a list."""
     errors = []
+    if not shift.solver.is_active:
+        errors.append(f"{_full_name(shift.solver)} was removed and cannot take a shift")
     if shift.solver.role != "solver":
         errors.append(f"{_full_name(shift.solver)} is a reporter and cannot take a shift")
     if not TeamMember.objects.filter(user=shift.solver, team=team).exists():

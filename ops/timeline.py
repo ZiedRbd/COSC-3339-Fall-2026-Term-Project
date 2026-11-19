@@ -1,6 +1,14 @@
 """Writing entries to a ticket's timeline."""
 from .models import IncidentUpdate
 
+# The reason given for an override or a removal is a sentence or two, not a report
+MAX_REASON = 500
+
+
+def clean_reason(text):
+    """A typed reason on one line: no line breaks, single spaces, nothing at either end. Empty when nothing was typed."""
+    return " ".join((text or "").split())
+
 
 def log_event(incident, author, update_type, body, old_status="", new_status="",
               old_assignee=None, new_assignee=None, escalated_to_tier=None):

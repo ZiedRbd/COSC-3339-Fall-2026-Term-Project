@@ -7,10 +7,11 @@ from django.utils import timezone
 from ops.access import can_override
 from ops.lifecycle import ALLOWED_TRANSITIONS, STATUS_LABELS
 from ops.models import EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team, TeamMember
-from ops.overrides import FINISHED, HELD, MAX_REASON, override, override_warnings, possible_solvers
+from ops.overrides import HELD, override, override_warnings, possible_solvers
 from ops.removal import move_services, remove_team, remove_ticket, remove_user
 from ops.scheduling import active_ticket_count, assign_now, assign_on_creation, escalate_due, reassign, team_for
 from ops.tests.helpers import GOOD_PASSWORD, Campus
+from ops.timeline import MAX_REASON
 
 STATUSES = list(STATUS_LABELS)
 
