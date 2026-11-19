@@ -2,7 +2,6 @@
 from datetime import timedelta
 
 from django.core import mail
-from django.test import TestCase
 from django.utils import timezone
 
 from ops.models import (Building, EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team,
@@ -11,50 +10,7 @@ from ops.removal import (appoint_lead, holdings, leave_team, move_services, remo
                          remove_team, remove_ticket, remove_user, replace_in_tier, restore_building, restore_service,
                          restore_team, restore_ticket, restore_user, transfer_shifts)
 from ops.scheduling import assign_on_creation, validate_schedule
-from ops.tests.helpers import GOOD_PASSWORD
-
-
-class Campus(TestCase):
-    """One team of three solvers on an eight hour rota, its lead, a reporter and an administrator."""
-
-    def setUp(self):
-        self.admin = User.objects.create_superuser(username="admin@x.com", email="admin@x.com",
-                                                   password=GOOD_PASSWORD, first_name="Ada", last_name="Min")
-        self.reporter = self.person("r@x.com", "Rae", "Port", "reporter")
-        self.lead = self.person("lead@x.com", "Lena", "Lead", "solver")
-        self.ann = self.person("ann@x.com", "Ann", "Ames", "solver")
-        self.bob = self.person("bob@x.com", "Bob", "Bell", "solver")
-        self.cy = self.person("cy@x.com", "Cy", "Cole", "solver")
-        self.team = Team.objects.create(name="Plumbing", lead=self.lead)
-        for user in (self.ann, self.bob, self.cy):
-            TeamMember.objects.create(user=user, team=self.team)
-        self.service = Service.objects.create(name="Pipes", owning_team=self.team)
-        EscalationTier.objects.create(team=self.team, tier_number=1, escalate_to="on_call", wait_minutes=5)
-        EscalationTier.objects.create(team=self.team, tier_number=2, escalate_to="lead", wait_minutes=10)
-
-    def person(self, email, first, last, role):
-        return User.objects.create_user(username=email, email=email, password=GOOD_PASSWORD,
-                                        first_name=first, last_name=last, role=role)
-
-    def rota(self, team=None, solvers=None, blocks=9):
-        """Eight hour shifts in turn, the first one already an hour old."""
-        team = team or self.team
-        solvers = solvers or [self.ann, self.bob, self.cy]
-        start = timezone.now() - timedelta(hours=1)
-        for n in range(blocks):
-            Shift.objects.create(team=team, solver=solvers[n % len(solvers)], created_by=self.lead,
-                                 starts_at=start + timedelta(hours=8 * n), ends_at=start + timedelta(hours=8 * n + 8))
-
-    def upcoming(self, team=None):
-        return list(Shift.objects.filter(team=team or self.team, on_call_role="primary", ends_at__gt=timezone.now())
-                    .order_by("starts_at"))
-
-    def ticket(self, title="Leak", **fields):
-        return Incident.objects.create(title=title, description="d", service=self.service,
-                                       reported_by=self.reporter, assigned_team=self.team, **fields)
-
-    def entries(self, ticket, kind):
-        return list(IncidentUpdate.objects.filter(incident=ticket, update_type=kind).values_list("body", flat=True))
+from ops.tests.helpers import GOOD_PASSWORD, Campus
 
 
 class TransferShiftsTests(Campus):
@@ -344,8 +300,8 @@ class TeamTests(Campus):
     def test_a_team_cannot_go_while_it_owns_a_service_or_has_an_open_ticket(self):
         self.ticket()
         outcome = remove_team(self.team, self.admin)
-        self.assertEqual(outcome.messages, ["Plumbing still owns 1 service. Move them to another team first.",
-                                         "Plumbing still has 1 open ticket. Move them to another team first."])
+        self.assertEqual(outcome.messages, ["Plumbing still owns 1 service. Move it to another team first.",
+                                         "Plumbing still has 1 open ticket. Move it to another team first."])
         self.team.refresh_from_db()
         self.assertTrue(self.team.is_active)
 
@@ -387,24 +343,79 @@ class TeamTests(Campus):
         self.assertEqual(self.client.get(f"/schedule/{self.team.pk}/").status_code, 404)
         self.assertEqual(self.client.get(f"/policy/{self.team.pk}/").status_code, 404)
 
-    def test_the_shifts_of_a_removed_team_hold_nobody_back(self):
+    def test_a_removed_team_gives_up_the_shifts_it_has_not_worked_yet(self):
+        self.rota()
+        earlier = Shift.objects.create(team=self.team, solver=self.cy, created_by=self.lead,
+                                       starts_at=timezone.now() - timedelta(hours=20),
+                                       ends_at=timezone.now() - timedelta(hours=12))
+        running = Shift.objects.order_by("starts_at")[1]
+        move_services(self.team, self.other, self.admin)
+        outcome = remove_team(self.team, self.admin)
+        self.assertEqual(outcome.messages, ["Plumbing was removed.", "Its 8 upcoming shifts were dropped."])
+        self.assertEqual(self.upcoming(), [])
+        # What was worked stays as history: the shift that ended, and the part of the running one that is over
+        self.assertTrue(Shift.objects.filter(pk=earlier.pk).exists())
+        running.refresh_from_db()
+        self.assertEqual(running.solver, self.ann)
+        self.assertLessEqual(running.ends_at, timezone.now())
+        self.assertEqual(Shift.objects.filter(team=self.team).count(), 2)
+
+    def test_the_solvers_of_a_removed_team_are_free_for_other_teams_and_hold_nothing(self):
         self.rota()
         move_services(self.team, self.other, self.admin)
         remove_team(self.team, self.admin)
-        TeamMember.objects.create(user=self.ann, team=self.other)
+        TeamMember.objects.create(user=self.bob, team=self.other)
         now = timezone.now()
-        shift = Shift(team=self.other, solver=self.ann, created_by=self.lead,
-                      starts_at=now, ends_at=now + timedelta(hours=6))
-        self.assertEqual(validate_schedule(self.other, [shift]), [])
+        shift = Shift(team=self.other, solver=self.bob, created_by=self.lead,
+                      starts_at=now + timedelta(hours=8), ends_at=now + timedelta(hours=14))
+        self.assertNotIn("Bob Bell is already on call for Plumbing", " ".join(validate_schedule(self.other, [shift])))
+        self.assertEqual(holdings(self.ann), {"shifts": {}, "led": [], "tiers": []})
+        self.assertTrue(remove_user(self.ann, self.admin).ok)
 
-    def test_a_team_is_restored(self):
+    def test_a_team_is_restored_without_a_schedule(self):
+        self.rota()
         move_services(self.team, self.other, self.admin)
         remove_team(self.team, self.admin)
         outcome = restore_team(self.team, self.admin)
-        self.assertEqual(outcome.messages, ["Plumbing was restored. Its services stayed with the team that took them."])
+        self.assertEqual(outcome.messages, [
+            "Plumbing was restored. Its services stayed with the team that took them.",
+            "It has no on-call schedule yet. Lena Lead has to add shifts before its tickets can be assigned.",
+        ])
         self.team.refresh_from_db()
         self.assertEqual((self.team.is_active, self.team.removed_by, self.team.removed_at), (True, None, None))
+        self.assertEqual(self.upcoming(), [])
         self.assertEqual(restore_team(self.team, self.admin).messages, ["Plumbing is not removed"])
+
+    def test_a_team_is_not_restored_onto_people_who_are_gone(self):
+        EscalationTier.objects.create(team=self.team, tier_number=3, escalate_to="user",
+                                      escalate_to_user=self.ann, wait_minutes=5)
+        self.team.lead = self.cy
+        self.team.save()
+        move_services(self.team, self.other, self.admin)
+        remove_team(self.team, self.admin)
+        # With the team gone, nothing depends on its lead or on the person in its tier, so both can be removed
+        self.assertTrue(remove_user(self.cy, self.admin).ok)
+        self.assertTrue(remove_user(self.ann, self.admin).ok)
+        outcome = restore_team(self.team, self.admin)
+        self.assertEqual(outcome.messages, [
+            "Plumbing has no active lead. Appoint one first.",
+            "Tier 3 of Plumbing names Ann Ames, who cannot take a ticket for it. Replace them in that tier first.",
+        ])
+        self.team.refresh_from_db()
+        self.assertFalse(self.team.is_active)
+        self.assertTrue(appoint_lead(self.team, self.bob, self.admin).ok)
+        self.assertTrue(replace_in_tier(EscalationTier.objects.get(team=self.team, tier_number=3), self.bob, self.admin).ok)
+        self.assertTrue(restore_team(self.team, self.admin).ok)
+
+    def test_removed_services_move_with_the_team_and_can_be_restored_where_they_went(self):
+        self.ticket()
+        remove_service(self.service, self.admin)
+        outcome = move_services(self.team, self.other, self.admin)
+        self.assertEqual(outcome.messages, ["1 service and 1 open ticket moved from Plumbing to Electrical."])
+        remove_team(self.team, self.admin)
+        self.assertTrue(restore_service(self.service, self.admin).ok)
+        self.service.refresh_from_db()
+        self.assertEqual((self.service.owning_team, self.service.is_active), (self.other, True))
 
 
 class TicketTests(Campus):

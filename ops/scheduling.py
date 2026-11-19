@@ -90,16 +90,43 @@ def on_call_roster(team, window_start, window_end, on_call_role="primary"):
     return shifts.select_related("solver").order_by("starts_at", "id")
 
 
+def team_for(incident):
+    """
+    The team a ticket goes to: the one that owns its service, or, when
+    that team was removed or the service has none, the one the ticket is
+    already with. None when neither is there, and then nobody can be
+    given the ticket.
+    """
+    for team in (incident.service.owning_team, incident.assigned_team):
+        if team is not None and team.is_active:
+            return team
+    return None
+
+
+def release_to_queue(incident):
+    """
+    The ticket has no solver any more: it is Open again, at the start of
+    its team's policy, and waits in the queue. Saves the ticket. Does not
+    write the timeline; the caller says why it happened.
+    """
+    incident.assigned_to = None
+    incident.status = "open"
+    incident.escalation_level = 0
+    incident.escalation_timer_started_at = None
+    incident.is_unassigned_after_escalation = False
+    incident.save()
+
+
 def assign_now(incident, by, at=None):
     """
-    Hand an unassigned ticket to whoever is on call for the team that owns
-    its service and still has room, and write what happened to the timeline
-    either way. Used when a ticket is filed and when one is reopened. The
-    ticket stays Open and unassigned when the service has no team, nobody is
-    on call, or everyone on call already holds MAX_ACTIVE_TICKETS.
-    Returns the solver it went to, or None.
+    Hand an unassigned ticket to whoever is on call for the team it goes
+    to and still has room, and write what happened to the timeline either
+    way. Used when a ticket is filed, reopened, or sent back to the queue
+    by an override. The ticket stays Open and unassigned when no team
+    handles its service, nobody is on call, or everyone on call already
+    holds MAX_ACTIVE_TICKETS. Returns the solver it went to, or None.
     """
-    team = incident.service.owning_team
+    team = team_for(incident)
     if team is None:
         log_event(incident, by, "assignment_failed",
                   f"Nobody is on call for {incident.service.name} right now, so this ticket is waiting to be assigned")
@@ -315,6 +342,8 @@ SECONDARY_BREAK = timedelta(hours=24)
 def _solver_problems(shift, team):
     """Why this person cannot take a shift on this team at all, as a list."""
     errors = []
+    if not shift.solver.is_active:
+        errors.append(f"{_full_name(shift.solver)} was removed and cannot take a shift")
     if shift.solver.role != "solver":
         errors.append(f"{_full_name(shift.solver)} is a reporter and cannot take a shift")
     if not TeamMember.objects.filter(user=shift.solver, team=team).exists():
@@ -459,8 +488,9 @@ def reassign(incident, new_solver, by):
     old = incident.assigned_to
     if old == new_solver:
         return f"{_full_name(new_solver)} already has this ticket"
-    if active_ticket_count(new_solver) >= MAX_ACTIVE_TICKETS:
-        return f"{_full_name(new_solver)} already holds {MAX_ACTIVE_TICKETS} tickets"
+    held = active_ticket_count(new_solver)
+    if held >= MAX_ACTIVE_TICKETS:
+        return f"{_full_name(new_solver)} already holds {held} tickets"
     _hand_to(incident, new_solver, by, "reassignment",
              f"Reassigned from {_full_name(old) if old else 'nobody'} to {_full_name(new_solver)}",
              "assigned", "was reassigned to you")

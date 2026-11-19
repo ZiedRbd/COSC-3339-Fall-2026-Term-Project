@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
 from .forms import AvatarForm, EscalationTierForm, IncidentForm, LoginForm, RegisterForm, ShiftForm
+from .lifecycle import ALLOWED_TRANSITIONS, STATUS_LABELS
 from .models import EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team, TeamMember, User
 from .notifications import notify, audit_report
 from .scheduling import (MAX_ACTIVE_TICKETS, active_ticket_count, assign_all_waiting, assign_now,
@@ -19,19 +20,6 @@ from .scheduling import (MAX_ACTIVE_TICKETS, active_ticket_count, assign_all_wai
                          on_call_solvers, reassign,
                          validate_schedule, validate_secondary, who_is_on_call, who_is_secondary_on_call)
 from .timeline import log_event
-
-# A ticket leaves Open only by being assigned, automatically on creation or
-# by a team lead. Solvers move it along from there.
-STATUS_LABELS = dict(Incident.STATUS_CHOICES)
-
-ALLOWED_TRANSITIONS = {
-    "open": [],
-    "assigned": ["in_progress"],
-    "in_progress": ["resolved"],
-    "resolved": ["closed", "open"],
-    "closed": ["open"],
-}
-
 
 def home(request):
     """Public landing page."""
@@ -466,9 +454,11 @@ def incident_detail(request, pk):
     if team is not None and is_lead(request.user, team) and incident.status not in ("resolved", "closed"):
         for role, person in (("primary", who_is_on_call(team)), ("secondary", who_is_secondary_on_call(team))):
             if person is not None:
+                held = active_ticket_count(person)
                 reassign_targets.append({
                     "solver": person, "role": role, "holds": person == incident.assigned_to,
-                    "full": active_ticket_count(person) >= MAX_ACTIVE_TICKETS,
+                    # An override can give a solver more than the usual number, so the page says how many
+                    "held": held, "full": held >= MAX_ACTIVE_TICKETS,
                 })
     can_edit = _can_edit(request.user, incident)
     return render(request, "incidents/detail.html", {

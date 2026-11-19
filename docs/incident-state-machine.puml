@@ -36,6 +36,18 @@ note right of Assigned
   while it is In Progress.
 end note
 
+note left of InProgress
+  The arrows are the moves the normal
+  buttons allow. An override is a separate
+  path: an administrator, or the lead of
+  the ticket's team, can move a ticket from
+  any state to any other and close it from
+  anywhere, always with a reason. It writes
+  its own kind of timeline entry. A ticket
+  forced to Open goes back through the
+  queue like a reopened one.
+end note
+
 note bottom of Closed
   Assignment, reassignment and escalation
   each write an IncidentUpdate row that
@@ -56,5 +68,6 @@ legend right
   | Anyone but the assigned solver or the lead | Refused |
   | Solver off the team | Refused, no access |
   | Open moved by hand | Refused, only assignment leaves Open |
+  | Override, by an administrator or the lead of the ticket's team | Any state to any other, with a reason |
 endlegend
 @enduml
