@@ -33,6 +33,8 @@ from .timeline import MAX_REASON, clean_reason, log_event
 # Somebody holds a ticket in these two statuses, and it counts against their three
 HELD = ("assigned", "in_progress")
 FINISHED = ("resolved", "closed")
+# The steps a ticket takes without an override: the buttons, and the assignment the system makes itself
+USUAL_STEPS = {**ALLOWED_TRANSITIONS, "open": ["assigned"]}
 
 
 def possible_solvers(incident):
@@ -125,7 +127,7 @@ def override_warnings(incident, new_status=None, new_solver=None):
     team = team_for(incident)
     sentences = []
 
-    if status_changes and status not in ALLOWED_TRANSITIONS.get(old_status, []):
+    if status_changes and status not in USUAL_STEPS.get(old_status, []):
         sentences.append(f"A ticket does not normally go from {STATUS_LABELS[old_status]} to {STATUS_LABELS[status]}. "
                          f"This skips the usual steps.")
     if old_holder is not None and holder_changes:

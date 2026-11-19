@@ -448,6 +448,11 @@ class WarningTests(OverrideCase):
                 sentences = override_warnings(self.ticket_in(old), new_status=new)
                 self.assertEqual(sentences, [], (old, new))
 
+    def test_giving_an_open_ticket_to_a_solver_on_call_with_room_skips_nothing(self):
+        self.on_call(self.ann)
+        ticket = self.ticket_in("open")
+        self.assertEqual(override_warnings(ticket, new_status="assigned", new_solver=self.ann), [])
+
     def test_skipping_the_usual_steps(self):
         ticket = self.ticket_in("in_progress")
         self.assertEqual(override_warnings(ticket, new_status="closed"),
