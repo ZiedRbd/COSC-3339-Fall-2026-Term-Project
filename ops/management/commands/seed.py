@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 
-from ops.models import User, Team, TeamMember, Service, Incident, EscalationTier
+from ops.buildings import best_match
+from ops.models import Building, User, Team, TeamMember, Service, Incident, EscalationTier
 from ops.scheduling import assign_on_creation, ensure_policy
 from ops.timeline import log_event
 
@@ -116,22 +117,22 @@ class Command(BaseCommand):
             (0, "Sink leaking in Moody 2nd floor restroom", "Restroom Plumbing", "high", "Moody", "214", "open"),
             (1, "Water fountain not working", "Water Fountains", "low", "Trustee", "1st floor", "assigned"),
             (1, "Lights flickering in room 114", "Classroom Lighting", "medium", "Fleck", "114", "in_progress"),
-            (2, "Hallway lights out", "Classroom Lighting", "high", "Doyle", "East wing", "resolved"),
+            (2, "Hallway lights out", "Classroom Lighting", "high", "Holy Cross", "East wing", "resolved"),
             (2, "Outlet sparked in dorm lounge", "Power Outlets", "high", "Teresa Hall", "Lounge", "closed"),
             (3, "Dead outlets along back wall", "Power Outlets", "medium", "Fleck", "203", "open"),
             (3, "No Wi-Fi in the library basement", "Campus Wi-Fi", "critical", "Library", "Basement", "in_progress"),
             (0, "Wi-Fi drops every few minutes", "Campus Wi-Fi", "high", "Moody", "301", "assigned"),
             (1, "Printer jammed in lab 3", "Printing", "low", "Library", "Lab 3", "resolved"),
             (2, "Printer out of toner", "Printing", "low", "Trustee", "Copy room", "open"),
-            (4, "Toilet overflowing in Doyle 1st floor", "Restroom Plumbing", "critical", "Doyle", "108", "in_progress"),
+            (4, "Toilet overflowing in Doyle 1st floor", "Restroom Plumbing", "critical", "Holy Cross", "108", "in_progress"),
             (4, "Bottle filler dripping nonstop", "Water Fountains", "low", "Fleck", "2nd floor", "closed"),
             (5, "Projector outlet dead in lecture hall", "Power Outlets", "high", "Moody", "Auditorium", "assigned"),
             (5, "Office Wi-Fi unreachable since Monday", "Campus Wi-Fi", "high", "Fleck", "310", "open"),
-            (5, "Classroom lights stay on all night", "Classroom Lighting", "low", "Doyle", "210", "resolved"),
+            (5, "Classroom lights stay on all night", "Classroom Lighting", "low", "Holy Cross", "210", "resolved"),
             (0, "Shower drain clogged in Teresa Hall", "Restroom Plumbing", "medium", "Teresa Hall", "2B", "closed"),
             (3, "Lab printer prints blank pages", "Printing", "medium", "Library", "Lab 1", "assigned"),
             (2, "Hand dryer sparks when used", "Power Outlets", "critical", "Trustee", "Restroom 2", "in_progress"),
-            (4, "Fountain water tastes metallic", "Water Fountains", "medium", "Doyle", "Gym hall", "open"),
+            (4, "Fountain water tastes metallic", "Water Fountains", "medium", "Holy Cross", "Gym hall", "open"),
             (1, "Wi-Fi login page never loads", "Campus Wi-Fi", "medium", "Library", "3rd floor", "resolved"),
             (0, "Lost my wallet near the gym", "Lost and Found", "low", "Rec Center", "Lobby", "open"),
             (3, "Found a set of keys in Fleck", "Lost and Found", "low", "Fleck", "Front desk", "open"),
@@ -140,6 +141,8 @@ class Command(BaseCommand):
         ]
 
         labels = dict(Incident.STATUS_CHOICES)
+        # The campus list arrives with the migrations; each ticket points at one of its buildings
+        campus = list(Building.objects.filter(is_active=True))
 
         def path_to(target):
             """The ordered list of statuses to reach target from open."""
@@ -157,7 +160,7 @@ class Command(BaseCommand):
                     "reported_by": reporters[idx],
                     "assigned_team": team,
                     "priority": severity,
-                    "building": building,
+                    "building": best_match(building, campus),
                     "room": room,
                 },
             )

@@ -4,7 +4,7 @@
 {% load status %}
 {% block extra_js %}
   <script src="{% static 'js/incidents.js' %}?v=2" defer></script>
-  <script src="{% static 'js/filter.js' %}?v=1" defer></script>
+  <script src="{% static 'js/filter.js' %}?v=10" defer></script>
   <script src="{% static 'js/transition.js' %}?v=1" defer></script>
 {% endblock %}
 
@@ -23,7 +23,13 @@
 {% endif %}
 
 <aside class="filter-sidebar" aria-label="Filter by severity">
-  <h3>Show only</h3>
+  <h3>Filter Incidents</h3>
+  
+  <div class="filter-group">
+    {% for service in services %}
+      <label><input type="checkbox" class="filter-service" value="{{service}}" onchange="filterTable()">{{service}}</label>
+    {% endfor %}
+  </div>
   <div class="filter-group">
     <label><input type="checkbox" class="filter-priority" value="critical" onchange="filterTable()">Critical</label>
     <label><input type="checkbox" class="filter-priority" value="high" onchange="filterTable()">High</label>
@@ -56,7 +62,7 @@
             <td class="ticket-id">{{ incident.pk }}</td>
             <td><a href="{% url 'incident_detail' incident.pk %}">{{ incident.title|truncatechars:70 }}</a>
               {% if incident.is_unassigned_after_escalation %}<span class="badge escalated">Unassigned: {% if incident.to_administration %}escalated to administration{% else %}escalation ran out{% endif %}</span>{% endif %}</td>
-            <td>{% if incident.building or incident.room %}{{ incident.building|truncatechars:40 }}{% if incident.building and incident.room %}, {% endif %}{{ incident.room|truncatechars:24 }}{% else %}<span class="muted">Not given</span>{% endif %}</td>
+            <td>{% if incident.building_name or incident.room %}{{ incident.building_name|truncatechars:40 }}{% if incident.building_name and incident.room %}, {% endif %}{{ incident.room|truncatechars:24 }}{% else %}<span class="muted">Not given</span>{% endif %}</td>
             <td>{{ incident.service.name }}</td>
             <td><span class="badge {{ incident.priority }}">{{ incident.priority|title }}</span></td>
             <td><span class="badge {{ incident.status }}">{{ incident.get_status_display }}</span>

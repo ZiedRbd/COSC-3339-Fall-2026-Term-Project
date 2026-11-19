@@ -1,6 +1,6 @@
 # ER Diagram
 
-Nine tables. Every line is a foreign key. The same diagram in PlantUML is in [`er-diagram.puml`](er-diagram.puml).
+Ten tables. Every line is a foreign key. The same diagram in PlantUML is in [`er-diagram.puml`](er-diagram.puml).
 
 ```mermaid
 erDiagram
@@ -22,6 +22,12 @@ erDiagram
     TEAM ||--o{ ESCALATION_TIER : "has"
     USER o|--o{ ESCALATION_TIER : "named in"
     USER ||--o{ NOTIFICATION : "receives"
+    USER o|--o{ USER : "removed by"
+    USER o|--o{ TEAM : "removed by"
+    USER o|--o{ SERVICE : "removed by"
+    USER o|--o{ INCIDENT : "removed by"
+    USER o|--o{ BUILDING : "removed by"
+    BUILDING o|--o{ INCIDENT : "is where"
     INCIDENT o|--o{ NOTIFICATION : "is about"
 
     USER {
@@ -34,8 +40,10 @@ erDiagram
         string role "reporter or solver"
         string bio
         string avatar "optional, path of the profile picture file under media/"
-        bool is_active
+        bool is_active "false once the user is removed, who can then no longer log in"
         bool is_superuser "administrator flag, false by default"
+        datetime removed_at "nullable, when the user was removed"
+        int removed_by_id FK "nullable, who removed the user"
         datetime created_at
     }
 
@@ -44,6 +52,9 @@ erDiagram
         string name UK
         string description
         int lead_id FK "nullable, the team lead, a solver"
+        bool is_active "false once the team is removed"
+        datetime removed_at "nullable, when the team was removed"
+        int removed_by_id FK "nullable, who removed the team"
         datetime created_at
     }
 
@@ -60,7 +71,9 @@ erDiagram
         string description
         int owning_team_id FK "nullable"
         string criticality
-        bool is_active
+        bool is_active "false once the service is removed"
+        datetime removed_at "nullable, when the service was removed"
+        int removed_by_id FK "nullable, who removed the service"
         datetime created_at
     }
 
@@ -68,8 +81,10 @@ erDiagram
         int id PK
         string title
         string description
-        string building "optional"
+        int building_id FK "nullable, the building on the campus list"
+        string building_typed "what was typed before the campus list existed"
         string room "optional"
+        string photo "optional, path of a picture of the problem under media/"
         int service_id FK
         int reported_by_id FK
         int assigned_to_id FK "nullable"
@@ -82,9 +97,23 @@ erDiagram
         bool is_unassigned_after_escalation "true once the policy ran out or the ticket was escalated to administration"
         datetime sla_due_at "nullable"
         datetime resolved_at "nullable"
-        bool is_deleted
+        bool is_deleted "true once the ticket is deleted"
+        datetime removed_at "nullable, when the ticket was deleted"
+        int removed_by_id FK "nullable, who deleted the ticket"
+        int rating "nullable, the reporter score for the fix, from 1 to 5"
         datetime created_at
         datetime updated_at
+    }
+
+    BUILDING {
+        int id PK
+        string name UK
+        string aliases "short names people type, separated by commas"
+        string kind "campus or residence"
+        bool is_active "false once the building is removed"
+        datetime removed_at "nullable, when the building was removed"
+        int removed_by_id FK "nullable, who removed the building"
+        datetime created_at
     }
 
     INCIDENT_UPDATE {
@@ -97,6 +126,7 @@ erDiagram
         string new_status "status changes only"
         int old_assignee_id FK "nullable, assignment changes only"
         int new_assignee_id FK "nullable, assignment changes only"
+        int escalated_to_tier "nullable, escalations only: the tier the ticket moved to, empty when the policy ran out"
         datetime created_at
     }
 
@@ -126,7 +156,7 @@ erDiagram
         int id PK
         int user_id FK
         int incident_id FK "nullable"
-        string event "assigned, escalated, final_escalation, queued, work_started, resolved"
+        string event "assigned, escalated, final_escalation, administration, queued, work_started, resolved, override, handover"
         string message
         datetime created_at
         datetime read_at "nullable, empty while unread"
@@ -155,5 +185,7 @@ erDiagram
 | User → Escalation Tier (named person) | one-to-many, optional | `ESCALATION_TIER.escalate_to_user_id` |
 | User → Notification | one-to-many | `NOTIFICATION.user_id` |
 | Incident → Notification | one-to-many, optional | `NOTIFICATION.incident_id` |
+| Building → Incident | one-to-many, optional | `INCIDENT.building_id` |
+| User → User, Team, Service, Building, Incident (removed by) | one-to-many, optional | `removed_by_id` on each of the five tables |
 
-Incidents are never physically deleted: `is_deleted` hides a ticket and keeps its history. A shift covers `starts_at` up to, but not including, `ends_at`. The database refuses a shift whose end is not after its start.
+Nothing is physically deleted. A removed user, team, service or building has `is_active` set to false, and a deleted ticket has `is_deleted` set to true. The row leaves every list and dropdown and its history is kept. `removed_at` and `removed_by_id` on the same five tables record when it was removed and by whom, and are emptied when it is restored. `BUILDING` is a lookup table holding the campus buildings and residence halls. A ticket points at one of them; `building_typed` keeps what reporters typed before the list existed. The changes made in Sprint 5 are in [`er-diagram-sprint5.puml`](er-diagram-sprint5.puml). A shift covers `starts_at` up to, but not including, `ends_at`. The database refuses a shift whose end is not after its start.

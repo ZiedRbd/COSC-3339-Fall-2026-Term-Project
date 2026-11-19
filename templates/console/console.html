@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Administrator console{% endblock %}
+{% block extra_js %}<script src="{% static 'js/console.js' %}?v=1" defer></script>{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="form-header">Administrator console</h1>
+    <p class="lead">Everything in the system is managed from this page. Each action opens here and nothing is deleted for good.</p>
+  </div>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+    <p class="notice {{ message.tags }}">{{ message }}</p>
+  {% endfor %}
+{% endif %}
+
+<div class="console-tabs" role="tablist" aria-label="Parts of the system">
+  {% for tab in tabs %}
+    <button type="button" class="console-tab" role="tab" data-tab="{{ tab.key }}" id="tab-{{ tab.key }}" aria-controls="panel-{{ tab.key }}" aria-selected="{% if tab.key == open_tab %}true{% else %}false{% endif %}">
+      {{ tab.label }}<span class="console-count">{{ tab.count }}</span>
+    </button>
+  {% endfor %}
+</div>
+
+<section class="card wide console-panel" id="panel-users" role="tabpanel" aria-labelledby="tab-users"{% if open_tab != "users" %} hidden{% endif %}>
+  <div class="console-bar">
+    <input type="search" class="form-input console-filter" data-filter placeholder="Filter users" aria-label="Filter users">
+    <button type="button" class="btn-gold" data-dialog="{% url 'console_user_add' %}">Add user</button>
+  </div>
+  <div class="table-scroll">
+  <table class="incident-table console-table">
+    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Teams</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for row in users %}
+        <tr>
+          <td>{{ row.user.first_name }} {{ row.user.last_name }}</td>
+          <td>{{ row.user.email }}</td>
+          <td>{{ row.role }}</td>
+          <td>{% for name in row.teams %}{{ name }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="muted">None</span>{% endfor %}</td>
+          <td class="row-actions">
+            <button type="button" class="btn-small" data-dialog="{% url 'console_user_edit' row.user.pk %}">Edit</button>
+            {% if row.user.pk != user.pk %}
+              <button type="button" class="btn-small danger" data-dialog="{% url 'console_user_remove' row.user.pk %}">Remove</button>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card wide console-panel" id="panel-teams" role="tabpanel" aria-labelledby="tab-teams"{% if open_tab != "teams" %} hidden{% endif %}>
+  <div class="console-bar">
+    <input type="search" class="form-input console-filter" data-filter placeholder="Filter teams" aria-label="Filter teams">
+    <button type="button" class="btn-gold" data-dialog="{% url 'console_team_add' %}">Add team</button>
+  </div>
+  <div class="table-scroll">
+  <table class="incident-table console-table">
+    <thead><tr><th>Team</th><th>Lead</th><th>Solvers</th><th>Services</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for row in teams %}
+        <tr>
+          <td>{{ row.team.name }}</td>
+          <td>{% if row.team.lead and row.team.lead.is_active %}{{ row.team.lead.first_name }} {{ row.team.lead.last_name }}{% else %}<span class="console-flag">No lead</span>{% endif %}</td>
+          <td>{% for name in row.members %}{{ name }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="muted">None</span>{% endfor %}</td>
+          <td>{% for name in row.services %}{{ name }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="muted">None</span>{% endfor %}</td>
+          <td class="row-actions">
+            <button type="button" class="btn-small" data-dialog="{% url 'console_team_edit' row.team.pk %}">Edit</button>
+            <button type="button" class="btn-small" data-dialog="{% url 'console_team_members' row.team.pk %}">Members and lead</button>
+            <button type="button" class="btn-small danger" data-dialog="{% url 'console_team_remove' row.team.pk %}">Remove</button>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="muted">No teams yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card wide console-panel" id="panel-services" role="tabpanel" aria-labelledby="tab-services"{% if open_tab != "services" %} hidden{% endif %}>
+  <div class="console-bar">
+    <input type="search" class="form-input console-filter" data-filter placeholder="Filter services" aria-label="Filter services">
+    <button type="button" class="btn-gold" data-dialog="{% url 'console_service_add' %}">Add service</button>
+  </div>
+  <div class="table-scroll">
+  <table class="incident-table console-table">
+    <thead><tr><th>Service</th><th>Team</th><th>Criticality</th><th>Unfinished tickets</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for service in services %}
+        <tr>
+          <td>{{ service.name }}</td>
+          <td>{% if service.owning_team %}{{ service.owning_team.name }}{% else %}<span class="console-flag">No team</span>{% endif %}</td>
+          <td><span class="badge {{ service.criticality }}">{{ service.criticality|capfirst }}</span></td>
+          <td>{{ service.unfinished }}</td>
+          <td class="row-actions">
+            <button type="button" class="btn-small" data-dialog="{% url 'console_service_edit' service.pk %}">Edit</button>
+            <button type="button" class="btn-small danger" data-dialog="{% url 'console_service_remove' service.pk %}">Remove</button>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="muted">No services yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card wide console-panel" id="panel-buildings" role="tabpanel" aria-labelledby="tab-buildings"{% if open_tab != "buildings" %} hidden{% endif %}>
+  <div class="console-bar">
+    <input type="search" class="form-input console-filter" data-filter placeholder="Filter buildings" aria-label="Filter buildings">
+    <button type="button" class="btn-gold" data-dialog="{% url 'console_building_add' %}">Add building</button>
+  </div>
+  <div class="table-scroll">
+  <table class="incident-table console-table">
+    <thead><tr><th>Building</th><th>Kind</th><th>Short names</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for building in buildings %}
+        <tr>
+          <td>{{ building.name }}</td>
+          <td>{{ building.get_kind_display }}</td>
+          <td>{% if building.aliases %}{{ building.aliases }}{% else %}<span class="muted">None</span>{% endif %}</td>
+          <td class="row-actions">
+            <button type="button" class="btn-small" data-dialog="{% url 'console_building_edit' building.pk %}">Edit</button>
+            <button type="button" class="btn-small danger" data-dialog="{% url 'console_building_remove' building.pk %}">Remove</button>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" class="muted">No buildings yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card wide console-panel" id="panel-tickets" role="tabpanel" aria-labelledby="tab-tickets"{% if open_tab != "tickets" %} hidden{% endif %}>
+  <div class="console-bar">
+    <input type="search" class="form-input console-filter" data-filter placeholder="Filter tickets" aria-label="Filter tickets">
+    {% if ticket_total > newest_tickets %}<span class="muted">Showing the {{ newest_tickets }} newest of {{ ticket_total }}</span>{% endif %}
+  </div>
+  <div class="table-scroll">
+  <table class="incident-table console-table">
+    <thead><tr><th>No.</th><th>Title</th><th>Service</th><th>Status</th><th>With</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for ticket in tickets %}
+        <tr>
+          <td>{{ ticket.pk }}</td>
+          <td><a href="{% url 'incident_detail' ticket.pk %}" target="_blank" rel="noopener" title="Opens the ticket in a new tab">{{ ticket.title }}</a></td>
+          <td>{{ ticket.service.name }}</td>
+          <td><span class="badge {{ ticket.status }}">{{ ticket.get_status_display }}</span></td>
+          <td>{% if ticket.assigned_to %}{{ ticket.assigned_to.first_name }} {{ ticket.assigned_to.last_name }}{% else %}<span class="muted">Nobody</span>{% endif %}</td>
+          <td class="row-actions">
+            <button type="button" class="btn-small" data-dialog="{% url 'console_ticket_override' ticket.pk %}">Override</button>
+            <button type="button" class="btn-small danger" data-dialog="{% url 'console_ticket_remove' ticket.pk %}">Remove</button>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="muted">No tickets yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card wide console-panel" id="panel-removed" role="tabpanel" aria-labelledby="tab-removed"{% if open_tab != "removed" %} hidden{% endif %}>
+  {% if not removed_total %}
+    <p class="muted">Nothing has been removed.</p>
+  {% endif %}
+
+  {% if removed.users %}
+    <h2 class="section-title first">Users</h2>
+    <div class="table-scroll">
+    <table class="incident-table console-table">
+      <thead><tr><th>Name</th><th>Email</th><th>Removed on</th><th>Removed by</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for person in removed.users %}
+          <tr>
+            <td>{{ person.first_name }} {{ person.last_name }}</td>
+            <td>{{ person.email }}</td>
+            {% include "console/_removed_cells.html" with item=person %}
+            <td class="row-actions">
+              <form method="post" action="{% url 'console_restore' 'user' person.pk %}">{% csrf_token %}<button type="submit" class="btn-small">Reactivate account</button></form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% endif %}
+
+  {% if removed.teams %}
+    <h2 class="section-title{% if not removed.users %} first{% endif %}">Teams</h2>
+    <div class="table-scroll">
+    <table class="incident-table console-table">
+      <thead><tr><th>Team</th><th>Lead</th><th>Removed on</th><th>Removed by</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for team in removed.teams %}
+          <tr>
+            <td>{{ team.name }}</td>
+            <td>{% if team.lead and team.lead.is_active %}{{ team.lead.first_name }} {{ team.lead.last_name }}{% else %}<span class="console-flag">No active lead</span>{% endif %}</td>
+            {% include "console/_removed_cells.html" with item=team %}
+            <td class="row-actions">
+              <button type="button" class="btn-small" data-dialog="{% url 'console_team_members' team.pk %}">Members and lead</button>
+              <form method="post" action="{% url 'console_restore' 'team' team.pk %}">{% csrf_token %}<button type="submit" class="btn-small">Restore</button></form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% endif %}
+
+  {% if removed.services %}
+    <h2 class="section-title">Services</h2>
+    <div class="table-scroll">
+    <table class="incident-table console-table">
+      <thead><tr><th>Service</th><th>Team</th><th>Removed on</th><th>Removed by</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for service in removed.services %}
+          <tr>
+            <td>{{ service.name }}</td>
+            <td>{% if service.owning_team %}{{ service.owning_team.name }}{% else %}<span class="muted">None</span>{% endif %}</td>
+            {% include "console/_removed_cells.html" with item=service %}
+            <td class="row-actions">
+              <form method="post" action="{% url 'console_restore' 'service' service.pk %}">{% csrf_token %}<button type="submit" class="btn-small">Restore</button></form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% endif %}
+
+  {% if removed.buildings %}
+    <h2 class="section-title">Buildings</h2>
+    <div class="table-scroll">
+    <table class="incident-table console-table">
+      <thead><tr><th>Building</th><th>Kind</th><th>Removed on</th><th>Removed by</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for building in removed.buildings %}
+          <tr>
+            <td>{{ building.name }}</td>
+            <td>{{ building.get_kind_display }}</td>
+            {% include "console/_removed_cells.html" with item=building %}
+            <td class="row-actions">
+              <form method="post" action="{% url 'console_restore' 'building' building.pk %}">{% csrf_token %}<button type="submit" class="btn-small">Restore</button></form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% endif %}
+
+  {% if removed.tickets %}
+    <h2 class="section-title">Tickets</h2>
+    <div class="table-scroll">
+    <table class="incident-table console-table">
+      <thead><tr><th>No.</th><th>Title</th><th>Removed on</th><th>Removed by</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for ticket in removed.tickets %}
+          <tr>
+            <td>{{ ticket.pk }}</td>
+            <td>{{ ticket.title }}</td>
+            {% include "console/_removed_cells.html" with item=ticket %}
+            <td class="row-actions">
+              <form method="post" action="{% url 'console_restore' 'ticket' ticket.pk %}">{% csrf_token %}<button type="submit" class="btn-small">Restore</button></form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% endif %}
+</section>
+
+{% include "console/_dialog.html" %}
+{% endblock %}

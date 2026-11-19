@@ -1,0 +1,49 @@
+<h2>{{ team.name }}: members and lead</h2>
+{% if outcome %}
+  {% for sentence in outcome.messages %}<p class="notice {% if outcome.ok %}success{% else %}error{% endif %}">{{ sentence }}</p>{% endfor %}
+{% endif %}
+
+<h3 class="console-sub">Lead</h3>
+<p class="console-current">{% if team.lead and team.lead.is_active %}{{ team.lead.first_name }} {{ team.lead.last_name }}{% else %}<span class="console-flag">No active lead</span>{% endif %}</p>
+{% if lead_candidates %}
+  <form method="post" action="{{ action }}">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="lead">
+    <label class="form-label" for="members-lead">New lead</label>
+    <div class="console-step-row">
+      <select name="person" id="members-lead" class="form-input">
+        {% for other in lead_candidates %}<option value="{{ other.pk }}">{{ other.first_name }} {{ other.last_name }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="btn-small">Appoint as lead</button>
+    </div>
+  </form>
+{% endif %}
+
+<h3 class="console-sub">Solvers on the team</h3>
+<ul class="console-list">
+  {% for member in members %}
+    <li>
+      <span>{{ member.first_name }} {{ member.last_name }}{% if member.pk == team.lead_id %}<span class="muted">, lead</span>{% endif %}</span>
+      <button type="button" class="btn-small danger" data-dialog="{% url 'console_team_leave' team.pk member.pk %}">Take off the team</button>
+    </li>
+  {% empty %}
+    <li class="muted">No solvers yet.</li>
+  {% endfor %}
+</ul>
+{% if to_add %}
+  <form method="post" action="{{ action }}">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="add">
+    <label class="form-label" for="members-add">Add a solver</label>
+    <div class="console-step-row">
+      <select name="person" id="members-add" class="form-input">
+        {% for other in to_add %}<option value="{{ other.pk }}">{{ other.first_name }} {{ other.last_name }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="btn-small">Add to the team</button>
+    </div>
+  </form>
+{% endif %}
+
+<div class="actions">
+  <button type="button" class="btn-gold" data-close>Done</button>
+</div>

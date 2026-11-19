@@ -1,7 +1,7 @@
 """Creating, editing, and soft deleting tickets."""
 from django.test import TestCase
 
-from ops.models import Incident, TeamMember
+from ops.models import Building, Incident, TeamMember
 from ops.tests.helpers import GOOD_PASSWORD, make_user, make_service
 
 
@@ -19,7 +19,7 @@ class IncidentTests(TestCase):
             "description": "Steady drip under the sink",
             "service": self.service.pk,
             "priority": "high",
-            "building": "Moody",
+            "building": Building.objects.get(name="Moody Hall").pk,
             "room": "214",
         }
         data.update(overrides)
@@ -32,7 +32,7 @@ class IncidentTests(TestCase):
         ticket = Incident.objects.get(title="Sink leaking")
         self.assertEqual(ticket.reported_by, self.user)
         self.assertEqual(ticket.priority, "high")
-        self.assertEqual(ticket.building, "Moody")
+        self.assertEqual(ticket.building.name, "Moody Hall")
 
     def test_create_ticket_without_location(self):
         """Building and room are optional."""
@@ -119,7 +119,7 @@ from ops.tests.helpers import GOOD_PASSWORD
 
 
 class ShortFieldLimitTests(TestCase):
-    """Title, building and room are capped so the list and the detail page stay readable."""
+    """Title and room are capped, and the building comes from the campus list, so the pages stay readable."""
 
     def setUp(self):
         self.reporter = User.objects.create_user(username="r@x.com", email="r@x.com", password=GOOD_PASSWORD,
@@ -128,23 +128,22 @@ class ShortFieldLimitTests(TestCase):
         self.client.login(username="r@x.com", password=GOOD_PASSWORD)
 
     def post(self, **changes):
-        data = {"title": "Leak", "description": "d", "building": "Moody", "room": "214",
-                "service": self.service.pk, "priority": "low"}
+        data = {"title": "Leak", "description": "d", "building": Building.objects.get(name="Moody Hall").pk,
+                "room": "214", "service": self.service.pk, "priority": "low"}
         data.update(changes)
         return self.client.post("/incidents/form", data)
 
     def test_limits_are_enforced(self):
         self.post(title="x" * 81)
-        self.post(building="x" * 41)
+        self.post(building="Moody")
         self.post(room="x" * 21)
         self.assertEqual(Incident.objects.count(), 0)
-        self.post(title="x" * 80, building="x" * 40, room="x" * 20)
+        self.post(title="x" * 80, room="x" * 20)
         self.assertEqual(Incident.objects.count(), 1)
 
     def test_inputs_carry_the_limit(self):
         html = self.client.get("/incidents/form").content.decode()
         self.assertIn('maxlength="80"', html)
-        self.assertIn('maxlength="40"', html)
         self.assertIn('maxlength="20"', html)
 
 

@@ -4,6 +4,7 @@
 {% block title %}Ticket #{{ incident.pk }}{% endblock %}
 {% block extra_js %}
   <script src="{% static 'js/transition.js' %}?v=1" defer></script>
+  <script src="{% static 'js/console.js' %}?v=1" defer></script>
 {% endblock %}
 
 {% block content %}
@@ -55,7 +56,7 @@
     <div class="field"><span class="field-label">Service</span>
       <span class="field-value">{{ incident.service.name }}</span></div>
     <div class="field"><span class="field-label">Location</span>
-      <span class="field-value">{% if incident.building or incident.room %}{{ incident.building }} {{ incident.room }}{% else %}<span class="muted">Not given</span>{% endif %}</span></div>
+      <span class="field-value">{% if incident.building_name or incident.room %}{{ incident.building_name }} {{ incident.room }}{% else %}<span class="muted">Not given</span>{% endif %}</span></div>
     <div class="field"><span class="field-label">Reported by</span>
       <span class="field-value">{{ incident.reported_by.first_name }} {{ incident.reported_by.last_name }}</span></div>
     <div class="field"><span class="field-label">Assigned to</span>
@@ -64,7 +65,7 @@
       <span class="field-value">{{ incident.description }}</span></div>
   </div>
 
-  {% if can_transition and incident.next_states or can_edit or reassign_targets %}
+  {% if can_transition and incident.next_states or can_edit or reassign_targets or can_override %}
     <div class="ticket-actions">
       {% if can_transition %}
         {% for state in incident.next_states %}
@@ -89,7 +90,7 @@
           {% if target.holds %}
             <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }} is on call and already has this ticket</p>
           {% elif target.full %}
-            <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }}, {{ target.role }} on call, already holds {{ max_tickets }} tickets</p>
+            <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }}, {{ target.role }} on call, already holds {{ target.held }} tickets</p>
           {% else %}
             <form method="post" action="{% url 'incident_reassign' incident.pk %}" class="reassign-form">
               {% csrf_token %}
@@ -106,16 +107,22 @@
           <p class="action-hint">Change the title, description, place or severity.</p>
         </div>
       {% endif %}
+      {% if can_override %}
+        <div class="action">
+          <button type="button" class="btn-small danger" data-dialog="{% url 'console_ticket_override' incident.pk %}">Override</button>
+          <p class="action-hint">Force a status or a solver. A reason is required and goes on the timeline.</p>
+        </div>
+      {% endif %}
     </div>
   {% endif %}
 
   <h2 class="section-title">Timeline</h2>
   <ul class="timeline">
     {% for entry in timeline %}
-      <li class="tl-{% if team_view %}{{ entry.update_type }}{% elif entry.update_type == "escalation" or entry.update_type == "assignment_failed" %}assignment{% else %}{{ entry.update_type }}{% endif %}">
+      <li class="tl-{% if team_view %}{{ entry.update_type }}{% elif entry.update_type == "escalation" or entry.update_type == "assignment_failed" %}assignment{% elif entry.update_type == "override" and not entry.new_status %}assignment{% else %}{{ entry.update_type }}{% endif %}">
         <div class="tl-meta">
           <strong>{{ entry.author.first_name }} {{ entry.author.last_name }}</strong>
-          <span class="tl-role">{{ entry.author.role }}</span>
+          <span class="tl-role">{% if entry.author.is_superuser %}administrator{% elif entry.update_type == "override" %}team lead{% else %}{{ entry.author.role }}{% endif %}</span>
           <span class="muted">{{ entry.created_at|date:"M j, g:i A" }}</span>
         </div>
         <div class="tl-body">
@@ -142,6 +149,14 @@
             <span class="tl-tag assignment">Reassigned</span> {{ entry.body }}
           {% elif entry.update_type == "escalation" %}
             <span class="tl-tag severity">Escalated</span> {{ entry.body }}
+          {% elif entry.update_type == "override" and not team_view and not entry.new_status %}
+            <span class="tl-tag assignment">Assigned</span> Now with {{ entry.new_assignee.first_name }} {{ entry.new_assignee.last_name }}
+          {% elif entry.update_type == "override" %}
+            <span class="tl-tag severity">Override</span> {{ entry.body }}
+          {% elif entry.update_type == "removal" %}
+            <span class="tl-tag edit">Removed</span> {{ entry.body }}
+          {% elif entry.update_type == "restored" %}
+            <span class="tl-tag edit">Restored</span> {{ entry.body }}
           {% elif entry.update_type == "severity" %}
             <span class="tl-tag severity">Severity</span> {{ entry.body }}
           {% elif entry.update_type == "edit" %}
@@ -157,17 +172,26 @@
       <li class="muted">Nothing has happened to this ticket yet.</li>
     {% endfor %}
   </ul>
-
+  
   {% if can_comment %}
-  <h2 class="section-title">{% if user.role == "solver" %}Add a note{% else %}Add a comment{% endif %}</h2>
-  <form method="post" action="{% url 'incident_comment' incident.pk %}" class="comment-form">
-    {% csrf_token %}
-    <label for="comment-body" class="hint">{% if user.role == "solver" %}The reporter sees your note on this timeline.{% else %}The team sees your comment on this timeline.{% endif %}</label>
-    <textarea id="comment-body" name="body" rows="3" maxlength="1000" class="form-input" required></textarea>
-    <button type="submit" class="btn-small">{% if user.role == "solver" %}Post note{% else %}Post comment{% endif %}</button>
-  </form>
+    {% if user.role != "auditor" %}
+      <h2 class="section-title">{% if user.role == "solver" %}Add a note{% else %}Add a comment{% endif %}</h2>
+      <form method="post" action="{% url 'incident_comment' incident.pk %}" class="comment-form">
+        {% csrf_token %}
+        <label for="comment-body" class="hint">{% if user.role == "solver" %}The reporter sees your note on this timeline.{% else %}The team sees your comment on this timeline.{% endif %}</label>
+        <textarea id="comment-body" name="body" rows="3" maxlength="1000" class="form-input" required></textarea>
+        <button type="submit" class="btn-small">{% if user.role == "solver" %}Post note{% else %}Post comment{% endif %}</button>
+      </form>
+    {% else %}
+      <h2 class="section-title">Report to Admin</h2>
+      <form method="post" action="{% url 'auditor_incident_report' incident.pk %}" class="comment-form">
+        {% csrf_token %}
+        <label for="comment-body" class="hint">Admin will be notified with any notes regarding this ticket</label>
+        <textarea id="comment-body" name="body" rows="3" maxlength="1000" class="form-input" required></textarea>
+        <button type="submit" class="btn-small">Send to Admin</button>
+      </form>
+    {% endif %}
   {% endif %}
-
   <a href="{% url 'incidents' %}" class="back-link">{% if user.role == "solver" %}Back to the incident list{% else %}Back to my tickets{% endif %}</a>
 </div>
 
@@ -181,4 +205,5 @@
     </div>
   </div>
 </div>
+{% if can_override %}{% include "console/_dialog.html" %}{% endif %}
 {% endblock %}

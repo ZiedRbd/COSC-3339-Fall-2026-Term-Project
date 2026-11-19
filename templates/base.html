@@ -9,13 +9,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&family=Zilla+Slab:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=37">
-    <link rel="stylesheet" href="{% static 'css/components.css' %}?v=37">
-    <link rel="stylesheet" href="{% static 'css/incidents.css' %}?v=37">
-    <link rel="stylesheet" href="{% static 'css/profile.css' %}?v=37">
-    <link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=37">
-    <link rel="stylesheet" href="{% static 'css/pages.css' %}?v=37">
-    <link rel="stylesheet" href="{% static 'css/animations.css' %}?v=37">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=39">
+    <link rel="stylesheet" href="{% static 'css/components.css' %}?v=39">
+    <link rel="stylesheet" href="{% static 'css/incidents.css' %}?v=39">
+    <link rel="stylesheet" href="{% static 'css/profile.css' %}?v=39">
+    <link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=39">
+    <link rel="stylesheet" href="{% static 'css/pages.css' %}?v=39">
+    <link rel="stylesheet" href="{% static 'css/animations.css' %}?v=39">
+    <link rel="stylesheet" href="{% static 'css/console.css' %}?v=1">
     <script src="{% static 'js/notifications.js' %}?v=5" defer></script>
     {% block extra_js %}{% endblock %}
 </head>
@@ -66,6 +67,19 @@
                     <span class="nav-label">Calendar</span>
                 </a>
             {% endif %}
+            {% if user.is_superuser %}
+                <a href="{% url 'console' %}" class="nav-btn" title="Console"{% if here == 'console' %} aria-current="page"{% endif %}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 6h16"/>
+                        <path d="M4 12h16"/>
+                        <path d="M4 18h16"/>
+                        <circle cx="9" cy="6" r="2"/>
+                        <circle cx="15" cy="12" r="2"/>
+                        <circle cx="8" cy="18" r="2"/>
+                    </svg>
+                    <span class="nav-label">Console</span>
+                </a>
+            {% endif %}
         </nav>
         <div class="nav-user-section">
         {% if user.is_authenticated %}
@@ -80,7 +94,7 @@
                         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                         <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                     </svg>
-                    <span class="nav-label">Alerts</span>
+                    <span class="nav-label">Notifications</span>
                     {% if unread_count %}
                         <span class="notification-badge">{{ unread_count }}</span>
                     {% endif %}

@@ -9,7 +9,8 @@ from django.test import SimpleTestCase
 ROOT = Path(settings.BASE_DIR)
 # The application files whose strings reach a page, a notification or an email
 SOURCES = ["views.py", "forms.py", "scheduling.py", "notifications.py", "timeline.py", "models.py",
-           "context_processors.py", "templatetags/status.py"]
+           "context_processors.py", "templatetags/status.py", "removal.py", "overrides.py", "outcome.py",
+           "lifecycle.py", "access.py", "buildings.py", "console.py", "console_forms.py"]
 
 
 class NoParenthesesTests(SimpleTestCase):

@@ -18,7 +18,7 @@
     <img class="avatar" src="{% if user.avatar %}{{ user.avatar.url }}{% else %}{% static 'images/profile_icon.jpeg' %}{% endif %}" alt="Profile picture">
     <h1 class="profile-name">{% if user.first_name %}{{ user.first_name }} {{ user.last_name }}{% else %}{{ user.username }}{% endif %}</h1>
     <p class="meta">{{ user.email }}</p>
-    <p class="meta">{% if user.role == "solver" %}Solver{% else %}Reporter{% endif %}</p>
+    <p class="meta">{% if user.role == "solver" %}Solver{% else %}{{user.role}}{% endif %}</p>
 
     <form method="POST" enctype="multipart/form-data" class="avatar-form">
       {% csrf_token %}

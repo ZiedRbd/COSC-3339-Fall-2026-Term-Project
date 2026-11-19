@@ -1,20 +1,63 @@
-function filterTable(){
-    const selectedPriorities = Array.from(document.querySelectorAll('.filter-priority:checked')).map(cb => cb.value)
-    console.log(selectedPriorities)
+let currentServiceFilters = new Set()
+let currentPriorityFilters = new Set()
+function filterTable(selectedFilters, cell){
+    
     const rows = document.querySelectorAll(".incident-list-item")
-    console.log(rows)
+    const selectedServices = Array.from(document.querySelectorAll('.filter-service:checked')).map(cb => cb.value.toLowerCase())
+    
+    for(let filter of currentServiceFilters){
+        if(!selectedServices.includes(filter)){
+            currentServiceFilters.delete(filter)
+        }
+    }
+    selectedServices.forEach(e => currentServiceFilters.add(e))
+    console.log(currentServiceFilters)
+    const selectedPriorities = Array.from(document.querySelectorAll('.filter-priority:checked')).map(cb => cb.value)
+    for(let filter of currentPriorityFilters){
+        if(!selectedPriorities.includes(filter)){
+            currentPriorityFilters.delete(filter)
+        }
+    }
+    selectedPriorities.forEach(e => currentPriorityFilters.add(e))
+    console.log(currentPriorityFilters)
     rows.forEach(row => {
-        console.log(row.cells[4].textContent.toLowerCase())
-        priority = row.cells[4].textContent.toLowerCase()
-        if(selectedPriorities.length === 0 || selectedPriorities.includes(priority)){
+        
+        priorityFilter = row.cells[4].textContent.toLowerCase()
+        serviceFilter = row.cells[3].textContent.toLowerCase()
+
+        if(currentServiceFilters.size === 0 && currentPriorityFilters.size === 0){
+            console.log("rows should return")
             row.style.display = ""
         } else {
-            row.style.display = "none"
+            if(currentServiceFilters.has(serviceFilter)){
+                if(currentPriorityFilters.size === 0){
+                    console.log("No priority filters. Matching service filter")
+                    row.style.display = ""
+                } else if(currentPriorityFilters.has(priorityFilter)){
+                    row.style.display = ""
+                } else {
+                    row.style.display = "none"
+                }
+            } else if(currentPriorityFilters.has(priorityFilter)) {
+                if(currentServiceFilters.size === 0){
+                    row.style.display = ""
+                } else {
+                    row.style.display = "none"
+                }
+            } else {
+                row.style.display = "none"
+            }
         }
     })
+}
+function priorityFilterTable(){
+    
+    filterTable(selectedPriorities, 4)
+}
+function serviceFilterTable(){
+    
 
 }
-
 function clearFilters(){
     document.querySelectorAll(".filter-priority").forEach(cb => cb.checked = false)
     filterTable()
