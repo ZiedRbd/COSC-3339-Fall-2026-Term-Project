@@ -232,7 +232,13 @@ class LeaveTeamTests(Campus):
         self.assertEqual(outcome.messages, ["Ann Ames holds 3 upcoming shifts on Plumbing. Transfer them first."])
         transfer_shifts(self.ann, self.team, self.admin)
         held = self.ticket(assigned_to=self.ann, status="in_progress")
-        self.assertEqual(leave_team(self.ann, self.team, self.admin).messages, ["Ann Ames is no longer on Plumbing."])
+        self.assertEqual(leave_team(self.ann, self.team, self.admin).messages,
+                         ["Ann Ames is no longer on Plumbing.", "1 ticket went back to waiting for a solver."])
+        # Ann is told the ticket she was working on is no longer hers
+        self.assertEqual(list(Notification.objects.filter(user=self.ann, event="override")
+                              .values_list("message", flat=True)),
+                         [f"Ticket #{held.pk} for Pipes, medium severity, went back to the queue because you are no "
+                          f"longer on Plumbing. You no longer hold it."])
         self.assertFalse(TeamMember.objects.filter(user=self.ann, team=self.team).exists())
         self.assertTrue(TeamMember.objects.filter(user=self.ann, team=other).exists())
         held.refresh_from_db()
@@ -253,7 +259,7 @@ class ServiceAndBuildingTests(Campus):
         closed = self.ticket("Old", status="closed")
         outcome = remove_service(self.service, self.admin)
         self.assertEqual(outcome.messages, ["Pipes was removed. No new ticket can be filed against it.",
-                                         "Its 1 open ticket carries on as normal."])
+                                         "Its 1 unfinished ticket carries on as normal."])
         self.service.refresh_from_db()
         self.assertFalse(self.service.is_active)
         self.assertEqual(self.service.removed_by, self.admin)
@@ -301,7 +307,7 @@ class TeamTests(Campus):
         self.ticket()
         outcome = remove_team(self.team, self.admin)
         self.assertEqual(outcome.messages, ["Plumbing still owns 1 service. Move it to another team first.",
-                                         "Plumbing still has 1 open ticket. Move it to another team first."])
+                                         "Plumbing still has 1 unfinished ticket. Move it to another team first."])
         self.team.refresh_from_db()
         self.assertTrue(self.team.is_active)
 
@@ -312,7 +318,7 @@ class TeamTests(Campus):
         held = self.ticket(assigned_to=self.ann, status="in_progress")
         finished = self.ticket("Old", assigned_to=self.ann, status="closed")
         outcome = move_services(self.team, self.other, self.admin)
-        self.assertEqual(outcome.messages, ["1 service and 1 open ticket moved from Plumbing to Electrical."])
+        self.assertEqual(outcome.messages, ["1 service and 1 unfinished ticket moved from Plumbing to Electrical."])
         self.service.refresh_from_db()
         self.assertEqual(self.service.owning_team, self.other)
         held.refresh_from_db()
@@ -378,7 +384,7 @@ class TeamTests(Campus):
         remove_team(self.team, self.admin)
         outcome = restore_team(self.team, self.admin)
         self.assertEqual(outcome.messages, [
-            "Plumbing was restored. Its services stayed with the team that took them.",
+            "Plumbing was restored. It owns no service now. Any service it had stayed with the team that took it.",
             "It has no on-call schedule yet. Lena Lead has to add shifts before its tickets can be assigned.",
         ])
         self.team.refresh_from_db()
@@ -411,7 +417,7 @@ class TeamTests(Campus):
         self.ticket()
         remove_service(self.service, self.admin)
         outcome = move_services(self.team, self.other, self.admin)
-        self.assertEqual(outcome.messages, ["1 service and 1 open ticket moved from Plumbing to Electrical."])
+        self.assertEqual(outcome.messages, ["1 service and 1 unfinished ticket moved from Plumbing to Electrical."])
         remove_team(self.team, self.admin)
         self.assertTrue(restore_service(self.service, self.admin).ok)
         self.service.refresh_from_db()
@@ -434,12 +440,12 @@ class TicketTests(Campus):
     def test_a_ticket_at_any_status_is_removed_with_who_when_and_why(self):
         for status in ("open", "in_progress", "resolved", "closed"):
             ticket = self.ticket(status, status=status)
-            self.assertEqual(remove_ticket(ticket, self.admin, " spam ").messages, [f"Ticket #{ticket.pk} was removed."])
+            self.assertEqual(remove_ticket(ticket, self.admin, " it is spam ").messages, [f"Ticket #{ticket.pk} was removed."])
             ticket.refresh_from_db()
             self.assertTrue(ticket.is_deleted)
             self.assertEqual(ticket.removed_by, self.admin)
             self.assertIsNotNone(ticket.removed_at)
-            self.assertEqual(self.entries(ticket, "removal"), ["Ticket removed. Reason: spam"])
+            self.assertEqual(self.entries(ticket, "removal"), ["Ticket removed. Reason: it is spam"])
 
     def test_the_reporter_and_the_solver_are_told_and_the_slot_is_freed(self):
         self.on_call()
@@ -459,9 +465,9 @@ class TicketTests(Campus):
 
     def test_only_an_administrator_and_only_once(self):
         ticket = self.ticket()
-        self.assertEqual(remove_ticket(ticket, self.lead, "spam").messages, ["Only an administrator can do this"])
-        remove_ticket(ticket, self.admin, "spam")
-        self.assertEqual(remove_ticket(ticket, self.admin, "spam").messages, [f"Ticket #{ticket.pk} is already removed"])
+        self.assertEqual(remove_ticket(ticket, self.lead, "it is spam").messages, ["Only an administrator can do this"])
+        remove_ticket(ticket, self.admin, "it is spam")
+        self.assertEqual(remove_ticket(ticket, self.admin, "it is spam").messages, [f"Ticket #{ticket.pk} is already removed"])
 
     def test_a_restored_ticket_that_was_being_worked_on_waits_for_a_solver(self):
         ticket = self.ticket(assigned_to=self.ann, status="in_progress")
@@ -496,3 +502,42 @@ class TicketTests(Campus):
         page = self.client.get(f"/incidents/{ticket.pk}/")
         self.assertContains(page, "Removed</span> The service Pipes was removed. This ticket carries on as normal.")
         self.assertContains(page, '<span class="tl-role">administrator</span>')
+
+
+class WhoIsToldTests(Campus):
+    """Nobody loses a ticket, a team or a removed ticket without hearing about it."""
+
+    def told(self, user, event):
+        return list(Notification.objects.filter(user=user, event=event).order_by("id").values_list("message", flat=True))
+
+    def test_a_restored_reporter_is_not_said_to_have_had_shifts(self):
+        remove_user(self.reporter, self.admin)
+        self.assertEqual(restore_user(self.reporter, self.admin).messages, ["Rae Port can log in again."])
+        remove_user(self.cy, self.admin)
+        self.assertEqual(restore_user(self.cy, self.admin).messages,
+                         ["Cy Cole can log in again.", "Their shifts and roles stayed with whoever took them over."])
+
+    def test_the_reporter_hears_that_a_removed_ticket_is_back(self):
+        ticket = self.ticket()
+        remove_ticket(ticket, self.admin, "by mistake")
+        restore_ticket(ticket, self.admin)
+        self.assertEqual(self.told(self.reporter, "override")[-1],
+                         f"Your ticket #{ticket.pk}, {ticket.title}, was restored by an administrator.")
+
+    def test_the_old_lead_hears_that_somebody_else_leads_the_team(self):
+        appoint_lead(self.team, self.ann, self.admin)
+        self.assertEqual(self.told(self.lead, "handover"), ["You no longer lead Plumbing. Ann Ames leads it now."])
+
+    def test_a_solver_hears_that_their_ticket_moved_to_another_team(self):
+        other = Team.objects.create(name="Electrical", lead=self.lead)
+        ticket = self.ticket(assigned_to=self.ann, status="in_progress")
+        move_services(self.team, other, self.admin)
+        self.assertEqual(self.told(self.ann, "override"),
+                         [f"Ticket #{ticket.pk} for Pipes, medium severity, moved from Plumbing to Electrical with its "
+                          f"service. You no longer hold it."])
+
+    def test_a_restored_team_says_which_services_are_still_its_own(self):
+        remove_service(self.service, self.admin)
+        remove_team(self.team, self.admin)
+        self.assertEqual(restore_team(self.team, self.admin).messages[0],
+                         "Plumbing was restored. Its 1 service is still removed. Restore it from the same list.")

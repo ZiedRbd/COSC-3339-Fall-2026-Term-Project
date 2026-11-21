@@ -126,7 +126,7 @@ class UserTests(ConsoleCase):
         self.assertNotIn(self.ann.pk, [shift.solver_id for shift in self.upcoming()])
         after_tier = self.client.post(address, {"step": "tier", "tier": tier.pk, "person": self.bob.pk})
         self.assertContains(after_tier, "Ann Ames holds nothing that needs handing over.")
-        self.assertContains(after_tier, "Their 1 unfinished ticket go back to the queue.")
+        self.assertContains(after_tier, "Their 1 unfinished ticket goes back to the queue.")
         tier.refresh_from_db()
         self.assertEqual(tier.escalate_to_user, self.bob)
         self.done(self.client.post(address, {"step": "finish"}))
@@ -189,6 +189,32 @@ class TeamTests(ConsoleCase):
         self.assertFalse(TeamMember.objects.filter(user=self.ann, team=self.team).exists())
         self.ann.refresh_from_db()
         self.assertTrue(self.ann.is_active)
+
+    def test_a_lead_comes_off_their_own_team_without_naming_a_new_lead(self):
+        # Lena leads Plumbing. Leading a team does not need a seat on it, so nothing is handed over.
+        TeamMember.objects.create(user=self.lead, team=self.team)
+        held = self.ticket(assigned_to=self.lead, status="in_progress")
+        address = f"/console/teams/{self.team.pk}/members/{self.lead.pk}/leave/"
+        dialog = self.client.get(address)
+        self.assertNotContains(dialog, "Lead of Plumbing")
+        self.assertContains(dialog, "Lena still leads Plumbing and keeps its tickets.")
+        self.done(self.client.post(address, {"step": "finish"}))
+        self.team.refresh_from_db()
+        held.refresh_from_db()
+        self.assertEqual((self.team.lead, held.assigned_to), (self.lead, self.lead))
+        self.assertFalse(TeamMember.objects.filter(user=self.lead, team=self.team).exists())
+
+    def test_the_dialog_counts_the_tickets_that_go_back_when_a_solver_comes_off_a_team(self):
+        self.ticket(assigned_to=self.ann, status="in_progress")
+        address = f"/console/teams/{self.team.pk}/members/{self.ann.pk}/leave/"
+        self.assertContains(self.client.get(address), "Their 1 unfinished ticket on this team goes back to its queue.")
+
+    def test_removing_a_ticket_says_who_is_told(self):
+        held = self.ticket(assigned_to=self.ann, status="assigned")
+        waiting = self.ticket("Nobody has it")
+        self.assertContains(self.client.get(f"/console/tickets/{held.pk}/remove/"),
+                            "Its reporter and Ann Ames, who holds it, are told.")
+        self.assertContains(self.client.get(f"/console/tickets/{waiting.pk}/remove/"), "Its reporter is told.")
 
     def test_a_team_moves_its_services_and_tickets_before_it_is_removed_and_can_be_restored(self):
         other = Team.objects.create(name="Electrical", lead=self.lead)
@@ -296,7 +322,7 @@ class TicketTests(ConsoleCase):
         self.assertContains(self.client.get(address), "Override ticket")
         self.assertContains(self.client.post(address, {"new_status": "closed", "new_solver": "", "reason": ""}),
                             "An override needs a reason")
-        self.assertContains(self.client.post(address, {"new_status": "", "new_solver": "", "reason": "why"}),
+        self.assertContains(self.client.post(address, {"new_status": "", "new_solver": "", "reason": "why not"}),
                             "Nothing would change.")
         closing = {"new_status": "closed", "new_solver": "", "reason": "Duplicate of 4"}
         # Closing a ticket nobody resolved steps over the normal order, so it is confirmed first

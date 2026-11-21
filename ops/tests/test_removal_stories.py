@@ -41,9 +41,9 @@ class WordingTests(TwoTeams):
         self.ticket("Second")
         self.assertEqual(remove_team(self.team, self.admin).messages,
                          ["Plumbing still owns 2 services. Move them to another team first.",
-                          "Plumbing still has 2 open tickets. Move them to another team first."])
+                          "Plumbing still has 2 unfinished tickets. Move them to another team first."])
         self.assertEqual(move_services(self.team, self.other, self.admin).messages,
-                         ["2 services and 2 open tickets moved from Plumbing to Electrical."])
+                         ["2 services and 2 unfinished tickets moved from Plumbing to Electrical."])
 
     def test_the_solver_and_the_reporter_are_told_a_ticket_was_removed_in_whole_sentences(self):
         ticket = self.ticket(assigned_to=self.ann, status="in_progress")
@@ -76,7 +76,7 @@ class RestoreTicketTests(TwoTeams):
         remove_ticket(ticket, self.admin, "by mistake")
         # The removed ticket does not move with the others, and does not hold the team back
         self.assertEqual(move_services(self.team, self.other, self.admin).messages,
-                         ["1 service and 0 open tickets moved from Plumbing to Electrical."])
+                         ["1 service and 0 unfinished tickets moved from Plumbing to Electrical."])
         self.assertTrue(remove_team(self.team, self.admin).ok)
         self.assertEqual(restore_ticket(ticket, self.admin).messages, [f"Ticket #{ticket.pk} was restored."])
         ticket.refresh_from_db()
