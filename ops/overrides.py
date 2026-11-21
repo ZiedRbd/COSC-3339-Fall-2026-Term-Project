@@ -28,11 +28,13 @@ from .notifications import notify
 from .outcome import done, refused
 from .scheduling import (MAX_ACTIVE_TICKETS, TAKE_IT, _full_name, _start_clock, _ticket_label, active_ticket_count,
                          assign_all_waiting, assign_now, on_call_solvers, release_to_queue, team_for)
-from .timeline import MAX_REASON, clean_reason, log_event
+from .timeline import MAX_REASON, MIN_REASON, clean_reason, log_event
 
 # Somebody holds a ticket in these two statuses, and it counts against their three
 HELD = ("assigned", "in_progress")
 FINISHED = ("resolved", "closed")
+# The steps a ticket takes without an override: the buttons, and the assignment the system makes itself
+USUAL_STEPS = {**ALLOWED_TRANSITIONS, "open": ["assigned"]}
 
 
 def possible_solvers(incident):
@@ -125,16 +127,28 @@ def override_warnings(incident, new_status=None, new_solver=None):
     team = team_for(incident)
     sentences = []
 
-    if status_changes and status not in ALLOWED_TRANSITIONS.get(old_status, []):
+    if status_changes and status not in USUAL_STEPS.get(old_status, []):
         sentences.append(f"A ticket does not normally go from {STATUS_LABELS[old_status]} to {STATUS_LABELS[status]}. "
                          f"This skips the usual steps.")
-    if old_holder is not None and holder_changes:
+    # Only an Assigned or In Progress ticket is held. A finished one just carries its solver's name.
+    lets_go = old_holder is not None and old_status in HELD and holder_changes
+    if lets_go:
         sentences.append(f"{_full_name(old_holder)} holds this ticket and will lose it.")
     if status == "open":
+        on_call = on_call_solvers(team) if team is not None else []
+        # The queue counts tickets after this one is let go, so its old holder has one fewer
+        with_room = [solver for solver in on_call
+                     if active_ticket_count(solver) - (lets_go and solver == old_holder) < MAX_ACTIVE_TICKETS]
         if team is None:
             sentences.append("No team handles this ticket's service, so it will wait until one does.")
-        elif not on_call_solvers(team):
+        elif not on_call:
             sentences.append(f"Nobody is on call for {team.name} right now, so the ticket will wait.")
+        elif not with_room:
+            sentences.append(f"Everyone on call for {team.name} holds {MAX_ACTIVE_TICKETS} tickets, "
+                             f"so the ticket will wait in the queue.")
+        elif lets_go and with_room[0] == old_holder:
+            sentences.append(f"The ticket goes back to the queue. {_full_name(old_holder)} is on call with room, "
+                             f"so it can come straight back to them. Choose a solver to give it to someone else.")
         else:
             sentences.append("The ticket goes back to the queue, and whoever on call has room gets it.")
     # From here on the ticket counts against this solver, and it did not before
@@ -171,7 +185,7 @@ def override(incident, by, reason, new_status=None, new_solver=None):
     becomes Assigned because somebody holds it now.
 
     Refused, with nothing changed, when the person may not override this
-    ticket, the reason is blank or too long, the choices cannot be
+    ticket, the reason is blank, too short or too long, the choices cannot be
     combined, the solver cannot take it, or nothing would change.
     """
     # The minute timer, a solver or another override may be changing this
@@ -186,6 +200,8 @@ def override(incident, by, reason, new_status=None, new_solver=None):
     reason = clean_reason(reason)
     if not reason:
         return refused("An override needs a reason")
+    if len(reason) < MIN_REASON:
+        return refused(f"The reason needs at least {MIN_REASON} characters")
     if len(reason) > MAX_REASON:
         return refused(f"The reason can be at most {MAX_REASON} characters")
     status, holder, problem = _where_it_leads(incident, new_status, new_solver)
@@ -253,7 +269,10 @@ def _tell_everyone(incident, by, reason, what, old_status, status, old_holder, h
             tell(holder, f"{label} is now under your name by an override. It is {STATUS_LABELS[status]}, "
                          f"so there is nothing to do. {why}")
     if old_holder is not None:
-        if holder_changes:
+        if holder_changes and old_status in FINISHED:
+            # A finished ticket was not held, so there is nothing to lose but the name on it
+            tell(old_holder, f"{label} is no longer under your name by an override. {why}")
+        elif holder_changes:
             tell(old_holder, f"{label} was taken from you by an override. You no longer hold it. {why}")
         elif status == "assigned":
             tell(old_holder, f"{label} {moved} by an override. {TAKE_IT}. {why}")

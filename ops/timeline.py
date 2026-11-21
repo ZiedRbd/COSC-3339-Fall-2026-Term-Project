@@ -3,6 +3,8 @@ from .models import IncidentUpdate
 
 # The reason given for an override or a removal is a sentence or two, not a report
 MAX_REASON = 500
+# Long enough to be a word, so a stray key press is not a reason
+MIN_REASON = 5
 
 
 def clean_reason(text):

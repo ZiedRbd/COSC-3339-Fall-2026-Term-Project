@@ -75,11 +75,12 @@
   <ul class="console-points">
     {% if team %}
       <li>{{ name }} holds nothing on {{ team.name }} that needs handing over.</li>
-      <li>Their unfinished tickets on this team go back to its queue.</li>
+      {% if leads_this_team %}<li>{{ person.first_name }} still leads {{ team.name }} and keeps its tickets.</li>
+      {% elif unfinished %}<li>Their {{ unfinished }} unfinished ticket{{ unfinished|pluralize }} on this team go{{ unfinished|pluralize:"es," }} back to its queue.</li>{% endif %}
     {% else %}
       <li>{{ name }} holds nothing that needs handing over.</li>
       <li>They can no longer log in, and the email stays taken.</li>
-      {% if unfinished %}<li>Their {{ unfinished }} unfinished ticket{{ unfinished|pluralize }} go back to the queue.</li>{% endif %}
+      {% if unfinished %}<li>Their {{ unfinished }} unfinished ticket{{ unfinished|pluralize }} go{{ unfinished|pluralize:"es," }} back to the queue.</li>{% endif %}
       <li>The account can be reactivated from the Removed tab.</li>
     {% endif %}
   </ul>

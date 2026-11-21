@@ -231,7 +231,7 @@ class ForcedStatusTests(OverrideCase):
         ]
         for choices, message in cases:
             with self.subTest(choices=choices):
-                self.assertEqual(override(ticket, self.admin, "why", **choices).messages, [message])
+                self.assertEqual(override(ticket, self.admin, "why not", **choices).messages, [message])
         ticket.refresh_from_db()
         self.assertEqual((ticket.status, ticket.assigned_to), ("assigned", self.ann))
         self.assertEqual(self.override_entries(ticket), [])
@@ -255,7 +255,7 @@ class ForcedStatusTests(OverrideCase):
 
     def test_a_removed_ticket_cannot_be_overridden(self):
         ticket = self.ticket_in("assigned")
-        remove_ticket(ticket, self.admin, "spam")
+        remove_ticket(ticket, self.admin, "it is spam")
         outcome = override(ticket, self.admin, "close it", new_status="closed")
         self.assertEqual(outcome.messages, [f"Ticket #{ticket.pk} was removed. Restore it first."])
 
@@ -263,7 +263,7 @@ class ForcedStatusTests(OverrideCase):
         ticket = Incident.objects.create(title="Wallet", description="d", reported_by=self.reporter,
                                          service=Service.objects.create(name="Lost and Found"))
         for choices in ({"new_solver": self.cy}, {"new_status": "assigned", "new_solver": self.cy}):
-            self.assertEqual(override(ticket, self.admin, "why", **choices).messages,
+            self.assertEqual(override(ticket, self.admin, "why not", **choices).messages,
                              ["No team handles this ticket's service, so nobody can be given it"])
         self.assertTrue(override(ticket, self.admin, "found", new_status="resolved").ok)
         self.assertTrue(override(ticket, self.admin, "lost again", new_status="open").ok)
@@ -330,7 +330,7 @@ class ForcedSolverTests(OverrideCase):
         self.cy.is_active = False
         self.cy.save()
         for person, name in ((outsider, "Olga Outside"), (self.reporter, "Rae Port"), (self.cy, "Cy Cole")):
-            outcome = override(ticket, self.admin, "why", new_solver=person)
+            outcome = override(ticket, self.admin, "why not", new_solver=person)
             self.assertEqual(outcome.messages, [f"{name} is not an active solver on Plumbing"])
         self.assertEqual([p.first_name for p in possible_solvers(ticket)], ["Ann", "Bob", "Lena"])
 
@@ -448,6 +448,11 @@ class WarningTests(OverrideCase):
                 sentences = override_warnings(self.ticket_in(old), new_status=new)
                 self.assertEqual(sentences, [], (old, new))
 
+    def test_giving_an_open_ticket_to_a_solver_on_call_with_room_skips_nothing(self):
+        self.on_call(self.ann)
+        ticket = self.ticket_in("open")
+        self.assertEqual(override_warnings(ticket, new_status="assigned", new_solver=self.ann), [])
+
     def test_skipping_the_usual_steps(self):
         ticket = self.ticket_in("in_progress")
         self.assertEqual(override_warnings(ticket, new_status="closed"),
@@ -485,10 +490,38 @@ class WarningTests(OverrideCase):
 
     def test_a_finished_ticket_only_changes_its_solvers_name(self):
         ticket = self.ticket_in("closed")
-        self.assertEqual(override_warnings(ticket, new_solver=self.cy), [
-            "Ann Ames holds this ticket and will lose it.",
-            "This ticket is Closed. Only the name of its solver changes.",
-        ])
+        # Nobody holds a finished ticket, so nobody is said to lose it
+        self.assertEqual(override_warnings(ticket, new_solver=self.cy),
+                         ["This ticket is Closed. Only the name of its solver changes."])
+        override(ticket, self.admin, "Cy did the work", new_solver=self.cy)
+        self.assertEqual(self.told(self.ann), [f"Ticket #{ticket.pk} for Pipes, medium severity, is no longer under "
+                                               f"your name by an override. Reason: Cy did the work"])
+
+    def test_reopening_a_finished_ticket_says_nothing_about_losing_it(self):
+        self.on_call(self.bob)
+        for status in ("resolved", "closed"):
+            self.assertEqual(override_warnings(self.ticket_in(status), new_status="open"),
+                             ["The ticket goes back to the queue, and whoever on call has room gets it."])
+
+    def test_the_queue_sentence_says_when_everyone_on_call_is_full(self):
+        self.on_call(self.bob)
+        for n in range(3):
+            self.ticket(f"Held {n}", status="assigned", assigned_to=self.bob)
+        ticket = self.ticket_in("in_progress")
+        self.assertEqual(override_warnings(ticket, new_status="open")[-1],
+                         "Everyone on call for Plumbing holds 3 tickets, so the ticket will wait in the queue.")
+
+    def test_the_queue_sentence_says_when_the_ticket_can_come_straight_back(self):
+        self.on_call(self.ann)
+        for n in range(2):
+            self.ticket(f"Held {n}", status="assigned", assigned_to=self.ann)
+        ticket = self.ticket_in("assigned")
+        self.assertEqual(override_warnings(ticket, new_status="open")[-1],
+                         "The ticket goes back to the queue. Ann Ames is on call with room, so it can come straight "
+                         "back to them. Choose a solver to give it to someone else.")
+        override(ticket, self.admin, "back to the queue", new_status="open")
+        ticket.refresh_from_db()
+        self.assertEqual((ticket.status, ticket.assigned_to), ("assigned", self.ann))
 
     def test_resolving_by_override_does_not_count_as_the_solvers_work(self):
         ticket = self.ticket_in("in_progress")
@@ -645,3 +678,14 @@ class RoutingTests(OverrideCase):
         self.assertIsNone(assign_now(old, self.admin))
         old.refresh_from_db()
         self.assertEqual((old.status, old.assigned_to, old.assigned_team), ("open", None, None))
+
+
+class ShortReasonTests(OverrideCase):
+    def test_a_reason_of_fewer_than_five_characters_is_refused(self):
+        ticket = self.ticket_in("assigned")
+        self.assertEqual(override(ticket, self.admin, " 5 ", new_status="closed").messages,
+                         ["The reason needs at least 5 characters"])
+        self.assertEqual(remove_ticket(ticket, self.admin, "dup").messages, ["The reason needs at least 5 characters"])
+        ticket.refresh_from_db()
+        self.assertEqual((ticket.status, ticket.is_deleted), ("assigned", False))
+        self.assertTrue(override(ticket, self.admin, "wrong", new_status="closed").ok)

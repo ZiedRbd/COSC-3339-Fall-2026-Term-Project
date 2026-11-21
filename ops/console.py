@@ -25,6 +25,7 @@ from .removal import (appoint_lead, holdings, leave_team, move_services, remove_
                       remove_team, remove_ticket, remove_user, replace_in_tier, restore_building, restore_service,
                       restore_team, restore_ticket, restore_user, transfer_shifts)
 from .scheduling import active_ticket_count, ensure_policy
+from .timeline import MIN_REASON, clean_reason
 
 TABS = [("users", "Users"), ("teams", "Teams"), ("services", "Services"), ("buildings", "Buildings"),
         ("tickets", "Tickets"), ("removed", "Removed")]
@@ -154,7 +155,15 @@ def _handover_step(request, user, by):
 def _handover_dialog(request, user, team, outcome):
     """What this person still holds, each with a way to hand it over, and the last step once nothing is left."""
     held = holdings(user, team)
+    leads_this_team = team is not None and team.lead_id == user.pk
+    if team is not None:
+        # A lead may lead a team without being on it, so leading it is nothing to hand over here
+        held["led"] = []
     everyone = list(_solvers().exclude(pk=user.pk))
+    tickets = Incident.objects.filter(assigned_to=user, status__in=HELD, is_deleted=False)
+    if team is not None:
+        # A lead keeps the tickets of the team they lead when they come off it
+        tickets = tickets.none() if leads_this_team else tickets.filter(assigned_team=team)
 
     def teammates(of_team):
         on_team = set(TeamMember.objects.filter(team=of_team).values_list("user_id", flat=True))
@@ -167,7 +176,7 @@ def _handover_dialog(request, user, team, outcome):
         "led": [{"team": led_team, "candidates": everyone} for led_team in held["led"]],
         "tiers": [{"tier": tier, "candidates": teammates(tier.team)} for tier in held["tiers"]],
         "clear": not (held["shifts"] or held["led"] or held["tiers"]),
-        "unfinished": active_ticket_count(user),
+        "unfinished": tickets.count(), "leads_this_team": leads_this_team,
     })
 
 
@@ -333,7 +342,8 @@ def service_remove(request, pk):
     unfinished = Incident.objects.filter(service=service, is_deleted=False, status__in=UNFINISHED).count()
     consequences = ["Nobody can file a new ticket for it."]
     if unfinished:
-        consequences.append(f"Its {unfinished} unfinished ticket{'' if unfinished == 1 else 's'} carry on as they are.")
+        consequences.append("Its 1 unfinished ticket carries on as it is." if unfinished == 1
+                            else f"Its {unfinished} unfinished tickets carry on as they are.")
     consequences.append("It stays in the history and can be restored from the Removed tab.")
     return _confirm_removal(request, f"Remove {service.name}", consequences,
                             lambda: remove_service(service, request.user), "Remove service")
@@ -354,10 +364,13 @@ def building_remove(request, pk):
 
 @admin_only
 def ticket_remove(request, pk):
-    incident = get_object_or_404(Incident, pk=pk, is_deleted=False)
+    incident = get_object_or_404(Incident.objects.select_related("assigned_to", "reported_by"), pk=pk, is_deleted=False)
+    told = "Its reporter is told."
+    if incident.assigned_to is not None and incident.status in HELD:
+        told = f"Its reporter and {full_name(incident.assigned_to)}, who holds it, are told."
     return _confirm_removal(
         request, f"Remove ticket {incident.pk}",
-        ["It leaves every list. Its reporter and its solver are told.", "The reason goes on its timeline.",
+        [f"It leaves every list. {told}", "The reason goes on its timeline.",
          "It can be restored from the Removed tab."],
         lambda reason: remove_ticket(incident, request.user, reason), "Remove ticket", needs_reason=True)
 
@@ -382,8 +395,8 @@ def ticket_override(request, pk):
     if request.method == "POST":
         new_status = chosen["status"] or None
         new_solver = next((person for person in solvers if str(person.pk) == chosen["solver"]), None)
-        # With no reason the override is refused outright, so there is nothing to warn about yet
-        if chosen["reason"].strip() and request.POST.get("confirmed") != signature:
+        # With no reason, or one too short, the override is refused outright, so there is nothing to warn about yet
+        if len(clean_reason(chosen["reason"])) >= MIN_REASON and request.POST.get("confirmed") != signature:
             warnings = override_warnings(incident, new_status=new_status, new_solver=new_solver)
         if not warnings:
             outcome = override(incident, request.user, chosen["reason"], new_status=new_status, new_solver=new_solver)
