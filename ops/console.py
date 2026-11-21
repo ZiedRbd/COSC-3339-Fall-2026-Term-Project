@@ -25,6 +25,7 @@ from .removal import (appoint_lead, holdings, leave_team, move_services, remove_
                       remove_team, remove_ticket, remove_user, replace_in_tier, restore_building, restore_service,
                       restore_team, restore_ticket, restore_user, transfer_shifts)
 from .scheduling import active_ticket_count, ensure_policy
+from .timeline import MIN_REASON, clean_reason
 
 TABS = [("users", "Users"), ("teams", "Teams"), ("services", "Services"), ("buildings", "Buildings"),
         ("tickets", "Tickets"), ("removed", "Removed")]
@@ -394,8 +395,8 @@ def ticket_override(request, pk):
     if request.method == "POST":
         new_status = chosen["status"] or None
         new_solver = next((person for person in solvers if str(person.pk) == chosen["solver"]), None)
-        # With no reason the override is refused outright, so there is nothing to warn about yet
-        if chosen["reason"].strip() and request.POST.get("confirmed") != signature:
+        # With no reason, or one too short, the override is refused outright, so there is nothing to warn about yet
+        if len(clean_reason(chosen["reason"])) >= MIN_REASON and request.POST.get("confirmed") != signature:
             warnings = override_warnings(incident, new_status=new_status, new_solver=new_solver)
         if not warnings:
             outcome = override(incident, request.user, chosen["reason"], new_status=new_status, new_solver=new_solver)

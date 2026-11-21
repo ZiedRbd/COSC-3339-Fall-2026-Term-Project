@@ -28,7 +28,7 @@ from .notifications import notify
 from .outcome import done, refused
 from .scheduling import (MAX_ACTIVE_TICKETS, TAKE_IT, _full_name, _start_clock, _ticket_label, active_ticket_count,
                          assign_all_waiting, assign_now, on_call_solvers, release_to_queue, team_for)
-from .timeline import MAX_REASON, clean_reason, log_event
+from .timeline import MAX_REASON, MIN_REASON, clean_reason, log_event
 
 # Somebody holds a ticket in these two statuses, and it counts against their three
 HELD = ("assigned", "in_progress")
@@ -185,7 +185,7 @@ def override(incident, by, reason, new_status=None, new_solver=None):
     becomes Assigned because somebody holds it now.
 
     Refused, with nothing changed, when the person may not override this
-    ticket, the reason is blank or too long, the choices cannot be
+    ticket, the reason is blank, too short or too long, the choices cannot be
     combined, the solver cannot take it, or nothing would change.
     """
     # The minute timer, a solver or another override may be changing this
@@ -200,6 +200,8 @@ def override(incident, by, reason, new_status=None, new_solver=None):
     reason = clean_reason(reason)
     if not reason:
         return refused("An override needs a reason")
+    if len(reason) < MIN_REASON:
+        return refused(f"The reason needs at least {MIN_REASON} characters")
     if len(reason) > MAX_REASON:
         return refused(f"The reason can be at most {MAX_REASON} characters")
     status, holder, problem = _where_it_leads(incident, new_status, new_solver)

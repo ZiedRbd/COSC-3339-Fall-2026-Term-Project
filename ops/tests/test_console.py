@@ -322,7 +322,7 @@ class TicketTests(ConsoleCase):
         self.assertContains(self.client.get(address), "Override ticket")
         self.assertContains(self.client.post(address, {"new_status": "closed", "new_solver": "", "reason": ""}),
                             "An override needs a reason")
-        self.assertContains(self.client.post(address, {"new_status": "", "new_solver": "", "reason": "why"}),
+        self.assertContains(self.client.post(address, {"new_status": "", "new_solver": "", "reason": "why not"}),
                             "Nothing would change.")
         closing = {"new_status": "closed", "new_solver": "", "reason": "Duplicate of 4"}
         # Closing a ticket nobody resolved steps over the normal order, so it is confirmed first

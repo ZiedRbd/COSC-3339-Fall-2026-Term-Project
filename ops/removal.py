@@ -28,7 +28,7 @@ from .notifications import notify
 from .outcome import done, refused
 from .scheduling import (_full_name, _ticket_label, _window, assign_all_waiting, assign_waiting, release_to_queue,
                          team_for, validate_schedule)
-from .timeline import MAX_REASON, clean_reason, log_event
+from .timeline import MAX_REASON, MIN_REASON, clean_reason, log_event
 
 UNFINISHED = ("open", "assigned", "in_progress")
 HELD = ("assigned", "in_progress")
@@ -544,6 +544,8 @@ def remove_ticket(incident, by, reason):
     reason = clean_reason(reason)
     if not reason:
         return refused("A reason is needed to remove a ticket")
+    if len(reason) < MIN_REASON:
+        return refused(f"The reason needs at least {MIN_REASON} characters")
     if len(reason) > MAX_REASON:
         return refused(f"The reason can be at most {MAX_REASON} characters")
     _lock(incident)

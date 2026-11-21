@@ -440,12 +440,12 @@ class TicketTests(Campus):
     def test_a_ticket_at_any_status_is_removed_with_who_when_and_why(self):
         for status in ("open", "in_progress", "resolved", "closed"):
             ticket = self.ticket(status, status=status)
-            self.assertEqual(remove_ticket(ticket, self.admin, " spam ").messages, [f"Ticket #{ticket.pk} was removed."])
+            self.assertEqual(remove_ticket(ticket, self.admin, " it is spam ").messages, [f"Ticket #{ticket.pk} was removed."])
             ticket.refresh_from_db()
             self.assertTrue(ticket.is_deleted)
             self.assertEqual(ticket.removed_by, self.admin)
             self.assertIsNotNone(ticket.removed_at)
-            self.assertEqual(self.entries(ticket, "removal"), ["Ticket removed. Reason: spam"])
+            self.assertEqual(self.entries(ticket, "removal"), ["Ticket removed. Reason: it is spam"])
 
     def test_the_reporter_and_the_solver_are_told_and_the_slot_is_freed(self):
         self.on_call()
@@ -465,9 +465,9 @@ class TicketTests(Campus):
 
     def test_only_an_administrator_and_only_once(self):
         ticket = self.ticket()
-        self.assertEqual(remove_ticket(ticket, self.lead, "spam").messages, ["Only an administrator can do this"])
-        remove_ticket(ticket, self.admin, "spam")
-        self.assertEqual(remove_ticket(ticket, self.admin, "spam").messages, [f"Ticket #{ticket.pk} is already removed"])
+        self.assertEqual(remove_ticket(ticket, self.lead, "it is spam").messages, ["Only an administrator can do this"])
+        remove_ticket(ticket, self.admin, "it is spam")
+        self.assertEqual(remove_ticket(ticket, self.admin, "it is spam").messages, [f"Ticket #{ticket.pk} is already removed"])
 
     def test_a_restored_ticket_that_was_being_worked_on_waits_for_a_solver(self):
         ticket = self.ticket(assigned_to=self.ann, status="in_progress")
