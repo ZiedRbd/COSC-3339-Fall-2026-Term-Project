@@ -5,7 +5,7 @@
 <div class="page-head">
   <div>
     <h1 class="form-header">{{ team.name }}: escalation policy</h1>
-    <p class="lead">A new ticket goes to the on-call solver, who is tier 1. When the person at a tier has not moved the ticket to In Progress within the wait, it goes to the next tier. Critical tickets wait half as long, high three quarters, low twice as long. A tier whose person cannot take the ticket is skipped.</p>
+    <p class="lead">A new ticket goes to the on-call solver, who is tier 1. When the person at a tier has not moved the ticket to In Progress within the wait, it goes to the next tier. Each wait is multiplied by the severity of the ticket: critical {{ site_settings.tickets.escalation_wait_multiplier_by_severity.critical }}, high {{ site_settings.tickets.escalation_wait_multiplier_by_severity.high }}, medium {{ site_settings.tickets.escalation_wait_multiplier_by_severity.medium }}, low {{ site_settings.tickets.escalation_wait_multiplier_by_severity.low }}. A tier whose person cannot take the ticket is skipped.</p>
   </div>
 </div>
 

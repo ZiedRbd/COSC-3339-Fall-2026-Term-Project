@@ -25,7 +25,7 @@
       <input type="hidden" name="action" value="avatar">
       <label for="avatar">Profile picture</label>
       <input type="file" id="avatar" name="avatar" accept="image/jpeg,image/png,image/webp" required>
-      <p class="hint">JPEG, PNG or WebP, up to 2 MB.</p>
+      <p class="hint">{{ profile_picture_formats_in_words }}, up to {{ site_settings.accounts.profile_picture_max_megabytes }} MB.</p>
       <div class="avatar-actions">
         <button type="submit" class="btn-small">Upload picture</button>
         {% if user.avatar %}

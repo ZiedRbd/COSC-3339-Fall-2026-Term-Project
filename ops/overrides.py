@@ -26,7 +26,8 @@ from .lifecycle import ALLOWED_TRANSITIONS, STATUS_LABELS
 from .models import Incident, User
 from .notifications import notify
 from .outcome import done, refused
-from .scheduling import (MAX_ACTIVE_TICKETS, TAKE_IT, _full_name, _start_clock, _ticket_label, active_ticket_count,
+from .scheduling import (MAX_ACTIVE_TICKETS, TAKE_IT, _full_name, _start_clock, _ticket_label, _tickets,
+                         active_ticket_count,
                          assign_all_waiting, assign_now, on_call_solvers, release_to_queue, team_for)
 from .timeline import MAX_REASON, MIN_REASON, clean_reason, log_event
 
@@ -144,7 +145,7 @@ def override_warnings(incident, new_status=None, new_solver=None):
         elif not on_call:
             sentences.append(f"Nobody is on call for {team.name} right now, so the ticket will wait.")
         elif not with_room:
-            sentences.append(f"Everyone on call for {team.name} holds {MAX_ACTIVE_TICKETS} tickets, "
+            sentences.append(f"Everyone on call for {team.name} holds {_tickets(MAX_ACTIVE_TICKETS)}, "
                              f"so the ticket will wait in the queue.")
         elif lets_go and with_room[0] == old_holder:
             sentences.append(f"The ticket goes back to the queue. {_full_name(old_holder)} is on call with room, "
@@ -157,7 +158,7 @@ def override_warnings(incident, new_status=None, new_solver=None):
             sentences.append(f"{_full_name(holder)} is not on call for {team.name} right now.")
         held = active_ticket_count(holder)
         if held >= MAX_ACTIVE_TICKETS:
-            sentences.append(f"{_full_name(holder)} already holds {held} tickets. This will be number {held + 1}.")
+            sentences.append(f"{_full_name(holder)} already holds {_tickets(held)}. This will be number {held + 1}.")
     if not holder_changes and old_status == "in_progress" and status == "assigned":
         sentences.append(f"{_full_name(holder)} had started work. The ticket will count as not started again "
                          f"and can escalate.")

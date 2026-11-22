@@ -5,13 +5,14 @@ from datetime import timedelta
 from django.core.mail import send_mail
 from django.utils import timezone
 
+from .json_settings import SETTINGS
 from .models import Notification, User
 
 logger = logging.getLogger(__name__)
 
 # After a send fails, email is skipped for this long. A mail server that is
 # down then costs one wait, not one wait for every notification after it.
-MAIL_PAUSE = timedelta(minutes=5)
+MAIL_PAUSE = timedelta(minutes=SETTINGS["notifications"]["minutes_email_is_paused_after_a_failure"])
 _mail_paused_until = None
 
 

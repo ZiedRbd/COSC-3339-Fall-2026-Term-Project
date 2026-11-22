@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
 from .access import can_override
+from .json_settings import SETTINGS
 from .forms import AvatarForm, EscalationTierForm, IncidentForm, LoginForm, RegisterForm, ShiftForm
 from .lifecycle import ALLOWED_TRANSITIONS, STATUS_LABELS
 from .models import EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team, TeamMember, User
@@ -499,8 +500,9 @@ def incident_comment(request, pk):
         return redirect("incidents")
     if request.method == "POST" and request.user.role != "auditor":
         body = request.POST.get("body", "").strip()
-        if len(body) > 1000:
-            messages.error(request, "Comment is too long. The limit is 1000 characters")
+        longest = SETTINGS["tickets"]["comment_max_characters"]
+        if len(body) > longest:
+            messages.error(request, f"Comment is too long. The limit is {longest} characters")
             return redirect("incident_detail", pk=pk)
         if body:
             update_type = "solver_note" if request.user.role == "solver" else "comment"
@@ -874,8 +876,9 @@ def auditor_notify_admin(request, pk):
         if not body:
             messages.error(request, "Write a note before sending the report")
             return redirect("incident_detail", pk=pk)
-        if len(body) > 1000:
-            messages.error(request, "Report is too long, please keep report to less than 1000 characters")
+        longest = SETTINGS["auditor"]["report_max_characters"]
+        if len(body) > longest:
+            messages.error(request, f"Report is too long, please keep report to less than {longest} characters")
             return redirect("incident_detail", pk=pk)
         messages.success(request, "Your report was sent to the administrator")
         audit_report(request.user, incident, "auditor_report",
