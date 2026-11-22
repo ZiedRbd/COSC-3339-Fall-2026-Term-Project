@@ -33,6 +33,8 @@ COSC-3339-Fall-2026-Term-Project/
 ├── manage.py                   Django command entry point
 ├── requirements.txt            Python dependencies
 ├── .env.example                Environment variables the server needs
+├── config/
+│   └── settings.json           Every limit and number the site uses, editable without touching the code
 ├── campusdesk/                 Project configuration
 │   ├── settings.py             Settings, database, static files
 │   ├── urls.py                 Top-level URL routing
@@ -45,7 +47,8 @@ COSC-3339-Fall-2026-Term-Project/
 │   ├── urls.py                 Application URL routing
 │   ├── scheduling.py           Who is on call, schedule validation, assignment, escalation
 │   ├── notifications.py        Writes a notification and sends it by email
-│   ├── context_processors.py   Unread notifications for the bell on every page
+│   ├── json_settings.py        Reads and checks config/settings.json when the server starts
+│   ├── context_processors.py   Unread notifications for the bell, and the settings, on every page
 │   ├── timeline.py             Writes entries to a ticket's timeline
 │   ├── buildings.py            Finds a campus building from what somebody typed
 │   ├── access.py               Who may do what: who is an administrator, who may override a ticket
@@ -60,6 +63,7 @@ COSC-3339-Fall-2026-Term-Project/
 │   ├── migrations/             Database schema history
 │   └── management/commands/
 │       ├── seed.py             Loads demo data
+│       ├── seed_checkpoint.py  Adds the demo administrator and auditor when they are missing
 │       ├── seed_shifts.py      Seeds 24/7 on-call shifts, for a week or up to a chosen day
 │       ├── escalate.py         One pass of the escalation timer, run every minute on the server
 │       └── loadtest.py         Times the incident list as the number of tickets grows; saves nothing
@@ -118,6 +122,23 @@ COSC-3339-Fall-2026-Term-Project/
     ├── TECHNOLOGY.md           Technology choices and reasoning
     └── DEPLOYING.md            Steps to release to the server
 ```
+
+## Settings
+
+Every limit, number and piece of wording that may need to change lives in `config/settings.json`, grouped by
+what it belongs to: tickets, the escalation policy, the on-call schedule, overrides and removals, the auditor,
+accounts, the administrator console, notifications, the email server, the site and the building search. Each
+setting is named after what it is, for example `max_tickets_a_solver_can_hold` or `reason_min_characters`.
+
+- The file is read once, when the server starts, and kept in memory. After editing it, restart the server.
+- It is checked as it is read. A setting that is missing, misspelt, of the wrong kind or out of range stops the
+  server from starting, and the message names the setting and says what it must be.
+- The pages show the same values the server enforces, because the templates read them from the same file.
+- Nothing in the file is secret. Keys and passwords stay in `.env`.
+
+Three kinds of values are deliberately not in the file. Each team's escalation policy, the teams, the services
+and the buildings are edited on the site and stored in the database. The statuses, the roles and the moves
+between statuses are part of the program. The sizes of database columns need a migration to change.
 
 ## Database Relationships
 
