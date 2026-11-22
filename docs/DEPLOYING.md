@@ -10,10 +10,13 @@ SSH into the server, then:
 cd /srv/campusdesk
 sudo git pull
 sudo venv/bin/pip install -r requirements.txt
+sudo venv/bin/python manage.py check
 sudo venv/bin/python manage.py migrate
 sudo venv/bin/python manage.py collectstatic --noinput
 sudo systemctl restart campusdesk
 ```
+
+`check` reads `config/settings.json` and stops with the name of any setting that is wrong. Fix it before going on: the running site is not affected until the restart. Run the same `check` after editing the settings file on the server, and restart only when it passes.
 
 To refresh the demo data, run these before the restart. Both are safe to run again. Tickets they hand to a solver on call notify that solver, by email too when a mail account is configured.
 

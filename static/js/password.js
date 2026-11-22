@@ -21,7 +21,8 @@ function togglePasswordVisibility() {
 
 
 // Live password checklist on the registration page.
-// Same five rules as clean_password in forms.py plus a match check.
+// The rules listed on the page plus a match check. Which rules are listed and the
+// shortest length come from config/settings.json, through the template.
 // Watches both password boxes. Server still validates on submit.
 (function () {
     const pw1 = document.getElementById("id_password1") || document.getElementById("id_password");
@@ -29,8 +30,9 @@ function togglePasswordVisibility() {
     const list = document.querySelector(".pw-rules");
     if (!pw1 || !list) return;
 
+    const minLength = Number(list.dataset.minLength);
     const rules = {
-        length: pw => pw.length >= 8,
+        length: pw => pw.length >= minLength,
         upper:  pw => /[A-Z]/.test(pw),
         lower:  pw => /[a-z]/.test(pw),
         digit:  pw => /[0-9]/.test(pw),

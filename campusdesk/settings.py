@@ -15,6 +15,8 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
+from ops.json_settings import SETTINGS as SITE_SETTINGS
+
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -73,6 +75,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "ops.context_processors.notifications",
+                "ops.context_processors.site_settings",
             ],
         },
     },
@@ -131,7 +134,7 @@ LANGUAGE_CODE = "en-us"
 
 # All timestamps (incident timeline, created_at, etc.) are recorded using the
 # server's clock in this timezone, not the viewer's local time.
-TIME_ZONE = "America/Chicago"
+TIME_ZONE = SITE_SETTINGS["site"]["time_zone"]
 
 USE_I18N = True
 
@@ -166,13 +169,13 @@ CONSOLE_MAILER = {"BACKEND": "django.core.mail.backends.console.EmailBackend"}
 GMAIL_MAILER = {
     "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
     "OPTIONS": {
-        "host": "smtp.gmail.com",
-        "port": 587,
-        "use_tls": True,
+        "host": SITE_SETTINGS["email_server"]["host"],
+        "port": SITE_SETTINGS["email_server"]["port"],
+        "use_tls": SITE_SETTINGS["email_server"]["use_tls"],
         "username": MAIL_ACCOUNT,
         "password": MAIL_PASSWORD,
         # A mail server that does not answer must not hold a request open
-        "timeout": 5,
+        "timeout": SITE_SETTINGS["email_server"]["timeout_seconds"],
     },
 }
 

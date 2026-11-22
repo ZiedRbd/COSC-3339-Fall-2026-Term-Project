@@ -2,15 +2,11 @@
 import re
 import unicodedata
 
+from .json_settings import SETTINGS
+
 # Words that only say where inside a building something is. Typed text may
 # carry these around a building's name and still be about that building.
-DETAIL_WORDS = {
-    "room", "rm", "floor", "fl", "level", "lobby", "basement", "lab", "office", "hall", "hallway", "entrance",
-    "stairs", "stairwell", "restroom", "bathroom", "kitchen", "lounge", "wing", "side", "front", "back", "door",
-    "building", "bldg", "cafe", "apartment", "apartments", "apt", "apts", "upstairs", "downstairs",
-    "east", "west", "north", "south", "the", "in", "at", "of", "near", "by", "outside", "inside", "behind",
-    "next", "to", "on",
-}
+DETAIL_WORDS = set(SETTINGS["building_search"]["words_that_describe_a_place_inside_a_building"])
 
 
 def normalize(text):

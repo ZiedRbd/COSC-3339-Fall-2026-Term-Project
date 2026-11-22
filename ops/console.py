@@ -18,6 +18,7 @@ from django.views.decorators.http import require_POST
 
 from .access import can_override, is_admin
 from .console_forms import BuildingForm, ServiceForm, TeamForm, UserForm, full_name
+from .json_settings import SETTINGS
 from .lifecycle import STATUS_LABELS
 from .models import Building, EscalationTier, Incident, Service, Team, TeamMember, User
 from .overrides import HELD, override, override_warnings, possible_solvers
@@ -29,7 +30,7 @@ from .timeline import MIN_REASON, clean_reason
 
 TABS = [("users", "Users"), ("teams", "Teams"), ("services", "Services"), ("buildings", "Buildings"),
         ("tickets", "Tickets"), ("removed", "Removed")]
-NEWEST_TICKETS = 150
+NEWEST_TICKETS = SETTINGS["administrator_console"]["newest_tickets_shown"]
 UNFINISHED = ("open",) + HELD
 
 

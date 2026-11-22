@@ -1,0 +1,84 @@
+{
+  "tickets": {
+    "max_tickets_a_solver_can_hold": 3,
+    "waiting_ticket_number_that_notifies_the_administrator": 2,
+    "escalation_wait_multiplier_by_severity": {
+      "critical": 0.5,
+      "high": 0.75,
+      "medium": 1,
+      "low": 2
+    },
+    "title_max_characters": 80,
+    "room_max_characters": 20,
+    "comment_max_characters": 1000,
+    "severity_descriptions_on_the_ticket_form": {
+      "low": "Low - minor inconvenience, service still works",
+      "medium": "Medium - partial disruption, a workaround exists",
+      "high": "High - major disruption, no workaround",
+      "critical": "Critical - safety hazard or full outage"
+    }
+  },
+
+  "escalation_policy": {
+    "new_team_minutes_for_the_on_call_solver": 5,
+    "new_team_minutes_for_the_team_lead": 10,
+    "tier_wait_max_minutes": 1440
+  },
+
+  "on_call_schedule": {
+    "primary_shift_max_hours": 12,
+    "secondary_shift_max_hours": 24,
+    "rest_hours_between_secondary_shifts": 24
+  },
+
+  "override_and_removal": {
+    "reason_min_characters": 5,
+    "reason_max_characters": 500
+  },
+
+  "auditor": {
+    "report_max_characters": 1000
+  },
+
+  "accounts": {
+    "name_min_characters": 2,
+    "name_max_characters": 50,
+    "password_min_characters": 8,
+    "password_needs_an_uppercase_letter": true,
+    "password_needs_a_lowercase_letter": true,
+    "password_needs_a_number": true,
+    "password_needs_a_symbol": true,
+    "profile_picture_max_megabytes": 2,
+    "profile_picture_formats": ["JPEG", "PNG", "WEBP"]
+  },
+
+  "administrator_console": {
+    "newest_tickets_shown": 150
+  },
+
+  "notifications": {
+    "unread_shown_in_the_bell": 10,
+    "minutes_email_is_paused_after_a_failure": 5
+  },
+
+  "email_server": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "use_tls": true,
+    "timeout_seconds": 5
+  },
+
+  "site": {
+    "time_zone": "America/Chicago"
+  },
+
+  "building_search": {
+    "words_that_describe_a_place_inside_a_building": [
+      "room", "rm", "floor", "fl", "level", "lobby", "basement", "lab", "office", "hall", "hallway", "entrance",
+      "stairs", "stairwell", "restroom", "bathroom", "kitchen", "lounge", "wing", "side", "front", "back", "door",
+      "building", "bldg", "cafe", "apartment", "apartments", "apt", "apts", "upstairs", "downstairs",
+      "east", "west", "north", "south", "the", "in", "at", "of", "near", "by", "outside", "inside", "behind",
+      "next", "to", "on"
+    ]
+  }
+}

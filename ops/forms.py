@@ -3,19 +3,23 @@ from uuid import uuid4
 from django import forms
 from django.utils import timezone
 
+from .json_settings import SETTINGS, SEVERITIES, picture_format_names
 from .models import Building, EscalationTier, Service, Shift, User
+
+ACCOUNTS = SETTINGS["accounts"]
+TICKETS = SETTINGS["tickets"]
 
 
 class RegisterForm(forms.Form):
     """Fields and rules for creating an account."""
     first_name = forms.CharField(
-        min_length=2,
-        max_length=50,
+        min_length=ACCOUNTS["name_min_characters"],
+        max_length=ACCOUNTS["name_max_characters"],
         widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'First name'})
     )
     last_name = forms.CharField(
-        min_length=2,
-        max_length=50,
+        min_length=ACCOUNTS["name_min_characters"],
+        max_length=ACCOUNTS["name_max_characters"],
         widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Last name'})
     )
     email = forms.EmailField(
@@ -23,11 +27,11 @@ class RegisterForm(forms.Form):
         widget=forms.EmailInput(attrs={'class': 'form-input', 'placeholder': 'Email'})
     )
     password = forms.CharField(
-        min_length=8,
+        min_length=ACCOUNTS["password_min_characters"],
         widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password1', 'placeholder': 'Password'})
     )
     password2 = forms.CharField(
-        min_length=8,
+        min_length=ACCOUNTS["password_min_characters"],
         widget=forms.PasswordInput(attrs={'class': 'form-input', 'id': 'id_password2', 'placeholder': 'Confirm Password'})
     )
 
@@ -37,13 +41,13 @@ class RegisterForm(forms.Form):
         pw_errors = []
         pw = self.cleaned_data.get("password", "")
 
-        if not any(c.isupper() for c in pw):
+        if ACCOUNTS["password_needs_an_uppercase_letter"] and not any(c.isupper() for c in pw):
             pw_errors.append(forms.ValidationError("Password needs an uppercase letter"))
-        if not any(c.islower() for c in pw):
+        if ACCOUNTS["password_needs_a_lowercase_letter"] and not any(c.islower() for c in pw):
             pw_errors.append(forms.ValidationError("Password needs a lowercase letter"))
-        if not any(c.isdigit() for c in pw):
+        if ACCOUNTS["password_needs_a_number"] and not any(c.isdigit() for c in pw):
             pw_errors.append(forms.ValidationError("Password needs a number"))
-        if not any(not c.isalnum() for c in pw):
+        if ACCOUNTS["password_needs_a_symbol"] and not any(not c.isalnum() for c in pw):
             pw_errors.append(forms.ValidationError("Password needs a symbol"))
 
         if pw_errors:
@@ -82,7 +86,7 @@ class LoginForm(forms.Form):
 class IncidentForm(forms.Form):
     """Fields for creating or editing a ticket. Used by both views."""
     title = forms.CharField(
-        max_length=80,
+        max_length=TICKETS["title_max_characters"],
         widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Brief title'})
     )
     description = forms.CharField(
@@ -97,7 +101,7 @@ class IncidentForm(forms.Form):
         empty_label="Select a building, optional"
     )
     room = forms.CharField(
-        max_length=20,
+        max_length=TICKETS["room_max_characters"],
         required=False,
         widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Room, optional'})
     )
@@ -113,12 +117,8 @@ class IncidentForm(forms.Form):
     # reporter makes a deliberate choice. Labels explain each level.
     priority = forms.ChoiceField(
         label="Severity",
-        choices=[
-            ("", "Select a severity level"),
-            ("low", "Low - minor inconvenience, service still works"),
-            ("medium", "Medium - partial disruption, a workaround exists"),
-            ("high", "High - major disruption, no workaround"),
-            ("critical", "Critical - safety hazard or full outage"),
+        choices=[("", "Select a severity level")] + [
+            (severity, TICKETS["severity_descriptions_on_the_ticket_form"][severity]) for severity in SEVERITIES
         ],
     )
 
@@ -172,7 +172,7 @@ class ShiftForm(forms.ModelForm):
         fields = ["on_call_role", "solver", "starts_at", "ends_at"]
         labels = {"on_call_role": "Role"}
         help_texts = {"on_call_role": "Primary is required around the clock. Secondary is optional "
-                                      "and takes tickets once the primary holds 3."}
+                                      f"and takes tickets once the primary holds {TICKETS['max_tickets_a_solver_can_hold']}."}
 
     def __init__(self, team, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -204,16 +204,17 @@ class ShiftForm(forms.ModelForm):
         return data
 
 
-MAX_AVATAR_BYTES = 2 * 1024 * 1024
-# What Pillow calls each accepted format, and the extension the saved file gets
-AVATAR_FORMATS = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}
+MAX_AVATAR_BYTES = ACCOUNTS["profile_picture_max_megabytes"] * 1024 * 1024
+# What Pillow calls each format the site can store, and the extension the saved file gets
+AVATAR_EXTENSIONS = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}
+AVATAR_FORMATS = {name: AVATAR_EXTENSIONS[name] for name in ACCOUNTS["profile_picture_formats"]}
 
 
 class AvatarForm(forms.ModelForm):
     """
     A profile picture. The ImageField opens the upload with Pillow, so a
     file that is not really an image is refused whatever it is called.
-    Only JPEG, PNG and WebP are kept, at most 2 MB. The file is renamed
+    Only the formats and the size set in config/settings.json are kept. The file is renamed
     after the user, so nothing the uploader typed ends up in a path.
     """
     class Meta:
@@ -225,16 +226,16 @@ class AvatarForm(forms.ModelForm):
         if not picture or not hasattr(picture, "image"):
             raise forms.ValidationError("Choose a picture to upload")
         if picture.size > MAX_AVATAR_BYTES:
-            raise forms.ValidationError("That picture is larger than 2 MB")
+            raise forms.ValidationError(f"That picture is larger than {ACCOUNTS['profile_picture_max_megabytes']} MB")
         extension = AVATAR_FORMATS.get(picture.image.format)
         if extension is None:
-            raise forms.ValidationError("Upload a JPEG, PNG or WebP picture")
+            raise forms.ValidationError(f"Upload a {picture_format_names()} picture")
         picture.name = f"user-{self.instance.pk}-{uuid4().hex[:12]}{extension}"
         return picture
 
 
-MAX_TIER_WAIT = 1440
-WAIT_ERROR = f"Wait must be a whole number of minutes above zero, and at most {MAX_TIER_WAIT}, which is one day"
+MAX_TIER_WAIT = SETTINGS["escalation_policy"]["tier_wait_max_minutes"]
+WAIT_ERROR = f"Wait must be a whole number of minutes above zero, and at most {MAX_TIER_WAIT}"
 TARGET_ERROR = "Pick the team lead or an active solver on this team"
 
 
