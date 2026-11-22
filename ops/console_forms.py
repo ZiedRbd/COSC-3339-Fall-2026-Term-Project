@@ -2,12 +2,14 @@
 from django import forms
 
 from .forms import RegisterForm
+from .json_settings import SETTINGS, password_rules_sentence
 from .models import Building, Incident, Service, Team, TeamMember, User
 from .overrides import HELD
 
 ROLES = [("reporter", "Reporter"), ("solver", "Solver"), ("auditor", "Auditor")]
 CRITICALITIES = [("low", "Low"), ("medium", "Medium"), ("high", "High"), ("critical", "Critical")]
 INPUT = {"class": "form-input"}
+ACCOUNTS = SETTINGS["accounts"]
 
 
 def full_name(user):
@@ -23,8 +25,10 @@ class SolverChoiceField(forms.ModelChoiceField):
 
 class UserForm(forms.Form):
     """A new account, or a change to one. The password is only asked for when the account is new or it is being reset."""
-    first_name = forms.CharField(min_length=2, max_length=50, widget=forms.TextInput(attrs=INPUT))
-    last_name = forms.CharField(min_length=2, max_length=50, widget=forms.TextInput(attrs=INPUT))
+    first_name = forms.CharField(min_length=ACCOUNTS["name_min_characters"], max_length=ACCOUNTS["name_max_characters"],
+                                 widget=forms.TextInput(attrs=INPUT))
+    last_name = forms.CharField(min_length=ACCOUNTS["name_min_characters"], max_length=ACCOUNTS["name_max_characters"],
+                                 widget=forms.TextInput(attrs=INPUT))
     email = forms.EmailField(max_length=150, widget=forms.EmailInput(attrs=INPUT))
     role = forms.ChoiceField(choices=ROLES, widget=forms.Select(attrs=INPUT))
     password = forms.CharField(required=False, widget=forms.PasswordInput(attrs={**INPUT, "autocomplete": "new-password"}))
@@ -33,7 +37,7 @@ class UserForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.user = user
         if user is None:
-            self.fields["password"].help_text = "At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol."
+            self.fields["password"].help_text = password_rules_sentence()
         else:
             self.fields["password"].label = "New password"
             self.fields["password"].help_text = "Leave this empty to keep the current password."
@@ -54,8 +58,8 @@ class UserForm(forms.Form):
             if self.user is None:
                 raise forms.ValidationError("A new account needs a password")
             return ""
-        if len(password) < 8:
-            raise forms.ValidationError("Password needs at least 8 characters")
+        if len(password) < ACCOUNTS["password_min_characters"]:
+            raise forms.ValidationError(f"Password needs at least {ACCOUNTS['password_min_characters']} characters")
         # The same rules an account has when somebody registers
         return RegisterForm.clean_password(self)
 

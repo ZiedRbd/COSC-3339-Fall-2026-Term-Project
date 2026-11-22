@@ -5,7 +5,7 @@
 <div class="page-head">
   <div>
     <h1 class="form-header">On-call calendar</h1>
-    <p class="lead">Who covers each team this week. A solid block is the primary on call. A dashed block is the secondary, who takes tickets once the primary holds three.</p>
+    <p class="lead">Who covers each team this week. A solid block is the primary on call. A dashed block is the secondary, who takes tickets once the primary holds {{ site_settings.tickets.max_tickets_a_solver_can_hold }}.</p>
   </div>
   <nav class="calendar-nav" aria-label="Week">
     <a href="?start={{ prev }}" class="btn-small">Previous week</a>

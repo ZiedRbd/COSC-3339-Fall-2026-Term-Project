@@ -4,16 +4,17 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 
+from .json_settings import SETTINGS
 from .models import EscalationTier, Incident, Shift, Team, TeamMember, User
 from .notifications import notify
 from .timeline import log_event
 
 # How many unfinished tickets one solver may hold at a time
-MAX_ACTIVE_TICKETS = 3
+MAX_ACTIVE_TICKETS = SETTINGS["tickets"]["max_tickets_a_solver_can_hold"]
 
-# Every tier's wait is multiplied by this, so a critical ticket escalates
-# twice as fast as a medium one and a low ticket half as fast
-SEVERITY_FACTOR = {"critical": 0.5, "high": 0.75, "medium": 1, "low": 2}
+# Every tier's wait is multiplied by the factor of the ticket's severity,
+# so a factor below 1 escalates sooner and one above 1 later
+SEVERITY_FACTOR = SETTINGS["tickets"]["escalation_wait_multiplier_by_severity"]
 
 
 def who_is_on_call(team, at=None, on_call_role="primary"):
@@ -238,7 +239,7 @@ def _notify_about_queue(team, incident, why):
     Tickets escalated to administration are not part of the queue.
     """
     waiting = _waiting(team).count()
-    if waiting <= 1:
+    if waiting < SETTINGS["tickets"]["waiting_ticket_number_that_notifies_the_administrator"]:
         people, count = _lead_or_admins(team), ""
     else:
         people, count = _admins() or _lead_or_admins(team), f" {waiting} tickets are waiting for {team.name}."
@@ -334,9 +335,10 @@ def _problem(what, a, b, from_now=False):
     return f"{what.capitalize()} from {opens} to {b_local:%A} {_clock(b)}"
 
 
-MAX_SHIFT = timedelta(hours=12)
-MAX_SECONDARY_SHIFT = timedelta(hours=24)
-SECONDARY_BREAK = timedelta(hours=24)
+SCHEDULE = SETTINGS["on_call_schedule"]
+MAX_SHIFT = timedelta(hours=SCHEDULE["primary_shift_max_hours"])
+MAX_SECONDARY_SHIFT = timedelta(hours=SCHEDULE["secondary_shift_max_hours"])
+SECONDARY_BREAK = timedelta(hours=SCHEDULE["rest_hours_between_secondary_shifts"])
 
 
 def _solver_problems(shift, team):
@@ -382,7 +384,7 @@ def validate_schedule(team, proposed, now=None):
     for shift in shifts:
         if shift.ends_at - shift.starts_at > MAX_SHIFT:
             errors.append(f"{_full_name(shift.solver)}'s shift on {timezone.localtime(shift.starts_at):%A} "
-                          f"is longer than 12 hours")
+                          f"is longer than {SCHEDULE['primary_shift_max_hours']} hours")
         errors += _solver_problems(shift, team)
         # This team's other primary shifts are checked by the walk below
         clash = (
@@ -438,7 +440,7 @@ def validate_secondary(team, proposed, now=None):
         name = _full_name(shift.solver)
         if shift.ends_at - shift.starts_at > MAX_SECONDARY_SHIFT:
             errors.append(f"{name}'s secondary shift on {timezone.localtime(shift.starts_at):%A} "
-                          f"is longer than 24 hours")
+                          f"is longer than {SCHEDULE['secondary_shift_max_hours']} hours")
         errors += _solver_problems(shift, team)
         # Everything this person already has that is not one of the shifts being checked
         elsewhere = (Shift.objects.filter(solver=shift.solver, team__is_active=True)
@@ -446,14 +448,15 @@ def validate_secondary(team, proposed, now=None):
         clash = elsewhere.filter(starts_at__lt=shift.ends_at, ends_at__gt=shift.starts_at).first()
         if clash:
             errors.append(_already_on_call(clash))
-        # 24 hours of rest between this person's secondary shifts, on any team
+        # Rest between this person's secondary shifts, on any team
         others = [s for s in shifts if s is not shift and s.solver_id == shift.solver_id]
         others += list(elsewhere.filter(on_call_role="secondary"))
         for other in others:
             first, second = sorted((shift, other), key=lambda s: s.starts_at)
             rest = second.starts_at - first.ends_at
             if timedelta(0) <= rest < SECONDARY_BREAK:
-                errors.append(f"{name} needs a 24 hour break between secondary shifts: one ends "
+                errors.append(f"{name} needs a {SCHEDULE['rest_hours_between_secondary_shifts']} hour break between secondary shifts: "
+                              f"one ends "
                               f"{timezone.localtime(first.ends_at):%A %H:%M} and the next starts "
                               f"{timezone.localtime(second.starts_at):%A %H:%M}")
 
@@ -502,15 +505,18 @@ def reassign(incident, new_solver, by):
 def ensure_policy(team):
     """
     Every team has a policy. A team that has none gets the default one:
-    the on-call solver has 5 minutes, then the lead has 10. An
+    the on-call solver, then the lead, each with the wait set in
+    config/settings.json. An
     Administration row on its own is not a policy, since nobody waits at
     it: it is moved after the two default tiers.
     """
     if not team.escalation_tiers.exclude(escalate_to="administration").exists():
         team.escalation_tiers.filter(escalate_to="administration").update(tier_number=3)
         EscalationTier.objects.bulk_create([
-            EscalationTier(team=team, tier_number=1, escalate_to="on_call", wait_minutes=5),
-            EscalationTier(team=team, tier_number=2, escalate_to="lead", wait_minutes=10),
+            EscalationTier(team=team, tier_number=1, escalate_to="on_call",
+                           wait_minutes=SETTINGS["escalation_policy"]["new_team_minutes_for_the_on_call_solver"]),
+            EscalationTier(team=team, tier_number=2, escalate_to="lead",
+                           wait_minutes=SETTINGS["escalation_policy"]["new_team_minutes_for_the_team_lead"]),
         ])
 
 

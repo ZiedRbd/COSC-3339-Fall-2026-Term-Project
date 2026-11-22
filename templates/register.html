@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}Registration form{% endblock %}
 {% block extra_js %}
-  <script src="{% static 'js/password.js' %}?v=3" defer></script>
+  <script src="{% static 'js/password.js' %}?v=4" defer></script>
 {% endblock %}
 
 {% block content %}
@@ -40,12 +40,12 @@
         <button type="button" id="togglePasswordBtn" onclick="togglePasswordVisibility()" class="password">Show</button>
       </div>
       {% if form.password2.errors %}<div class="error">{{ form.password2.errors }}</div>{% endif %}
-      <ul class="pw-rules">
-        <li data-rule="length"><span class="mark">✗</span>At least 8 characters</li>
-        <li data-rule="upper"><span class="mark">✗</span>An uppercase letter</li>
-        <li data-rule="lower"><span class="mark">✗</span>A lowercase letter</li>
-        <li data-rule="digit"><span class="mark">✗</span>A number</li>
-        <li data-rule="symbol"><span class="mark">✗</span>A symbol</li>
+      <ul class="pw-rules" data-min-length="{{ site_settings.accounts.password_min_characters }}">
+        <li data-rule="length"><span class="mark">✗</span>At least {{ site_settings.accounts.password_min_characters }} characters</li>
+        {% if site_settings.accounts.password_needs_an_uppercase_letter %}<li data-rule="upper"><span class="mark">✗</span>An uppercase letter</li>{% endif %}
+        {% if site_settings.accounts.password_needs_a_lowercase_letter %}<li data-rule="lower"><span class="mark">✗</span>A lowercase letter</li>{% endif %}
+        {% if site_settings.accounts.password_needs_a_number %}<li data-rule="digit"><span class="mark">✗</span>A number</li>{% endif %}
+        {% if site_settings.accounts.password_needs_a_symbol %}<li data-rule="symbol"><span class="mark">✗</span>A symbol</li>{% endif %}
         <li data-rule="match"><span class="mark">✗</span>Passwords match</li>
       </ul>
     </div>

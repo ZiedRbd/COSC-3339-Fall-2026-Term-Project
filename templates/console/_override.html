@@ -28,8 +28,8 @@
   </div>
   <div class="form-item">
     <label class="form-label" for="override-reason">Reason</label>
-    <textarea id="override-reason" name="reason" class="form-input" rows="3" minlength="5" maxlength="500" required>{{ chosen.reason }}</textarea>
-    <p class="hint">Required, at least 5 characters. It is written on the timeline of the ticket.</p>
+    <textarea id="override-reason" name="reason" class="form-input" rows="3" minlength="{{ site_settings.override_and_removal.reason_min_characters }}" maxlength="{{ site_settings.override_and_removal.reason_max_characters }}" required>{{ chosen.reason }}</textarea>
+    <p class="hint">Required, at least {{ site_settings.override_and_removal.reason_min_characters }} characters. It is written on the timeline of the ticket.</p>
   </div>
   <div class="actions">
     <button type="button" class="btn-small" data-close>Cancel</button>
