@@ -90,7 +90,7 @@
           {% if target.holds %}
             <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }} is on call and already has this ticket</p>
           {% elif target.full %}
-            <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }}, {{ target.role }} on call, already holds {{ target.held }} tickets</p>
+            <p class="muted">{{ target.solver.first_name }} {{ target.solver.last_name }}, {{ target.role }} on call, already holds {{ target.held }} ticket{{ target.held|pluralize }}</p>
           {% else %}
             <form method="post" action="{% url 'incident_reassign' incident.pk %}" class="reassign-form">
               {% csrf_token %}

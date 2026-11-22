@@ -25,7 +25,7 @@
 
 <div class="card wide">
   <h2 class="section-title first">Secondary on call, optional</h2>
-  <p class="lead">A secondary shift is at most {{ site_settings.on_call_schedule.secondary_shift_max_hours }} hours, and a person rests {{ site_settings.on_call_schedule.rest_hours_between_secondary_shifts }} hours between two of them.</p>
+  <p class="lead">A secondary shift is at most {{ site_settings.on_call_schedule.secondary_shift_max_hours }} hour{{ site_settings.on_call_schedule.secondary_shift_max_hours|pluralize }}, and a person rests {{ site_settings.on_call_schedule.rest_hours_between_secondary_shifts }} hour{{ site_settings.on_call_schedule.rest_hours_between_secondary_shifts|pluralize }} between two of them.</p>
   {% if secondary_shifts %}
     <div class="table-scroll">{% include "shift_table.html" with rows=secondary_shifts %}</div>
   {% else %}
@@ -33,7 +33,7 @@
   {% endif %}
 
   <h2 class="section-title">Upcoming shifts: primary on call</h2>
-  <p class="lead">A primary shift is at most {{ site_settings.on_call_schedule.primary_shift_max_hours }} hours, and nobody takes two in a row.</p>
+  <p class="lead">A primary shift is at most {{ site_settings.on_call_schedule.primary_shift_max_hours }} hour{{ site_settings.on_call_schedule.primary_shift_max_hours|pluralize }}, and nobody takes two in a row.</p>
   {% if shifts %}
     <div class="table-scroll">{% include "shift_table.html" with rows=shifts %}</div>
   {% else %}

@@ -150,7 +150,7 @@ def assign_now(incident, by, at=None):
                 log_event(incident, by, "assignment_failed",
                           f"Everyone on call for {team.name} is full, so this ticket is waiting in the queue")
                 _notify_about_queue(team, incident,
-                                    f"everyone on call for {team.name} holds {MAX_ACTIVE_TICKETS} tickets")
+                                    f"everyone on call for {team.name} holds {_tickets(MAX_ACTIVE_TICKETS)}")
             else:
                 log_event(incident, by, "assignment_failed",
                           f"Nobody is on call for {team.name} right now, so this ticket is waiting to be assigned")
@@ -242,7 +242,7 @@ def _notify_about_queue(team, incident, why):
     if waiting < SETTINGS["tickets"]["waiting_ticket_number_that_notifies_the_administrator"]:
         people, count = _lead_or_admins(team), ""
     else:
-        people, count = _admins() or _lead_or_admins(team), f" {waiting} tickets are waiting for {team.name}."
+        people, count = _admins() or _lead_or_admins(team), f" {_tickets(waiting)} {'is' if waiting == 1 else 'are'} waiting for {team.name}."
     for person in people:
         notify(person, incident, "queued",
                f"{_ticket_label(incident)} is waiting because {why}.{count} "
@@ -341,6 +341,21 @@ MAX_SECONDARY_SHIFT = timedelta(hours=SCHEDULE["secondary_shift_max_hours"])
 SECONDARY_BREAK = timedelta(hours=SCHEDULE["rest_hours_between_secondary_shifts"])
 
 
+def _whole_hours(duration):
+    return int(duration.total_seconds() // 3600)
+
+
+def _hours(duration):
+    """ "1 hour", "12 hours". """
+    count = _whole_hours(duration)
+    return f"{count} hour{'' if count == 1 else 's'}"
+
+
+def _tickets(count):
+    """ "1 ticket", "3 tickets". """
+    return f"{count} ticket{'' if count == 1 else 's'}"
+
+
 def _solver_problems(shift, team):
     """Why this person cannot take a shift on this team at all, as a list."""
     errors = []
@@ -384,7 +399,7 @@ def validate_schedule(team, proposed, now=None):
     for shift in shifts:
         if shift.ends_at - shift.starts_at > MAX_SHIFT:
             errors.append(f"{_full_name(shift.solver)}'s shift on {timezone.localtime(shift.starts_at):%A} "
-                          f"is longer than {SCHEDULE['primary_shift_max_hours']} hours")
+                          f"is longer than {_hours(MAX_SHIFT)}")
         errors += _solver_problems(shift, team)
         # This team's other primary shifts are checked by the walk below
         clash = (
@@ -440,7 +455,7 @@ def validate_secondary(team, proposed, now=None):
         name = _full_name(shift.solver)
         if shift.ends_at - shift.starts_at > MAX_SECONDARY_SHIFT:
             errors.append(f"{name}'s secondary shift on {timezone.localtime(shift.starts_at):%A} "
-                          f"is longer than {SCHEDULE['secondary_shift_max_hours']} hours")
+                          f"is longer than {_hours(MAX_SECONDARY_SHIFT)}")
         errors += _solver_problems(shift, team)
         # Everything this person already has that is not one of the shifts being checked
         elsewhere = (Shift.objects.filter(solver=shift.solver, team__is_active=True)
@@ -455,7 +470,7 @@ def validate_secondary(team, proposed, now=None):
             first, second = sorted((shift, other), key=lambda s: s.starts_at)
             rest = second.starts_at - first.ends_at
             if timedelta(0) <= rest < SECONDARY_BREAK:
-                errors.append(f"{name} needs a {SCHEDULE['rest_hours_between_secondary_shifts']} hour break between secondary shifts: "
+                errors.append(f"{name} needs a {_whole_hours(SECONDARY_BREAK)} hour break between secondary shifts: "
                               f"one ends "
                               f"{timezone.localtime(first.ends_at):%A %H:%M} and the next starts "
                               f"{timezone.localtime(second.starts_at):%A %H:%M}")
@@ -493,7 +508,7 @@ def reassign(incident, new_solver, by):
         return f"{_full_name(new_solver)} already has this ticket"
     held = active_ticket_count(new_solver)
     if held >= MAX_ACTIVE_TICKETS:
-        return f"{_full_name(new_solver)} already holds {held} tickets"
+        return f"{_full_name(new_solver)} already holds {_tickets(held)}"
     _hand_to(incident, new_solver, by, "reassignment",
              f"Reassigned from {_full_name(old) if old else 'nobody'} to {_full_name(new_solver)}",
              "assigned", "was reassigned to you")

@@ -102,7 +102,7 @@ EXPECTED = {
         "rest_hours_between_secondary_shifts": whole_number(0, 168),
     },
     "override_and_removal": {
-        "reason_min_characters": whole_number(1, 100),
+        "reason_min_characters": whole_number(2, 100),
         "reason_max_characters": whole_number(10, 5000),
     },
     "auditor": {
