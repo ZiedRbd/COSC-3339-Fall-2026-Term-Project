@@ -79,6 +79,10 @@ class Service(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     owning_team = models.ForeignKey(Team, on_delete=models.PROTECT, null=True, blank=True)
+    # The team this service was moved off when that team handed its services
+    # over. Restoring that team brings the service back to it. Empty for a
+    # service that is with the team an administrator last chose for it.
+    moved_from_team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     criticality = models.CharField(max_length=20, default="medium")
     is_active = models.BooleanField(default=True)
     # Set when an administrator removes this service: when, and by whom. Empty
