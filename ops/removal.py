@@ -422,22 +422,11 @@ def restore_building(building, by):
     return done(f"{building.name} was restored.")
 
 
-@transaction.atomic
-def move_services(team, to_team, by):
+def _move_tickets(tickets, team, to_team, by):
     """
-    A team's handover: its services go to another team, the removed ones
-    too, and its unfinished tickets follow them into that team's queue.
+    Unfinished tickets follow their service from one team to another and
+    wait in its queue. Whoever held one is told they no longer do.
     """
-    if not is_admin(by):
-        return refused(ADMIN_ONLY)
-    if to_team is None or not to_team.is_active or to_team.pk == team.pk:
-        return refused("Choose another team that is still active to take the services")
-    tickets = list(Incident.objects.select_for_update(of=("self",))
-                   .filter(assigned_team=team, status__in=UNFINISHED, is_deleted=False))
-    services = Service.objects.filter(owning_team=team).count()
-    if not services and not tickets:
-        return refused(f"{team.name} has no service or unfinished ticket to move")
-    Service.objects.filter(owning_team=team).update(owning_team=to_team)
     for ticket in tickets:
         holder = ticket.assigned_to
         ticket.assigned_team = to_team
@@ -448,6 +437,30 @@ def move_services(team, to_team, by):
             notify(holder, ticket, "override",
                    f"{_ticket_label(ticket)} moved from {team.name} to {to_team.name} with its service. "
                    f"You no longer hold it.")
+
+
+@transaction.atomic
+def move_services(team, to_team, by):
+    """
+    A team's handover: its services go to another team, the removed ones
+    too, and its unfinished tickets follow them into that team's queue.
+    Each service remembers the team it left, so restoring that team
+    brings it back. A service that returns to the team it once left is
+    home again and remembers nothing.
+    """
+    if not is_admin(by):
+        return refused(ADMIN_ONLY)
+    if to_team is None or not to_team.is_active or to_team.pk == team.pk:
+        return refused("Choose another team that is still active to take the services")
+    tickets = list(Incident.objects.select_for_update(of=("self",))
+                   .filter(assigned_team=team, status__in=UNFINISHED, is_deleted=False))
+    services = Service.objects.filter(owning_team=team).count()
+    if not services and not tickets:
+        return refused(f"{team.name} has no service or unfinished ticket to move")
+    Service.objects.filter(owning_team=team, moved_from_team__isnull=True).update(moved_from_team=team)
+    Service.objects.filter(owning_team=team, moved_from_team=to_team).update(moved_from_team=None)
+    Service.objects.filter(owning_team=team).update(owning_team=to_team)
+    _move_tickets(tickets, team, to_team, by)
     assign_waiting(to_team)
     return done(f"{_count(services, 'service')} and {_count(len(tickets), 'unfinished ticket')} moved from "
                 f"{team.name} to {to_team.name}.")
@@ -496,11 +509,14 @@ def remove_team(team, by):
 @transaction.atomic
 def restore_team(team, by):
     """
-    The team is back with its members and its policy, and with no
-    schedule: its lead has to lay one. Refused until the team has an
-    active lead and every tier of its policy that names a person names
-    one who is still an active solver on the team, so a restored team
-    never depends on somebody who is gone.
+    The team is back with its members, its policy and the services it
+    handed over, and with no schedule: its lead has to lay one. The
+    unfinished tickets of those services come back with them and wait.
+    A service an administrator has since given to a team by hand stays
+    there. Refused until the team has an active lead and every tier of
+    its policy that names a person names one who is still an active
+    solver on the team, so a restored team never depends on somebody who
+    is gone.
     """
     if not is_admin(by):
         return refused(ADMIN_ONLY)
@@ -522,13 +538,35 @@ def restore_team(team, by):
     team.is_active = True
     _mark_restored(team)
     team.save()
-    still_its_own = Service.objects.filter(owning_team=team).count()
-    if still_its_own:
-        services = (f"Its {_count(still_its_own, 'service')} {'is' if still_its_own == 1 else 'are'} still removed. "
-                    f"Restore {_it(still_its_own)} from the same list.")
-    else:
-        services = "It owns no service now. Any service it had stayed with the team that took it."
-    return done(f"{team.name} was restored. {services}",
+    # The services this team handed over, grouped by the team that has them now
+    services_with = {}
+    for service in (Service.objects.filter(moved_from_team=team, owning_team__isnull=False)
+                    .exclude(owning_team=team).select_related("owning_team").order_by("owning_team__name", "pk")):
+        services_with.setdefault(service.owning_team, []).append(service)
+    came_back = sum(len(services) for services in services_with.values())
+    tickets_back = 0
+    for taker, services in services_with.items():
+        tickets = list(Incident.objects.select_for_update(of=("self",))
+                       .filter(service__in=services, status__in=UNFINISHED, is_deleted=False))
+        _move_tickets(tickets, taker, team, by)
+        tickets_back += len(tickets)
+    Service.objects.filter(moved_from_team=team).update(owning_team=team, moved_from_team=None)
+    if tickets_back:
+        assign_all_waiting()
+
+    sentences = [f"{team.name} was restored."]
+    if came_back:
+        sentences.append(f"Its {_count(came_back, 'service')} came back from "
+                         f"{' and '.join(taker.name for taker in services_with)}.")
+    if tickets_back:
+        sentences.append(f"{_count(tickets_back, 'unfinished ticket')} came back with {_it(came_back)}.")
+    still_removed = Service.objects.filter(owning_team=team, is_active=False).count()
+    if still_removed:
+        sentences.append(f"Its {_count(still_removed, 'service')} {'is' if still_removed == 1 else 'are'} still removed. "
+                         f"Restore {_it(still_removed)} from the same list.")
+    if not came_back and not still_removed:
+        sentences.append("It owns no service now.")
+    return done(" ".join(sentences),
                 f"It has no on-call schedule yet. {_full_name(team.lead)} has to add shifts before its tickets "
                 f"can be assigned.")
 

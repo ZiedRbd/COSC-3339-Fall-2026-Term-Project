@@ -70,6 +70,7 @@ erDiagram
         string name
         string description
         int owning_team_id FK "nullable"
+        int moved_from_team_id FK "nullable, the team that handed this service over"
         string criticality
         bool is_active "false once the service is removed"
         datetime removed_at "nullable, when the service was removed"
@@ -171,6 +172,7 @@ erDiagram
 | User ↔ Team (membership) | many-to-many | `TEAM_MEMBER` |
 | User → Team (lead) | one-to-many, optional | `TEAM.lead_id` |
 | Team → Service | one-to-many, optional | `SERVICE.owning_team_id` |
+| Team → Service (handed over) | one-to-many, optional | `SERVICE.moved_from_team_id` |
 | Service → Incident | one-to-many | `INCIDENT.service_id` |
 | User → Incident (reporter) | one-to-many | `INCIDENT.reported_by_id` |
 | User → Incident (assignee) | one-to-many, optional | `INCIDENT.assigned_to_id` |
@@ -188,4 +190,4 @@ erDiagram
 | Building → Incident | one-to-many, optional | `INCIDENT.building_id` |
 | User → User, Team, Service, Building, Incident (removed by) | one-to-many, optional | `removed_by_id` on each of the five tables |
 
-Nothing is physically deleted. A removed user, team, service or building has `is_active` set to false, and a deleted ticket has `is_deleted` set to true. The row leaves every list and dropdown and its history is kept. `removed_at` and `removed_by_id` on the same five tables record when it was removed and by whom, and are emptied when it is restored. `BUILDING` is a lookup table holding the campus buildings and residence halls. A ticket points at one of them; `building_typed` keeps what reporters typed before the list existed. The changes made in Sprint 5 are in [`er-diagram-sprint5.puml`](er-diagram-sprint5.puml). A shift covers `starts_at` up to, but not including, `ends_at`. The database refuses a shift whose end is not after its start.
+Nothing is physically deleted. A removed user, team, service or building has `is_active` set to false, and a deleted ticket has `is_deleted` set to true. The row leaves every list and dropdown and its history is kept. `removed_at` and `removed_by_id` on the same five tables record when it was removed and by whom, and are emptied when it is restored. `SERVICE.moved_from_team_id` names the team a service was moved off when that team handed its services over, so restoring the team brings the service back. `BUILDING` is a lookup table holding the campus buildings and residence halls. A ticket points at one of them; `building_typed` keeps what reporters typed before the list existed. The changes made in Sprint 5 are in [`er-diagram-sprint5.puml`](er-diagram-sprint5.puml). A shift covers `starts_at` up to, but not including, `ends_at`. The database refuses a shift whose end is not after its start.
