@@ -235,10 +235,8 @@ class StoryTests(TwoTeams):
         remove_team(self.team, self.admin)
         restore_team(self.team, self.admin)
         self.service.refresh_from_db()
-        self.assertEqual(self.service.owning_team, self.other)
-        # The administrator gives the service back; the team has no schedule yet, so a new ticket waits
-        self.service.owning_team = self.team
-        self.service.save()
+        # The service comes back with the team; the team has no schedule yet, so a new ticket waits
+        self.assertEqual(self.service.owning_team, self.team)
         self.assertIsNone(who_is_on_call(self.team))
         ticket = self.ticket("After the restore")
         self.assertIsNone(assign_on_creation(ticket))
