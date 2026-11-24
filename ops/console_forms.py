@@ -153,6 +153,9 @@ class ServiceForm(forms.Form):
 
     def save(self):
         service = self.service or Service()
+        # A team chosen here by hand is where the service belongs now, so a restored team does not take it back
+        if service.owning_team_id != self.cleaned_data["owning_team"].pk:
+            service.moved_from_team = None
         for name in ("name", "description", "owning_team", "criticality"):
             setattr(service, name, self.cleaned_data[name])
         service.save()

@@ -62,6 +62,7 @@ entity "SERVICE" as service {
   * name : varchar
     description : text
     owning_team_id : int <<FK>>
+    moved_from_team_id : int <<FK>>
   * criticality : varchar = 'medium'
   * is_active : bool = true
     removed_at : datetime

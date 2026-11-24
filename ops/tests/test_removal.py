@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.core import mail
 from django.utils import timezone
 
+from ops.console_forms import ServiceForm
 from ops.models import (Building, EscalationTier, Incident, IncidentUpdate, Notification, Service, Shift, Team,
                         TeamMember, User)
 from ops.removal import (appoint_lead, holdings, leave_team, move_services, remove_building, remove_service,
@@ -384,13 +385,98 @@ class TeamTests(Campus):
         remove_team(self.team, self.admin)
         outcome = restore_team(self.team, self.admin)
         self.assertEqual(outcome.messages, [
-            "Plumbing was restored. It owns no service now. Any service it had stayed with the team that took it.",
+            "Plumbing was restored. Its 1 service came back from Electrical.",
             "It has no on-call schedule yet. Lena Lead has to add shifts before its tickets can be assigned.",
         ])
         self.team.refresh_from_db()
         self.assertEqual((self.team.is_active, self.team.removed_by, self.team.removed_at), (True, None, None))
         self.assertEqual(self.upcoming(), [])
         self.assertEqual(restore_team(self.team, self.admin).messages, ["Plumbing is not removed"])
+
+    def test_a_restored_team_gets_back_the_services_it_handed_over(self):
+        wiring = Service.objects.create(name="Wiring", owning_team=self.other)
+        move_services(self.team, self.other, self.admin)
+        self.service.refresh_from_db()
+        self.assertEqual((self.service.owning_team, self.service.moved_from_team), (self.other, self.team))
+        remove_team(self.team, self.admin)
+        restore_team(self.team, self.admin)
+        self.service.refresh_from_db()
+        wiring.refresh_from_db()
+        self.assertEqual((self.service.owning_team, self.service.moved_from_team), (self.team, None))
+        # What the other team owned before the handover is still its own
+        self.assertEqual((wiring.owning_team, wiring.moved_from_team), (self.other, None))
+        self.client.force_login(self.reporter)
+        shown = {team.name: [service.name for service in team.active_services]
+                 for team in self.client.get("/services/").context["teams"]}
+        self.assertEqual(shown, {"Plumbing": ["Pipes"], "Electrical": ["Wiring"]})
+
+    def test_unfinished_tickets_come_back_with_their_service(self):
+        now = timezone.now()
+        Shift.objects.create(team=self.other, solver=self.dee, created_by=self.lead,
+                             starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=7))
+        held = self.ticket()
+        finished = self.ticket("Old", status="closed")
+        move_services(self.team, self.other, self.admin)
+        held.refresh_from_db()
+        self.assertEqual((held.assigned_team, held.assigned_to), (self.other, self.dee))
+        remove_team(self.team, self.admin)
+        outcome = restore_team(self.team, self.admin)
+        self.assertEqual(outcome.messages[0], "Plumbing was restored. Its 1 service came back from Electrical. "
+                                              "1 unfinished ticket came back with it.")
+        held.refresh_from_db()
+        finished.refresh_from_db()
+        # Plumbing has no schedule yet, so the ticket waits in its queue
+        self.assertEqual((held.assigned_team, held.assigned_to, held.status), (self.team, None, "open"))
+        self.assertEqual(finished.assigned_team, self.team)
+        self.assertEqual(self.entries(held, "removal")[-1], "This ticket moved from Electrical to Plumbing with its service.")
+        self.assertEqual(list(Notification.objects.filter(user=self.dee, event="override").values_list("message", flat=True)),
+                         [f"Ticket #{held.pk} for Pipes, medium severity, moved from Electrical to Plumbing with its "
+                          f"service. You no longer hold it."])
+
+    def test_a_service_given_to_a_team_by_hand_stays_there(self):
+        third = Team.objects.create(name="Grounds", lead=self.lead)
+        move_services(self.team, self.other, self.admin)
+        remove_team(self.team, self.admin)
+        form = ServiceForm({"name": "Pipes", "description": "", "owning_team": third.pk, "criticality": "medium"},
+                           service=self.service)
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        outcome = restore_team(self.team, self.admin)
+        self.assertEqual(outcome.messages[0], "Plumbing was restored. It owns no service now.")
+        self.service.refresh_from_db()
+        self.assertEqual((self.service.owning_team, self.service.moved_from_team), (third, None))
+
+    def test_a_service_handed_on_twice_still_comes_back_to_its_first_team(self):
+        third = Team.objects.create(name="Grounds", lead=self.lead)
+        wiring = Service.objects.create(name="Wiring", owning_team=self.other)
+        move_services(self.team, self.other, self.admin)
+        remove_team(self.team, self.admin)
+        move_services(self.other, third, self.admin)
+        remove_team(self.other, self.admin)
+        self.assertEqual(restore_team(self.team, self.admin).messages[0],
+                         "Plumbing was restored. Its 1 service came back from Grounds.")
+        self.assertEqual(restore_team(self.other, self.admin).messages[0],
+                         "Electrical was restored. Its 1 service came back from Grounds.")
+        self.service.refresh_from_db()
+        wiring.refresh_from_db()
+        self.assertEqual((self.service.owning_team, wiring.owning_team), (self.team, self.other))
+        self.assertFalse(Service.objects.filter(moved_from_team__isnull=False).exists())
+
+    def test_a_service_moved_back_by_a_handover_is_home_again(self):
+        move_services(self.team, self.other, self.admin)
+        move_services(self.other, self.team, self.admin)
+        self.service.refresh_from_db()
+        self.assertEqual((self.service.owning_team, self.service.moved_from_team), (self.team, None))
+
+    def test_a_removed_service_that_comes_back_is_still_removed(self):
+        remove_service(self.service, self.admin)
+        move_services(self.team, self.other, self.admin)
+        remove_team(self.team, self.admin)
+        self.assertEqual(restore_team(self.team, self.admin).messages[0],
+                         "Plumbing was restored. Its 1 service came back from Electrical. "
+                         "Its 1 service is still removed. Restore it from the same list.")
+        self.service.refresh_from_db()
+        self.assertEqual((self.service.owning_team, self.service.is_active), (self.team, False))
 
     def test_a_team_is_not_restored_onto_people_who_are_gone(self):
         EscalationTier.objects.create(team=self.team, tier_number=3, escalate_to="user",
