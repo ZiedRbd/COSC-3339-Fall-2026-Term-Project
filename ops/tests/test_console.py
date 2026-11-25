@@ -96,6 +96,18 @@ class UserTests(ConsoleCase):
         self.admin.refresh_from_db()
         self.assertTrue(self.admin.is_active)
 
+    def test_an_administrator_cannot_remove_another_administrator(self):
+        second_administrator = User.objects.create_superuser(
+            username="second@x.com", email="second@x.com", password=GOOD_PASSWORD, first_name="Sam", last_name="Second")
+        address = f"/console/users/{second_administrator.pk}/remove/"
+        # The Users tab offers no Remove button for them, and the address refuses when asked directly
+        self.assertNotContains(self.client.get("/console/"), address)
+        self.assertContains(self.client.get("/console/"), f"/console/users/{self.ann.pk}/remove/")
+        response = self.client.post(address, {"step": "finish"})
+        self.assertContains(response, "An administrator cannot be removed.")
+        second_administrator.refresh_from_db()
+        self.assertTrue(second_administrator.is_active)
+
     def test_a_user_who_holds_nothing_is_removed_and_can_be_reactivated(self):
         address = f"/console/users/{self.reporter.pk}/remove/"
         self.assertContains(self.client.get(address), "Rae Port holds nothing that needs handing over.")
