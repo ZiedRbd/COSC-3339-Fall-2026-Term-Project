@@ -274,6 +274,8 @@ def remove_user(user, by):
         return refused(ADMIN_ONLY)
     if user.pk == by.pk:
         return refused("You cannot remove your own account")
+    if user.is_superuser:
+        return refused("An administrator cannot be removed")
     _lock(user)
     if not user.is_active:
         return refused(f"{_full_name(user)} is already removed")
