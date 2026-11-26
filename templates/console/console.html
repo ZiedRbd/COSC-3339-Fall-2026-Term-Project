@@ -42,7 +42,7 @@
           <td>{% for name in row.teams %}{{ name }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="muted">None</span>{% endfor %}</td>
           <td class="row-actions">
             <button type="button" class="btn-small" data-dialog="{% url 'console_user_edit' row.user.pk %}">Edit</button>
-            {% if row.user.pk != user.pk %}
+            {% if row.user.pk != user.pk and not row.user.is_superuser %}
               <button type="button" class="btn-small danger" data-dialog="{% url 'console_user_remove' row.user.pk %}">Remove</button>
             {% endif %}
           </td>

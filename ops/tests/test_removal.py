@@ -174,6 +174,11 @@ class RemoveUserTests(Campus):
     def test_what_is_refused(self):
         self.assertEqual(remove_user(self.admin, self.admin).messages, ["You cannot remove your own account"])
         self.assertEqual(remove_user(self.ann, self.lead).messages, ["Only an administrator can do this"])
+        second_administrator = User.objects.create_superuser(username="second@x.com", email="second@x.com",
+                                                             password=GOOD_PASSWORD, first_name="Sam", last_name="Second")
+        self.assertEqual(remove_user(second_administrator, self.admin).messages, ["An administrator cannot be removed"])
+        second_administrator.refresh_from_db()
+        self.assertTrue(second_administrator.is_active)
         remove_user(self.ann, self.admin)
         self.assertEqual(remove_user(self.ann, self.admin).messages, ["Ann Ames is already removed"])
 

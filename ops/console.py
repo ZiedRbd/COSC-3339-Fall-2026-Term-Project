@@ -187,6 +187,9 @@ def user_remove(request, pk):
     if user.pk == request.user.pk:
         return render(request, "console/_confirm.html", {
             "title": "Remove your own account", "refusals": ["You cannot remove the account you are signed in with."]})
+    if user.is_superuser:
+        return render(request, "console/_confirm.html", {
+            "title": "Remove an administrator", "refusals": ["An administrator cannot be removed."]})
     outcome = None
     if request.method == "POST":
         if request.POST.get("step") == "finish":
